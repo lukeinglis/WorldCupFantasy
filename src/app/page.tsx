@@ -214,26 +214,33 @@ export default function Home() {
               Most popular 1st-place pick for each group
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 max-w-5xl mx-auto">
-            {popularPicks.map(({ group, team, count }) => {
-              const teamData = getTeamByCode(team);
-              if (!teamData) return null;
-              return (
-                <Card key={group} hover className="text-center">
-                  <CardBody className="py-4">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Group {group}
-                    </p>
-                    <span className="text-3xl block mb-1">{teamData.flag}</span>
-                    <p className="font-heading text-sm font-bold text-white">{teamData.name}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {count}/{participants.length} picks
-                    </p>
-                  </CardBody>
-                </Card>
-              );
-            })}
-          </div>
+          {participants.length === 0 ? (
+            <div className="text-center py-8">
+              <span className="text-4xl block mb-3" aria-hidden>📋</span>
+              <p className="text-gray-400 text-sm">No participants yet. Popular picks will appear here once contestants submit their predictions.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 max-w-5xl mx-auto">
+              {popularPicks.map(({ group, team, count }) => {
+                const teamData = getTeamByCode(team);
+                if (!teamData) return null;
+                return (
+                  <Card key={group} hover className="text-center">
+                    <CardBody className="py-4">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Group {group}
+                      </p>
+                      <span className="text-3xl block mb-1">{teamData.flag}</span>
+                      <p className="font-heading text-sm font-bold text-white">{teamData.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {count}/{participants.length} picks
+                      </p>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </Container>
       </section>
 

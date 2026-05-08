@@ -20,61 +20,67 @@ function GroupPredictionGrid({ group }: { group: string }) {
         </h3>
       </CardHeader>
       <CardBody className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-left">
-                  Player
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
-                  1st
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
-                  2nd
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
-                  3rd
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
-                  4th
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {participants.map((p) => {
-                const gp = p.groupPredictions.find(g => g.group === group);
-                if (!gp) return null;
+        {participants.length === 0 ? (
+          <div className="px-4 py-6 text-center">
+            <p className="text-xs text-gray-500">No predictions submitted yet.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-left">
+                    Player
+                  </th>
+                  <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
+                    1st
+                  </th>
+                  <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
+                    2nd
+                  </th>
+                  <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
+                    3rd
+                  </th>
+                  <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
+                    4th
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {participants.map((p) => {
+                  const gp = p.groupPredictions.find(g => g.group === group);
+                  if (!gp) return null;
 
-                return (
-                  <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{p.avatar}</span>
-                        <span className="text-xs text-gray-400 truncate max-w-[80px]">{p.name}</span>
-                      </div>
-                    </td>
-                    {gp.order.map((code, i) => {
-                      const team = getTeamByCode(code);
-                      const isAdvancing = i <= 1;
-                      return (
-                        <td
-                          key={`${p.id}-${i}`}
-                          className={`px-2 py-2 text-center ${isAdvancing ? "bg-pitch/5" : ""}`}
-                        >
-                          <div className="flex flex-col items-center gap-0.5">
-                            <span className="text-base">{team?.flag ?? ""}</span>
-                            <span className="text-xs text-gray-400 font-mono">{code}</span>
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  return (
+                    <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{p.avatar}</span>
+                          <span className="text-xs text-gray-400 truncate max-w-[80px]">{p.name}</span>
+                        </div>
+                      </td>
+                      {gp.order.map((code, i) => {
+                        const team = getTeamByCode(code);
+                        const isAdvancing = i <= 1;
+                        return (
+                          <td
+                            key={`${p.id}-${i}`}
+                            className={`px-2 py-2 text-center ${isAdvancing ? "bg-pitch/5" : ""}`}
+                          >
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="text-base">{team?.flag ?? ""}</span>
+                              <span className="text-xs text-gray-400 font-mono">{code}</span>
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardBody>
     </Card>
   );
@@ -141,22 +147,28 @@ function BonusPicksSection() {
             </div>
           </CardHeader>
           <CardBody className="p-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {participants.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-3 px-5 py-3 border-b border-r border-white/5 last:border-b-0"
-                >
-                  <span className="text-lg">{p.avatar}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-500">{p.name}</p>
-                    <p className="text-sm font-medium text-white truncate mt-0.5">
-                      {cat.getValue(p)}
-                    </p>
+            {participants.length === 0 ? (
+              <div className="px-5 py-6 text-center">
+                <p className="text-xs text-gray-500">No picks submitted yet.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {participants.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-3 px-5 py-3 border-b border-r border-white/5 last:border-b-0"
+                  >
+                    <span className="text-lg">{p.avatar}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500">{p.name}</p>
+                      <p className="text-sm font-medium text-white truncate mt-0.5">
+                        {cat.getValue(p)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardBody>
         </Card>
       ))}
@@ -275,11 +287,18 @@ export default function PicksPage() {
               </Card>
             }
             participantsContent={
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {participants.map((p) => (
-                  <ParticipantDetail key={p.id} participant={p} />
-                ))}
-              </div>
+              participants.length === 0 ? (
+                <div className="text-center py-12">
+                  <span className="text-4xl block mb-3" aria-hidden>👤</span>
+                  <p className="text-gray-400 text-sm">No participants yet. Individual picks will appear here once contestants join the contest.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  {participants.map((p) => (
+                    <ParticipantDetail key={p.id} participant={p} />
+                  ))}
+                </div>
+              )
             }
           />
         </Container>

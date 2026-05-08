@@ -91,77 +91,84 @@ export default function LeaderboardPage() {
                 </span>
               </div>
             </CardHeader>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-white/10 text-left">
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-14">#</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Player</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-accent text-center">
-                      <span className="hidden sm:inline">Tier 1</span>
-                      <span className="sm:hidden">T1</span>
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gold text-center">
-                      <span className="hidden sm:inline">Tier 2</span>
-                      <span className="sm:hidden">T2</span>
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ranked.map((p) => (
-                    <tr
-                      key={p.id}
-                      className="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
-                    >
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1">
-                          {p.rank <= 3 ? (
-                            <span className="text-lg">{getMedalEmoji(p.rank)}</span>
-                          ) : (
-                            <span className={`font-heading text-lg font-bold ${getMedalColor(p.rank)}`}>
-                              {p.rank}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xl">{p.avatar}</span>
-                          <div>
-                            <span className="font-medium text-white">{p.name}</span>
-                            <p className="text-xs text-gray-600">
-                              TB: {p.tiebreaker.homeScore}:{p.tiebreaker.awayScore}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <div>
-                          <span className="font-heading text-lg font-bold text-accent">
-                            {p.tier1Total}
-                          </span>
-                          <p className="text-xs text-gray-600">/{TIER1_MAX}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <div>
-                          <span className="font-heading text-lg font-bold text-gold">
-                            {p.tier2Total}
-                          </span>
-                          <p className="text-xs text-gray-600">/{TIER2_MAX}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <span className="font-heading text-2xl font-bold text-white">
-                          {p.points.total}
-                        </span>
-                      </td>
+            {participants.length === 0 ? (
+              <div className="px-5 py-12 text-center">
+                <span className="text-4xl block mb-3" aria-hidden>📋</span>
+                <p className="text-gray-400 text-sm">No participants yet. The leaderboard will populate once contestants join the contest.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10 text-left">
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-14">#</th>
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Player</th>
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-accent text-center">
+                        <span className="hidden sm:inline">Tier 1</span>
+                        <span className="sm:hidden">T1</span>
+                      </th>
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gold text-center">
+                        <span className="hidden sm:inline">Tier 2</span>
+                        <span className="sm:hidden">T2</span>
+                      </th>
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 text-right">Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {ranked.map((p) => (
+                      <tr
+                        key={p.id}
+                        className="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-1">
+                            {p.rank <= 3 ? (
+                              <span className="text-lg">{getMedalEmoji(p.rank)}</span>
+                            ) : (
+                              <span className={`font-heading text-lg font-bold ${getMedalColor(p.rank)}`}>
+                                {p.rank}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">{p.avatar}</span>
+                            <div>
+                              <span className="font-medium text-white">{p.name}</span>
+                              <p className="text-xs text-gray-600">
+                                TB: {p.tiebreaker.homeScore}:{p.tiebreaker.awayScore}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <div>
+                            <span className="font-heading text-lg font-bold text-accent">
+                              {p.tier1Total}
+                            </span>
+                            <p className="text-xs text-gray-600">/{TIER1_MAX}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <div>
+                            <span className="font-heading text-lg font-bold text-gold">
+                              {p.tier2Total}
+                            </span>
+                            <p className="text-xs text-gray-600">/{TIER2_MAX}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <span className="font-heading text-2xl font-bold text-white">
+                            {p.points.total}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
 
           {/* Scoring Key */}

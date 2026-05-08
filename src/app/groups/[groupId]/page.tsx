@@ -101,59 +101,66 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                 </h2>
                 <Card>
                   <CardBody className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-white/10">
-                            <th className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-left">
-                              Player
-                            </th>
-                            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
-                              1st
-                            </th>
-                            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
-                              2nd
-                            </th>
-                            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
-                              3rd
-                            </th>
-                            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
-                              4th
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {participants.map((p) => {
-                            const gp = p.groupPredictions.find(g => g.group === groupKey);
-                            if (!gp) return null;
+                    {participants.length === 0 ? (
+                      <div className="px-4 py-8 text-center">
+                        <span className="text-3xl block mb-2" aria-hidden>📋</span>
+                        <p className="text-sm text-gray-400">No predictions submitted yet.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-white/10">
+                              <th className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-left">
+                                Player
+                              </th>
+                              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
+                                1st
+                              </th>
+                              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
+                                2nd
+                              </th>
+                              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
+                                3rd
+                              </th>
+                              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
+                                4th
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {participants.map((p) => {
+                              const gp = p.groupPredictions.find(g => g.group === groupKey);
+                              if (!gp) return null;
 
-                            return (
-                              <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                                <td className="px-4 py-2.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-base">{p.avatar}</span>
-                                    <span className="text-sm text-gray-300">{p.name}</span>
-                                  </div>
-                                </td>
-                                {gp.order.map((code, i) => {
-                                  const team = getTeamByCode(code);
-                                  const isAdvancing = i <= 1;
-                                  return (
-                                    <td
-                                      key={`${p.id}-${i}`}
-                                      className={`px-3 py-2.5 text-center ${isAdvancing ? "bg-pitch/5" : ""}`}
-                                    >
-                                      <span className="text-lg">{team?.flag}</span>
-                                      <p className="text-xs text-gray-500 font-mono">{code}</p>
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                              return (
+                                <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                                  <td className="px-4 py-2.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-base">{p.avatar}</span>
+                                      <span className="text-sm text-gray-300">{p.name}</span>
+                                    </div>
+                                  </td>
+                                  {gp.order.map((code, i) => {
+                                    const team = getTeamByCode(code);
+                                    const isAdvancing = i <= 1;
+                                    return (
+                                      <td
+                                        key={`${p.id}-${i}`}
+                                        className={`px-3 py-2.5 text-center ${isAdvancing ? "bg-pitch/5" : ""}`}
+                                      >
+                                        <span className="text-lg">{team?.flag}</span>
+                                        <p className="text-xs text-gray-500 font-mono">{code}</p>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </CardBody>
                 </Card>
               </div>
@@ -221,28 +228,32 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                   </h3>
                 </CardHeader>
                 <CardBody>
-                  <div className="space-y-2">
-                    {winnerEntries.map(([code, count]) => {
-                      const team = getTeamByCode(code);
-                      if (!team) return null;
-                      const pct = Math.round((count / participants.length) * 100);
-                      return (
-                        <div key={code} className="flex items-center gap-3">
-                          <span className="text-lg">{team.flag}</span>
-                          <span className="text-sm text-white flex-1">{team.name}</span>
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 rounded-full bg-navy-lighter overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-accent"
-                                style={{ width: `${pct}%` }}
-                              />
+                  {participants.length === 0 ? (
+                    <p className="text-xs text-gray-500 text-center py-2">No picks submitted yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {winnerEntries.map(([code, count]) => {
+                        const team = getTeamByCode(code);
+                        if (!team) return null;
+                        const pct = Math.round((count / participants.length) * 100);
+                        return (
+                          <div key={code} className="flex items-center gap-3">
+                            <span className="text-lg">{team.flag}</span>
+                            <span className="text-sm text-white flex-1">{team.name}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 rounded-full bg-navy-lighter overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-accent"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500 w-8 text-right">{count}/{participants.length}</span>
                             </div>
-                            <span className="text-xs text-gray-500 w-8 text-right">{count}/{participants.length}</span>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </CardBody>
               </Card>
 
