@@ -1,26 +1,115 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-pitch: #1B5E20;
+  --color-pitch-light: #2E7D32;
+  --color-pitch-dark: #0D3B0F;
+  --color-gold: #FFD700;
+  --color-gold-dark: #B8860B;
+  --color-silver: #C0C0C0;
+  --color-bronze: #CD7F32;
+  --color-navy: #0A1628;
+  --color-navy-light: #132238;
+  --color-navy-lighter: #1A2D45;
+  --color-accent: #00E676;
+  --color-accent-dim: #00C853;
+  --font-heading: var(--font-oswald);
+  --font-body: var(--font-source-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Field pattern background */
+.field-pattern {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 40px,
+      rgba(255, 255, 255, 0.03) 40px,
+      rgba(255, 255, 255, 0.03) 80px
+    );
+}
+
+/* Subtle stripe pattern */
+.stripe-pattern {
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 255, 255, 0.015) 10px,
+      rgba(255, 255, 255, 0.015) 20px
+    );
+}
+
+/* Dot pattern */
+.dot-pattern {
+  background-image: radial-gradient(circle, currentColor 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Text gradient */
+.text-gradient {
+  background: linear-gradient(135deg, #00E676, #FFD700);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Card glow effect on hover */
+.card-glow {
+  transition: box-shadow 0.3s ease;
+}
+.card-glow:hover {
+  box-shadow: 0 0 20px rgba(0, 230, 118, 0.15);
+}
+
+/* Smooth fade-in animation */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out;
+}
+
+/* Staggered animations */
+.animate-delay-100 { animation-delay: 0.1s; animation-fill-mode: backwards; }
+.animate-delay-200 { animation-delay: 0.2s; animation-fill-mode: backwards; }
+.animate-delay-300 { animation-delay: 0.3s; animation-fill-mode: backwards; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-navy);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-navy-lighter);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-pitch);
+}
+
+/* Remove number input arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-navy);
+  color: #e2e8f0;
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100vh;
 }
