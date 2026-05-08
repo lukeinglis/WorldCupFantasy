@@ -2,8 +2,16 @@ import Link from "next/link";
 import Container from "@/components/Container";
 import CountdownTimer from "@/components/CountdownTimer";
 import { Card, CardBody } from "@/components/Card";
-import { participants, categories } from "@/data/participants";
-import { getTeamByCode } from "@/data/teams";
+import {
+  participants,
+  tier1Categories,
+  tier2Categories,
+  TIER1_MAX,
+  TIER2_MAX,
+  OVERALL_MAX,
+  getGroupWinnerDistribution,
+} from "@/data/participants";
+import { getTeamByCode, groupLabels } from "@/data/teams";
 
 function QuickStat({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
@@ -15,30 +23,70 @@ function QuickStat({ label, value, icon }: { label: string; value: string; icon:
   );
 }
 
-function CategoryPreview({ icon, label, points }: { icon: string; label: string; points: number }) {
+function TierCard({
+  tier,
+  title,
+  maxPoints,
+  categories,
+  color,
+  deadline,
+}: {
+  tier: number;
+  title: string;
+  maxPoints: number;
+  categories: { icon: string; label: string; maxPoints: number; scoring: string }[];
+  color: "accent" | "gold";
+  deadline: string;
+}) {
+  const borderColor = color === "accent" ? "border-accent/30" : "border-gold/30";
+  const bgColor = color === "accent" ? "bg-accent/5" : "bg-gold/5";
+  const textColor = color === "accent" ? "text-accent" : "text-gold";
+  const badgeBg = color === "accent" ? "bg-accent/20" : "bg-gold/20";
+
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-navy-lighter/50 px-4 py-3 border border-white/5">
-      <span className="text-xl" aria-hidden>{icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-200 truncate">{label}</p>
-      </div>
-      <span className="text-sm font-bold text-gold">{points} pts</span>
-    </div>
+    <Card className={`${borderColor} ${bgColor}`}>
+      <CardBody className="py-6">
+        <div className="flex items-center gap-3 mb-4">
+          <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${badgeBg} font-heading font-bold text-lg ${textColor}`}>
+            {tier}
+          </span>
+          <div>
+            <h3 className="font-heading text-lg font-bold text-white uppercase tracking-wide">
+              {title}
+            </h3>
+            <p className="text-xs text-gray-500">Deadline: {deadline}</p>
+          </div>
+          <span className={`ml-auto font-heading text-xl font-bold ${textColor}`}>
+            {maxPoints} pts
+          </span>
+        </div>
+        <div className="space-y-2">
+          {categories.map((cat) => (
+            <div key={cat.label} className="flex items-center gap-3 rounded-lg bg-navy-lighter/50 px-4 py-2.5 border border-white/5">
+              <span className="text-lg" aria-hidden>{cat.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-200 truncate">{cat.label}</p>
+                <p className="text-xs text-gray-500 truncate">{cat.scoring}</p>
+              </div>
+              <span className={`text-sm font-bold ${textColor} whitespace-nowrap`}>{cat.maxPoints} pts</span>
+            </div>
+          ))}
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
 export default function Home() {
-  // Champion pick distribution
-  const championPicks: Record<string, number> = {};
-  for (const p of participants) {
-    const champ = p.picks.find(pk => pk.category === "champion");
-    if (champ) {
-      championPicks[champ.selection] = (championPicks[champ.selection] ?? 0) + 1;
+  // Most popular group winners across all groups
+  const popularPicks: { group: string; team: string; count: number }[] = [];
+  for (const group of groupLabels) {
+    const dist = getGroupWinnerDistribution(group);
+    const top = Object.entries(dist).sort((a, b) => b[1] - a[1])[0];
+    if (top) {
+      popularPicks.push({ group, team: top[0], count: top[1] });
     }
   }
-  const topPicks = Object.entries(championPicks)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
 
   return (
     <>
@@ -69,15 +117,12 @@ export default function Home() {
                 Fantasy
               </h1>
               <p className="mt-4 max-w-2xl text-xl text-gray-300/90 sm:text-2xl mx-auto">
-                Pick your champions, predict the stars, and compete for bragging rights with friends.
+                Two tiers. Group predictions, knockout brackets, and bonus picks. Compete for bragging rights.
               </p>
             </div>
 
             {/* Countdown */}
             <div className="mt-10 animate-fade-in-up animate-delay-100">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-4">
-                Kickoff Countdown
-              </p>
               <CountdownTimer />
             </div>
 
@@ -109,67 +154,81 @@ export default function Home() {
       {/* Quick Stats */}
       <section className="border-b border-white/10 bg-navy-light/30 py-8">
         <Container>
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
             <QuickStat label="Participants" value={String(participants.length)} icon="👥" />
             <QuickStat label="Teams" value="48" icon="🏟️" />
+            <QuickStat label="Groups" value="12" icon="📊" />
             <QuickStat label="Host Cities" value="16" icon="🌎" />
-            <QuickStat label="Max Points" value="125" icon="🏆" />
+            <QuickStat label="Max Points" value={String(OVERALL_MAX)} icon="🏆" />
           </div>
         </Container>
       </section>
 
-      {/* Categories Preview */}
+      {/* Two-Tier System */}
       <section className="py-12 sm:py-16">
         <Container>
           <div className="text-center mb-10">
             <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
-              Pick Categories
+              Two-Tier Scoring System
             </h2>
-            <p className="mt-2 text-gray-400">
-              Eight categories, 125 possible points. Every pick counts.
+            <p className="mt-2 text-gray-400 max-w-2xl mx-auto">
+              Tier 1 covers group stage predictions (submitted before the tournament).
+              Tier 2 covers the knockout bracket (submitted after groups finish).
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {categories.map((cat) => (
-              <CategoryPreview
-                key={cat.id}
-                icon={cat.icon}
-                label={cat.label}
-                points={cat.points}
-              />
-            ))}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <TierCard
+              tier={1}
+              title="Group Stage Predictions"
+              maxPoints={TIER1_MAX}
+              categories={tier1Categories}
+              color="accent"
+              deadline="June 1, 2026"
+            />
+            <TierCard
+              tier={2}
+              title="Knockout Bracket"
+              maxPoints={TIER2_MAX}
+              categories={tier2Categories}
+              color="gold"
+              deadline="After group stage ends"
+            />
+          </div>
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500">
+              Overall maximum: <span className="font-bold text-white">{OVERALL_MAX} points</span>
+              {" "}(Tier 1: {TIER1_MAX} + Tier 2: {TIER2_MAX})
+            </p>
           </div>
         </Container>
       </section>
 
-      {/* Popular Champion Picks */}
+      {/* Popular Group Winners */}
       <section className="py-12 sm:py-16 border-t border-white/10 bg-navy-light/20">
         <Container>
           <div className="text-center mb-10">
             <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
-              Champion Favorites
+              Popular Group Winners
             </h2>
             <p className="mt-2 text-gray-400">
-              Most popular champion picks across all participants
+              Most popular 1st-place pick for each group
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 max-w-3xl mx-auto">
-            {topPicks.map(([code, count], i) => {
-              const team = getTeamByCode(code);
-              if (!team) return null;
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 max-w-5xl mx-auto">
+            {popularPicks.map(({ group, team, count }) => {
+              const teamData = getTeamByCode(team);
+              if (!teamData) return null;
               return (
-                <Card key={code} hover className="text-center">
-                  <CardBody>
-                    <span className="text-4xl block mb-2">{team.flag}</span>
-                    <p className="font-heading text-lg font-bold text-white">{team.name}</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      {count} {count === 1 ? "pick" : "picks"}
+                <Card key={group} hover className="text-center">
+                  <CardBody className="py-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Group {group}
                     </p>
-                    {i === 0 && (
-                      <span className="inline-block mt-2 text-xs font-semibold text-gold bg-gold/10 rounded-full px-2.5 py-0.5">
-                        Most Popular
-                      </span>
-                    )}
+                    <span className="text-3xl block mb-1">{teamData.flag}</span>
+                    <p className="font-heading text-sm font-bold text-white">{teamData.name}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {count}/{participants.length} picks
+                    </p>
                   </CardBody>
                 </Card>
               );
@@ -186,11 +245,12 @@ export default function Home() {
               How It Works
             </h2>
           </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
             {[
-              { step: "1", title: "Make Your Picks", desc: "Choose your predictions across 8 categories before the tournament begins.", icon: "📝" },
-              { step: "2", title: "Watch the Matches", desc: "Follow the World Cup action as your picks play out in real time.", icon: "📺" },
-              { step: "3", title: "Climb the Leaderboard", desc: "Earn points for correct predictions and see who comes out on top.", icon: "📊" },
+              { step: "1", title: "Predict Groups", desc: "Before the tournament, predict the finishing order for all 12 groups plus bonus picks.", icon: "📊" },
+              { step: "2", title: "Watch Groups", desc: "Follow the group stage and see how your predictions hold up in real time.", icon: "📺" },
+              { step: "3", title: "Fill Your Bracket", desc: "Once the knockout bracket is set, predict winners for every match from R32 to the Final.", icon: "🏆" },
+              { step: "4", title: "Claim Victory", desc: "Total points from both tiers determine the champion. Tiebreaker: predicted final score.", icon: "👑" },
             ].map((item) => (
               <Card key={item.step} hover>
                 <CardBody className="text-center py-8">
@@ -215,11 +275,12 @@ export default function Home() {
               Key Dates
             </h2>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 max-w-6xl mx-auto">
             {[
-              { date: "June 1, 2026", event: "Picks Lock", icon: "🔒", highlight: true },
+              { date: "June 1, 2026", event: "Tier 1 Picks Lock", icon: "🔒", highlight: true },
               { date: "June 11, 2026", event: "Opening Match", icon: "🏟️", highlight: false },
-              { date: "June 28, 2026", event: "Knockout Stage", icon: "⚔️", highlight: false },
+              { date: "June 27, 2026", event: "Groups End", icon: "📊", highlight: false },
+              { date: "June 28, 2026", event: "Tier 2 Picks Lock", icon: "🔒", highlight: true },
               { date: "July 19, 2026", event: "Final", icon: "🏆", highlight: true },
             ].map((item) => (
               <div

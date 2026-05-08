@@ -3,11 +3,17 @@ import Link from "next/link";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
-import { categories } from "@/data/participants";
+import {
+  tier1Categories,
+  tier2Categories,
+  TIER1_MAX,
+  TIER2_MAX,
+  OVERALL_MAX,
+} from "@/data/participants";
 
 export const metadata: Metadata = {
   title: "How to Play",
-  description: "Learn how to participate in the World Cup 2026 Fantasy contest.",
+  description: "Learn how the two-tier World Cup 2026 Fantasy contest works.",
 };
 
 export default function HowToPlayPage() {
@@ -15,7 +21,7 @@ export default function HowToPlayPage() {
     <>
       <PageHeader
         title="How to Play"
-        subtitle="Your guide to joining and winning the World Cup 2026 Fantasy contest."
+        subtitle="Your guide to the two-tier World Cup 2026 Fantasy contest."
         icon="📖"
       />
 
@@ -33,28 +39,40 @@ export default function HowToPlayPage() {
                 },
                 {
                   step: 2,
-                  title: "Study the Field",
-                  desc: "Check out the 48 teams in the Groups section. Look at FIFA rankings, confederations, and recent form. Knowledge is power.",
+                  title: "Study the Groups",
+                  desc: "Check out the 48 teams across 12 groups. Look at FIFA rankings, confederations, and recent form. You will need to predict the finishing order for every group.",
                   icon: "📚",
-                  link: { href: "/groups", label: "View Groups →" },
+                  link: { href: "/groups", label: "View Groups" },
                 },
                 {
                   step: 3,
-                  title: "Make Your Picks",
-                  desc: "Submit your predictions across all 8 categories before the June 1st deadline. Choose wisely; you cannot change them once locked.",
-                  icon: "📝",
+                  title: "Submit Tier 1 Picks (Before June 1)",
+                  desc: "Predict the 1st through 4th finishing order for all 12 groups. Also pick your Golden Boot (top scorer), Most Goals Team (group stage), and Fewest Goals Conceded Team (group stage). Lock it in before the deadline.",
+                  icon: "📊",
                 },
                 {
                   step: 4,
-                  title: "Watch and Celebrate",
-                  desc: "Sit back and watch the World Cup unfold across the USA, Mexico, and Canada. Points are awarded automatically as results come in.",
+                  title: "Watch the Group Stage",
+                  desc: "Follow the group stage action and see how your predictions hold up. Tier 1 points are awarded as group results are finalized.",
                   icon: "📺",
                 },
                 {
                   step: 5,
-                  title: "Claim Victory",
-                  desc: "After the final on July 19th, the participant with the most points wins. Bragging rights last until the next tournament.",
+                  title: "Submit Tier 2 Picks (After Groups End)",
+                  desc: "Once the knockout bracket is set, predict the winner of every match from the Round of 32 through the Final. Also pick your Golden Ball (best player). Submit before the R32 kicks off.",
                   icon: "🏆",
+                },
+                {
+                  step: 6,
+                  title: "Watch the Knockouts",
+                  desc: "Follow the knockout rounds. Tier 2 points increase as rounds progress, so getting later-round picks right is worth more.",
+                  icon: "⚔️",
+                },
+                {
+                  step: 7,
+                  title: "Claim Victory",
+                  desc: "After the final on July 19th, total points from both tiers determine the winner. If tied, the predicted final score breaks it.",
+                  icon: "👑",
                 },
               ].map((item) => (
                 <Card key={item.step} hover>
@@ -82,7 +100,7 @@ export default function HowToPlayPage() {
                             href={item.link.href}
                             className="inline-block mt-2 text-sm text-accent hover:text-green-300 transition-colors"
                           >
-                            {item.link.label}
+                            {item.link.label} →
                           </Link>
                         )}
                       </div>
@@ -92,16 +110,16 @@ export default function HowToPlayPage() {
               ))}
             </div>
 
-            {/* Categories Quick Reference */}
-            <Card>
-              <CardHeader>
+            {/* Tier 1 Quick Reference */}
+            <Card className="border-accent/20">
+              <CardHeader className="bg-accent/5">
                 <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
-                  Categories Quick Reference
+                  Tier 1 Quick Reference ({TIER1_MAX} pts max)
                 </h2>
               </CardHeader>
               <CardBody>
                 <div className="space-y-3">
-                  {categories.map((cat) => (
+                  {tier1Categories.map((cat) => (
                     <div
                       key={cat.id}
                       className="flex items-center gap-3 rounded-lg bg-navy-lighter/30 px-4 py-3 border border-white/5"
@@ -109,21 +127,48 @@ export default function HowToPlayPage() {
                       <span className="text-xl flex-shrink-0">{cat.icon}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white">{cat.label}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{cat.description}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{cat.scoring}</p>
                       </div>
-                      <span className="text-sm font-bold text-gold whitespace-nowrap">{cat.points} pts</span>
+                      <span className="text-sm font-bold text-accent whitespace-nowrap">{cat.maxPoints} pts</span>
+                    </div>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* Tier 2 Quick Reference */}
+            <Card className="border-gold/20">
+              <CardHeader className="bg-gold/5">
+                <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
+                  Tier 2 Quick Reference ({TIER2_MAX} pts max)
+                </h2>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-3">
+                  {tier2Categories.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="flex items-center gap-3 rounded-lg bg-navy-lighter/30 px-4 py-3 border border-white/5"
+                    >
+                      <span className="text-xl flex-shrink-0">{cat.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white">{cat.label}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{cat.scoring}</p>
+                      </div>
+                      <span className="text-sm font-bold text-gold whitespace-nowrap">{cat.maxPoints} pts</span>
                     </div>
                   ))}
                 </div>
                 <div className="mt-4 pt-4 border-t border-white/10 text-center">
                   <p className="text-sm text-gray-400">
-                    Total possible: <span className="font-bold text-gold">125 points</span>
+                    Overall maximum: <span className="font-bold text-white">{OVERALL_MAX} points</span>
+                    {" "}(Tier 1: {TIER1_MAX} + Tier 2: {TIER2_MAX})
                   </p>
                 </div>
               </CardBody>
             </Card>
 
-            {/* Tips */}
+            {/* Strategy Tips */}
             <Card>
               <CardHeader>
                 <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
@@ -135,31 +180,37 @@ export default function HowToPlayPage() {
                   <div className="flex items-start gap-3">
                     <span className="text-accent font-bold mt-0.5">1.</span>
                     <p>
-                      <strong className="text-white">Maximize expected value.</strong> The Champion pick is worth 25 points, so getting it right matters most. But the Golden Boot (20 pts) and Dark Horse (20 pts) are nearly as valuable. Do not sleep on them.
+                      <strong className="text-white">Group order is king in Tier 1.</strong> With 144 points available from group positions alone (vs 30 from bonuses), getting finishing orders right is the biggest lever. Exact positions are worth 3x more than bucket matches.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-accent font-bold mt-0.5">2.</span>
                     <p>
-                      <strong className="text-white">Dark Horse is high risk, high reward.</strong> Pick a team outside the top 10 that you genuinely believe can make a quarterfinal run. Think Morocco in 2022 or Croatia in 2018.
+                      <strong className="text-white">Do not just pick favorites first.</strong> Getting the 3rd and 4th place teams right matters too. Each exact position is 3 points regardless of whether it is 1st or 4th.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-accent font-bold mt-0.5">3.</span>
                     <p>
-                      <strong className="text-white">Group Stage Exit is free points.</strong> With 48 teams, many strong-looking squads will go home early. Pick a team you think is overrated or stuck in a tough group.
+                      <strong className="text-white">Later knockout rounds are worth more.</strong> Getting the Final right is 10 pts, while a Round of 32 pick is only 2 pts. Focus your research on predicting deep runs correctly.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-accent font-bold mt-0.5">4.</span>
                     <p>
-                      <strong className="text-white">Consider the host advantage.</strong> The USA, Mexico, and Canada will have home crowds. Historically, host nations perform above their ranking.
+                      <strong className="text-white">Most Goals and Fewest Conceded are group stage only.</strong> Think about which teams play attacking football vs defensive football in the groups specifically. A defensive team that advances may concede more in knockouts, but that does not affect this pick.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-accent font-bold mt-0.5">5.</span>
                     <p>
-                      <strong className="text-white">Tiebreaker matters.</strong> If multiple people pick the same champion, the tiebreaker (predicted goals in the final) can make or break your finish. Think carefully.
+                      <strong className="text-white">Tier 2 is a second chance.</strong> Even if your Tier 1 picks were rough, Tier 2 offers up to {TIER2_MAX} points. You can make up significant ground in the knockout bracket.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent font-bold mt-0.5">6.</span>
+                    <p>
+                      <strong className="text-white">Tiebreaker is the final score.</strong> Predict the exact final score of the championship match. Think about whether it will be a cagey or open affair. This only matters if you tie on points with someone else.
                     </p>
                   </div>
                 </div>

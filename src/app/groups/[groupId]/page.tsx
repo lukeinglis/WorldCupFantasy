@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
-import { getTeamsByGroup, groupLabels, type Team } from "@/data/teams";
-import { participants } from "@/data/participants";
+import { getTeamsByGroup, groupLabels, type Team, getTeamByCode } from "@/data/teams";
+import { participants, getGroupWinnerDistribution } from "@/data/participants";
 import { schedule } from "@/data/schedule";
 
 export function generateStaticParams() {
@@ -16,54 +16,15 @@ export async function generateMetadata({ params }: { params: Promise<{ groupId: 
   const { groupId } = await params;
   return {
     title: `Group ${groupId}`,
-    description: `Teams, matches, and picks for Group ${groupId} at the FIFA World Cup 2026.`,
+    description: `Teams, predictions, and matches for Group ${groupId} at the FIFA World Cup 2026.`,
   };
-}
-
-function PickedBySection({ teamCode }: { teamCode: string }) {
-  // Find who picked this team in any category
-  const pickers: { name: string; avatar: string; category: string }[] = [];
-  for (const p of participants) {
-    for (const pick of p.picks) {
-      if (pick.selection === teamCode) {
-        pickers.push({ name: p.name, avatar: p.avatar, category: pick.category });
-      }
-    }
-  }
-
-  if (pickers.length === 0) return null;
-
-  const categoryLabels: Record<string, string> = {
-    champion: "Champion",
-    runner_up: "Runner Up",
-    dark_horse: "Dark Horse",
-    group_stage_exit: "Group Exit",
-    most_cards: "Fewest Cards",
-    first_goal: "First Goal",
-  };
-
-  return (
-    <div className="mt-2">
-      <p className="text-xs text-gray-500 mb-1">Picked by:</p>
-      <div className="flex flex-wrap gap-1">
-        {pickers.map((pk, i) => (
-          <span
-            key={`${pk.name}-${pk.category}-${i}`}
-            className="inline-flex items-center gap-1 rounded-full bg-navy-lighter/50 px-2 py-0.5 text-xs text-gray-400 border border-white/5"
-          >
-            {pk.avatar} {pk.name}
-            <span className="text-gray-600">({categoryLabels[pk.category] ?? pk.category})</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ groupId: string }> }) {
   const { groupId } = await params;
+  const groupKey = groupId.toUpperCase();
   const teamsByGroup = getTeamsByGroup();
-  const groupTeams = teamsByGroup[groupId.toUpperCase()];
+  const groupTeams = teamsByGroup[groupKey];
 
   if (!groupTeams) {
     notFound();
@@ -71,13 +32,17 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
 
   // Get group matches from schedule
   const groupMatches = schedule.filter(
-    (m) => m.group === groupId.toUpperCase() && m.stage === "group"
+    (m) => m.group === groupKey && m.stage === "group"
   );
+
+  // Winner distribution for this group
+  const winnerDist = getGroupWinnerDistribution(groupKey);
+  const winnerEntries = Object.entries(winnerDist).sort((a, b) => b[1] - a[1]);
 
   return (
     <>
       <PageHeader
-        title={`Group ${groupId.toUpperCase()}`}
+        title={`Group ${groupKey}`}
         subtitle={`${groupTeams.length} teams competing for advancement`}
         icon="⚽"
       />
@@ -122,16 +87,79 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                                 {team.code}
                               </span>
                             </div>
-                            <PickedBySection teamCode={team.code} />
                           </div>
                         </div>
                       </CardBody>
                     </Card>
                   ))}
               </div>
+
+              {/* Participant Predictions for this group */}
+              <div className="mt-8">
+                <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white mb-4">
+                  Participant Predictions
+                </h2>
+                <Card>
+                  <CardBody className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-white/10">
+                            <th className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-left">
+                              Player
+                            </th>
+                            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
+                              1st
+                            </th>
+                            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-accent text-center">
+                              2nd
+                            </th>
+                            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
+                              3rd
+                            </th>
+                            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
+                              4th
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {participants.map((p) => {
+                            const gp = p.groupPredictions.find(g => g.group === groupKey);
+                            if (!gp) return null;
+
+                            return (
+                              <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                                <td className="px-4 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-base">{p.avatar}</span>
+                                    <span className="text-sm text-gray-300">{p.name}</span>
+                                  </div>
+                                </td>
+                                {gp.order.map((code, i) => {
+                                  const team = getTeamByCode(code);
+                                  const isAdvancing = i <= 1;
+                                  return (
+                                    <td
+                                      key={`${p.id}-${i}`}
+                                      className={`px-3 py-2.5 text-center ${isAdvancing ? "bg-pitch/5" : ""}`}
+                                    >
+                                      <span className="text-lg">{team?.flag}</span>
+                                      <p className="text-xs text-gray-500 font-mono">{code}</p>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardBody>
+                </Card>
+              </div>
             </div>
 
-            {/* Sidebar: Standings & Matches */}
+            {/* Sidebar */}
             <div className="space-y-6">
               {/* Group Standings (pre-tournament placeholder) */}
               <Card>
@@ -181,6 +209,39 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                     <p className="text-xs text-gray-600">
                       Top 2 advance. Best 3rd-place teams may also qualify.
                     </p>
+                  </div>
+                </CardBody>
+              </Card>
+
+              {/* Popular Picks for this group */}
+              <Card>
+                <CardHeader>
+                  <h3 className="font-heading text-base font-bold uppercase tracking-wide text-white">
+                    Popular Winner Picks
+                  </h3>
+                </CardHeader>
+                <CardBody>
+                  <div className="space-y-2">
+                    {winnerEntries.map(([code, count]) => {
+                      const team = getTeamByCode(code);
+                      if (!team) return null;
+                      const pct = Math.round((count / participants.length) * 100);
+                      return (
+                        <div key={code} className="flex items-center gap-3">
+                          <span className="text-lg">{team.flag}</span>
+                          <span className="text-sm text-white flex-1">{team.name}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 rounded-full bg-navy-lighter overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-accent"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 w-8 text-right">{count}/{participants.length}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardBody>
               </Card>
