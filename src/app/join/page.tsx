@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
@@ -16,8 +16,13 @@ export default function JoinPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      router.push("/my-picks");
+    }
+  }, [user, router]);
+
   if (user) {
-    router.push("/my-picks");
     return null;
   }
 

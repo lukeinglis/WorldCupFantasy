@@ -27,14 +27,50 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // Basic type checking on the request body
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { error: "Invalid request body." },
+        { status: 400 }
+      );
+    }
+
     const { userId, picks } = body as {
       userId?: string;
       picks?: Omit<PicksRecord, "participantId" | "submittedAt">;
     };
 
-    if (!userId || !picks) {
+    if (!userId || typeof userId !== "string") {
       return NextResponse.json(
-        { error: "userId and picks are required." },
+        { error: "userId is required and must be a string." },
+        { status: 400 }
+      );
+    }
+
+    if (!picks || typeof picks !== "object") {
+      return NextResponse.json(
+        { error: "picks object is required." },
+        { status: 400 }
+      );
+    }
+
+    // Validate required picks fields
+    if (typeof picks.goldenBoot !== "string") {
+      return NextResponse.json(
+        { error: "goldenBoot must be a string." },
+        { status: 400 }
+      );
+    }
+    if (typeof picks.mostGoalsTeam !== "string") {
+      return NextResponse.json(
+        { error: "mostGoalsTeam must be a string." },
+        { status: 400 }
+      );
+    }
+    if (typeof picks.fewestConcededTeam !== "string") {
+      return NextResponse.json(
+        { error: "fewestConcededTeam must be a string." },
         { status: 400 }
       );
     }
@@ -48,12 +84,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate group predictions
-    if (!picks.groupPredictions || picks.groupPredictions.length !== 12) {
+    // Validate group predictions: must be an array of exactly 12
+    if (!Array.isArray(picks.groupPredictions) || picks.groupPredictions.length !== 12) {
       return NextResponse.json(
         { error: "All 12 group predictions are required." },
         { status: 400 }
       );
+    }
+
+    // Validate each group prediction has exactly 4 string elements
+    for (const gp of picks.groupPredictions) {
+      if (
+        !gp ||
+        typeof gp.group !== "string" ||
+        !Array.isArray(gp.order) ||
+        gp.order.length !== 4 ||
+        gp.order.some((code: unknown) => typeof code !== "string" || code === "")
+      ) {
+        return NextResponse.json(
+          { error: `Invalid prediction for group ${gp?.group ?? "unknown"}. Each group must have exactly 4 team codes.` },
+          { status: 400 }
+        );
+      }
     }
 
     const record: PicksRecord = {

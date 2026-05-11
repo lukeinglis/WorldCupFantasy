@@ -306,7 +306,9 @@ export default function MyPicksPage() {
           rankings[gp.group] = gp.order;
         }
         const tb = data.picks.tiebreaker ?? { homeScore: 0, awayScore: 0 };
-        const totalGoals = (tb.homeScore ?? 0) + (tb.awayScore ?? 0);
+        const home = Number.isFinite(tb.homeScore) ? tb.homeScore : 0;
+        const away = Number.isFinite(tb.awayScore) ? tb.awayScore : 0;
+        const totalGoals = home + away;
         return {
           found: true,
           formData: {
@@ -391,6 +393,20 @@ export default function MyPicksPage() {
       const homeScore = Math.ceil(safeTotal / 2);
       const awayScore = safeTotal - homeScore;
 
+      // Validate all groups have exactly 4 non-null string entries before submitting
+      for (const group of groupLabels) {
+        const ranking = formData.groupRankings[group];
+        if (
+          !ranking ||
+          ranking.length !== 4 ||
+          ranking.some((r) => typeof r !== "string" || r === "")
+        ) {
+          setError(`Group ${group} is incomplete. Please rank all 4 teams.`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const res = await fetch("/api/picks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -454,7 +470,7 @@ export default function MyPicksPage() {
                     Picks Submitted!
                   </h2>
                   <p className="text-gray-400 mb-4">
-                    Good luck! You can update your picks until June 11, 2026.
+                    Good luck! You can update your picks until June 1, 2026.
                   </p>
                   <button
                     type="button"
@@ -545,7 +561,7 @@ export default function MyPicksPage() {
     <>
       <PageHeader
         title="Make Your Picks"
-        subtitle="Picks lock on June 11, 2026. Have fun with it!"
+        subtitle="Picks lock on June 1, 2026. Have fun with it!"
         icon="📋"
       />
 

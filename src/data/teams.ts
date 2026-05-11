@@ -66,7 +66,7 @@ export const teams: Team[] = [
   { name: "Uganda", code: "UGA", flag: "🇺🇬", group: "I", confederation: "CAF", fifaRanking: 82, nickname: "The Cranes" },
 
   // Group J
-  { name: "Italy", code: "ITA", flag: "🇮🇹", group: "J", confederation: "UEFA", fifaRanking: 9, nickname: "Gli Azzurri" },
+  { name: "Italy", code: "ITA", flag: "🇮🇹", group: "J", confederation: "UEFA", fifaRanking: 27, nickname: "Gli Azzurri" },
   { name: "Denmark", code: "DEN", flag: "🇩🇰", group: "J", confederation: "UEFA", fifaRanking: 18, nickname: "Danish Dynamite" },
   { name: "Egypt", code: "EGY", flag: "🇪🇬", group: "J", confederation: "CAF", fifaRanking: 37, nickname: "The Pharaohs" },
   { name: "Panama", code: "PAN", flag: "🇵🇦", group: "J", confederation: "CONCACAF", fifaRanking: 45, nickname: "Los Canaleros" },

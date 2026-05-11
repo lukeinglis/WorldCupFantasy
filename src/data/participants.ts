@@ -127,7 +127,6 @@ export type TournamentPhase = "pre_tournament" | "group_stage" | "knockout" | "c
 
 export function getCurrentPhase(): TournamentPhase {
   const now = new Date();
-  const tier1Deadline = new Date("2026-06-01T00:00:00-05:00");
   const tournamentStart = new Date("2026-06-11T20:00:00-05:00");
   const knockoutStart = new Date("2026-06-28T00:00:00-05:00");
   const finalDate = new Date("2026-07-19T23:59:59-05:00");

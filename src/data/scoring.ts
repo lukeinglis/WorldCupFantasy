@@ -90,7 +90,7 @@ export function scoreTier1Bonus(participant: Participant): number {
 export function scoreTier2Bracket(participant: Participant): number {
   // Knockout picks would be scored against actual knockout results
   // For now, no knockout results exist
-  let points = 0;
+  const points = 0;
   for (const pick of participant.knockoutPicks) {
     // Would check against actual results here
     const roundPts = knockoutRoundPoints[pick.round] ?? 0;

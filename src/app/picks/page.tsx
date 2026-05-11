@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
-import { getTeamByCode, groupLabels, teams } from "@/data/teams";
+import { getTeamByCode, groupLabels } from "@/data/teams";
 import PicksTabs from "@/components/PicksTabs";
 import { useAuth } from "@/components/AuthProvider";
 import {
