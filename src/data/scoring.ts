@@ -17,9 +17,16 @@ import { knockoutRoundPoints } from "./participants";
  * Right bucket (advance/exit correct but wrong position): 1 pt per team
  */
 
-// Actual results would go here once the tournament plays out
-// For now, null means tournament hasn't happened yet
-export const actualGroupResults: Record<string, [string, string, string, string]> | null = null;
+// Static fallback results (null = tournament hasn't happened yet)
+// When live API data is available, these are overridden by live-scoring.ts
+export let actualGroupResults: Record<string, [string, string, string, string]> | null = null;
+
+/** Update group results from live data (called from server components) */
+export function setActualGroupResults(
+  results: Record<string, [string, string, string, string]> | null
+): void {
+  actualGroupResults = results;
+}
 
 export function scoreGroupPrediction(
   prediction: GroupPrediction,
@@ -60,8 +67,8 @@ export function scoreTier1Groups(participant: Participant): number {
   return total;
 }
 
-// Actual bonus results (null = not yet determined)
-export const actualBonusResults: {
+// Static bonus results (overridden by live-scoring when available)
+export let actualBonusResults: {
   goldenBoot: string | null;
   mostGoalsTeam: string | null;
   fewestConcededTeam: string | null;
@@ -72,6 +79,20 @@ export const actualBonusResults: {
   fewestConcededTeam: null,
   goldenBall: null,
 };
+
+/** Update bonus results from live data */
+export function setActualBonusResults(results: {
+  goldenBoot: string | null;
+  mostGoalsTeam: string | null;
+  fewestConcededTeam: string | null;
+}): void {
+  actualBonusResults = {
+    ...actualBonusResults,
+    goldenBoot: results.goldenBoot,
+    mostGoalsTeam: results.mostGoalsTeam,
+    fewestConcededTeam: results.fewestConcededTeam,
+  };
+}
 
 export function scoreTier1Bonus(participant: Participant): number {
   let points = 0;

@@ -12,6 +12,10 @@ import {
   getGroupWinnerDistribution,
 } from "@/data/participants";
 import { getTeamByCode, groupLabels } from "@/data/teams";
+import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
+import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
+
+export const dynamic = "force-dynamic";
 
 function QuickStat({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
@@ -77,7 +81,7 @@ function TierCard({
   );
 }
 
-export default function Home() {
+export default async function Home() {
   // Most popular group winners across all groups
   const popularPicks: { group: string; team: string; count: number }[] = [];
   for (const group of groupLabels) {
@@ -87,6 +91,39 @@ export default function Home() {
       popularPicks.push({ group, team: top[0], count: top[1] });
     }
   }
+
+  // Fetch live data for tournament status
+  let recentResults: TransformedMatch[] = [];
+  let liveMatches: TransformedMatch[] = [];
+  let topScorers: TransformedScorer[] = [];
+  let matchesPlayed = 0;
+  let totalMatches = 0;
+
+  if (isApiConfigured()) {
+    const [matches, scorers] = await Promise.all([
+      getMatches(),
+      getScorers(),
+    ]);
+
+    if (matches) {
+      totalMatches = matches.length;
+      matchesPlayed = matches.filter((m) => m.status === "FINISHED").length;
+      liveMatches = matches.filter((m) => m.isLive);
+      recentResults = matches
+        .filter((m) => m.status === "FINISHED")
+        .sort(
+          (a, b) =>
+            new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime()
+        )
+        .slice(0, 4);
+    }
+
+    if (scorers) {
+      topScorers = scorers.slice(0, 5);
+    }
+  }
+
+  const hasTournamentData = matchesPlayed > 0 || liveMatches.length > 0;
 
   return (
     <>
@@ -164,11 +201,192 @@ export default function Home() {
             <QuickStat label="Participants" value={String(participants.length)} icon="👥" />
             <QuickStat label="Teams" value="48" icon="🏟️" />
             <QuickStat label="Groups" value="12" icon="📊" />
-            <QuickStat label="Host Cities" value="16" icon="🌎" />
+            <QuickStat
+              label={hasTournamentData ? "Matches Played" : "Host Cities"}
+              value={hasTournamentData ? `${matchesPlayed}/${totalMatches}` : "16"}
+              icon={hasTournamentData ? "⚽" : "🌎"}
+            />
             <QuickStat label="Max Points" value={String(OVERALL_MAX)} icon="🏆" />
           </div>
         </Container>
       </section>
+
+      {/* Live Matches (if any) */}
+      {liveMatches.length > 0 && (
+        <section className="py-8 border-b border-white/10 bg-red-500/5">
+          <Container>
+            <div className="flex items-center gap-3 mb-6">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1 text-sm font-bold text-red-400 animate-pulse">
+                <span className="h-2 w-2 rounded-full bg-red-400" />
+                LIVE NOW
+              </span>
+              <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
+                Matches in Progress
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {liveMatches.map((match) => (
+                <Card key={match.id} className="border-red-500/20 bg-red-500/5">
+                  <CardBody>
+                    <div className="flex items-center gap-2 mb-2">
+                      {match.group && (
+                        <span className="text-xs text-gray-500">
+                          Group {match.group}
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-bold text-red-400 animate-pulse">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                        LIVE
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-1">
+                        {match.homeTeam.crest && (
+                          <img
+                            src={match.homeTeam.crest}
+                            alt={match.homeTeam.shortName}
+                            className="w-8 h-8 object-contain"
+                          />
+                        )}
+                        <span className="font-heading font-bold text-white">
+                          {match.homeTeam.shortName}
+                        </span>
+                      </div>
+                      <span className="font-heading text-2xl font-bold text-red-400 px-3">
+                        {match.score.fullTime.home ?? 0} : {match.score.fullTime.away ?? 0}
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        <span className="font-heading font-bold text-white">
+                          {match.awayTeam.shortName}
+                        </span>
+                        {match.awayTeam.crest && (
+                          <img
+                            src={match.awayTeam.crest}
+                            alt={match.awayTeam.shortName}
+                            className="w-8 h-8 object-contain"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          </Container>
+        </section>
+      )}
+
+      {/* Recent Results (if tournament has started) */}
+      {recentResults.length > 0 && (
+        <section className="py-10 border-b border-white/10">
+          <Container>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white">
+                Recent Results
+              </h2>
+              <Link
+                href="/schedule"
+                className="text-sm text-accent hover:text-green-300 transition-colors"
+              >
+                Full Schedule →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {recentResults.map((match) => (
+                <Card key={match.id} hover>
+                  <CardBody>
+                    <div className="flex items-center gap-2 mb-2">
+                      {match.group && (
+                        <span className="text-xs text-gray-500">
+                          Group {match.group}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-600">
+                        {new Date(match.utcDate).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-gray-500/20 px-2 py-0.5 text-xs font-semibold text-gray-400">
+                        FT
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-1">
+                        {match.homeTeam.crest && (
+                          <img
+                            src={match.homeTeam.crest}
+                            alt={match.homeTeam.shortName}
+                            className="w-6 h-6 object-contain"
+                          />
+                        )}
+                        <span className="text-sm font-medium text-white">
+                          {match.homeTeam.shortName}
+                        </span>
+                      </div>
+                      <span className="font-heading text-lg font-bold text-white px-3">
+                        {match.score.fullTime.home ?? 0} : {match.score.fullTime.away ?? 0}
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        <span className="text-sm font-medium text-white">
+                          {match.awayTeam.shortName}
+                        </span>
+                        {match.awayTeam.crest && (
+                          <img
+                            src={match.awayTeam.crest}
+                            alt={match.awayTeam.shortName}
+                            className="w-6 h-6 object-contain"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          </Container>
+        </section>
+      )}
+
+      {/* Top Scorers (if tournament has started) */}
+      {topScorers.length > 0 && (
+        <section className="py-10 border-b border-white/10 bg-navy-light/20">
+          <Container>
+            <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white mb-6">
+              Top Scorers
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {topScorers.map((scorer, i) => (
+                <Card key={`${scorer.playerName}-${i}`} hover className="text-center">
+                  <CardBody className="py-4">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      {scorer.teamCrest && (
+                        <img
+                          src={scorer.teamCrest}
+                          alt={scorer.teamTla}
+                          className="w-5 h-5 object-contain"
+                        />
+                      )}
+                      <span className="text-xs text-gray-500">{scorer.teamTla}</span>
+                    </div>
+                    <p className="font-heading text-sm font-bold text-white">
+                      {scorer.playerName}
+                    </p>
+                    <p className="font-heading text-2xl font-bold text-accent mt-1">
+                      {scorer.goals}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {scorer.goals === 1 ? "goal" : "goals"}
+                      {scorer.assists > 0 &&
+                        `, ${scorer.assists} ${scorer.assists === 1 ? "assist" : "assists"}`}
+                    </p>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          </Container>
+        </section>
+      )}
 
       {/* Two-Tier System */}
       <section className="py-12 sm:py-16">

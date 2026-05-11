@@ -10,11 +10,24 @@ import {
   knockoutRoundPoints,
   knockoutRoundMatchCounts,
 } from "@/data/participants";
+import {
+  calculateAllPoints,
+  setActualGroupResults,
+  setActualBonusResults,
+} from "@/data/scoring";
+import { isApiConfigured } from "@/lib/football-api";
+import {
+  getLiveGroupResults,
+  getLiveBonusResults,
+  getLiveTournamentStatus,
+} from "@/lib/live-scoring";
 
 export const metadata: Metadata = {
   title: "Leaderboard",
   description: "Current standings for the World Cup 2026 Fantasy contest with two-tier scoring breakdown.",
 };
+
+export const dynamic = "force-dynamic";
 
 function getMedalEmoji(rank: number): string {
   switch (rank) {
@@ -34,12 +47,42 @@ function getMedalColor(rank: number): string {
   }
 }
 
-export default function LeaderboardPage() {
-  // Sort participants by total points, then Tier 1, then name
-  const sorted = [...participants].sort((a, b) => {
-    const totalDiff = b.points.total - a.points.total;
+export default async function LeaderboardPage() {
+  // Try to inject live results before scoring
+  let hasLiveScoring = false;
+
+  if (isApiConfigured()) {
+    const [groupResults, bonusResults, tournamentStatus] = await Promise.all([
+      getLiveGroupResults(),
+      getLiveBonusResults(),
+      getLiveTournamentStatus(),
+    ]);
+
+    if (groupResults) {
+      setActualGroupResults(groupResults.groups);
+      hasLiveScoring = true;
+    }
+
+    if (bonusResults) {
+      setActualBonusResults(bonusResults);
+      hasLiveScoring = true;
+    }
+
+    // Tournament status for display (not used for scoring directly)
+    void tournamentStatus;
+  }
+
+  // Calculate points with live data injected
+  const withPoints = calculateAllPoints(participants);
+
+  // Sort by total points, then Tier 1, then name
+  const sorted = [...withPoints].sort((a, b) => {
+    const totalDiff = b.calculatedPoints.total - a.calculatedPoints.total;
     if (totalDiff !== 0) return totalDiff;
-    const tier1Diff = (b.points.tier1Groups + b.points.tier1Bonus) - (a.points.tier1Groups + a.points.tier1Bonus);
+    const tier1Diff =
+      b.calculatedPoints.tier1Groups +
+      b.calculatedPoints.tier1Bonus -
+      (a.calculatedPoints.tier1Groups + a.calculatedPoints.tier1Bonus);
     if (tier1Diff !== 0) return tier1Diff;
     return a.name.localeCompare(b.name);
   });
@@ -47,8 +90,10 @@ export default function LeaderboardPage() {
   const ranked = sorted.map((p, i) => ({
     ...p,
     rank: i + 1,
-    tier1Total: p.points.tier1Groups + p.points.tier1Bonus,
-    tier2Total: p.points.tier2Bracket + p.points.tier2Bonus,
+    tier1Total:
+      p.calculatedPoints.tier1Groups + p.calculatedPoints.tier1Bonus,
+    tier2Total:
+      p.calculatedPoints.tier2Bracket + p.calculatedPoints.tier2Bonus,
   }));
 
   const knockoutRounds = [
@@ -69,14 +114,27 @@ export default function LeaderboardPage() {
 
       <section className="py-10 sm:py-14">
         <Container>
-          {/* Pre-tournament notice */}
+          {/* Status notice */}
           <div className="mb-8 rounded-lg border border-accent/20 bg-accent/5 px-5 py-4 text-center">
-            <p className="text-sm text-accent font-medium">
-              🏟️ The tournament has not started yet. All participants are tied at 0 points.
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Tier 1 points update during the group stage. Tier 2 points update during the knockout rounds.
-            </p>
+            {hasLiveScoring ? (
+              <>
+                <p className="text-sm text-accent font-medium">
+                  Scores calculated from live tournament results
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Points update automatically as matches finish.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-accent font-medium">
+                  🏟️ The tournament has not started yet. All participants are tied at 0 points.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Tier 1 points update during the group stage. Tier 2 points update during the knockout rounds.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Main Standings Table */}
@@ -160,7 +218,7 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="px-4 py-4 text-right">
                           <span className="font-heading text-2xl font-bold text-white">
-                            {p.points.total}
+                            {p.calculatedPoints.total}
                           </span>
                         </td>
                       </tr>

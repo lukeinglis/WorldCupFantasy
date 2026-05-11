@@ -7,6 +7,8 @@ import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamsByGroup, groupLabels, type Team, getTeamByCode } from "@/data/teams";
 import { participants, getGroupWinnerDistribution } from "@/data/participants";
 import { schedule, parseLocalDate } from "@/data/schedule";
+import { getStandings, getMatches, isApiConfigured } from "@/lib/football-api";
+import type { TransformedGroupStandings, TransformedMatch } from "@/lib/football-api-types";
 
 export function generateStaticParams() {
   return groupLabels.map((groupId) => ({ groupId }));
@@ -20,6 +22,8 @@ export async function generateMetadata({ params }: { params: Promise<{ groupId: 
   };
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function GroupDetailPage({ params }: { params: Promise<{ groupId: string }> }) {
   const { groupId } = await params;
   const groupKey = groupId.toUpperCase();
@@ -30,8 +34,29 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
     notFound();
   }
 
-  // Get group matches from schedule
-  const groupMatches = schedule.filter(
+  // Fetch live data
+  let liveStandings: TransformedGroupStandings | null = null;
+  let liveMatches: TransformedMatch[] = [];
+
+  if (isApiConfigured()) {
+    const [standings, matches] = await Promise.all([
+      getStandings(),
+      getMatches(),
+    ]);
+
+    if (standings) {
+      liveStandings = standings.find((s) => s.group === groupKey) ?? null;
+    }
+
+    if (matches) {
+      liveMatches = matches.filter(
+        (m) => m.group === groupKey && m.stage === "group"
+      );
+    }
+  }
+
+  // Get group matches from static schedule (fallback)
+  const staticGroupMatches = schedule.filter(
     (m) => m.group === groupKey && m.stage === "group"
   );
 
@@ -67,31 +92,46 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {groupTeams
                   .sort((a: Team, b: Team) => a.fifaRanking - b.fifaRanking)
-                  .map((team: Team) => (
-                    <Card key={team.code} hover>
-                      <CardBody>
-                        <div className="flex items-start gap-3">
-                          <span className="text-4xl">{team.flag}</span>
-                          <div className="flex-1">
-                            <h3 className="font-heading text-lg font-bold text-white">
-                              {team.name}
-                            </h3>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {team.nickname} · {team.confederation}
-                            </p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <span className="inline-flex items-center gap-1 text-xs text-gray-400 bg-navy-lighter/50 rounded-full px-2 py-0.5 border border-white/5">
-                                FIFA #{team.fifaRanking}
-                              </span>
-                              <span className="text-xs text-gray-600 font-mono">
-                                {team.code}
-                              </span>
+                  .map((team: Team) => {
+                    // Find live team data for crest
+                    const liveTeam = liveStandings?.standings.find(
+                      (s) => s.team.tla === team.code
+                    );
+
+                    return (
+                      <Card key={team.code} hover>
+                        <CardBody>
+                          <div className="flex items-start gap-3">
+                            {liveTeam?.team.crest ? (
+                              <img
+                                src={liveTeam.team.crest}
+                                alt={team.name}
+                                className="w-10 h-10 object-contain"
+                              />
+                            ) : (
+                              <span className="text-4xl">{team.flag}</span>
+                            )}
+                            <div className="flex-1">
+                              <h3 className="font-heading text-lg font-bold text-white">
+                                {team.name}
+                              </h3>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {team.nickname} · {team.confederation}
+                              </p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <span className="inline-flex items-center gap-1 text-xs text-gray-400 bg-navy-lighter/50 rounded-full px-2 py-0.5 border border-white/5">
+                                  FIFA #{team.fifaRanking}
+                                </span>
+                                <span className="text-xs text-gray-600 font-mono">
+                                  {team.code}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  ))}
+                        </CardBody>
+                      </Card>
+                    );
+                  })}
               </div>
 
               {/* Participant Predictions for this group */}
@@ -168,12 +208,17 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Group Standings (pre-tournament placeholder) */}
+              {/* Group Standings */}
               <Card>
                 <CardHeader>
-                  <h3 className="font-heading text-base font-bold uppercase tracking-wide text-white">
-                    Standings
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-heading text-base font-bold uppercase tracking-wide text-white">
+                      Standings
+                    </h3>
+                    {liveStandings && (
+                      <span className="text-xs text-accent">Live</span>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardBody className="p-0">
                   <table className="w-full">
@@ -184,32 +229,85 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                         <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-center">W</th>
                         <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-center">D</th>
                         <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-center">L</th>
+                        <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-center">GD</th>
                         <th className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 text-center">Pts</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {groupTeams
-                        .sort((a: Team, b: Team) => a.fifaRanking - b.fifaRanking)
-                        .map((team: Team, i: number) => (
-                          <tr
-                            key={team.code}
-                            className={`border-b border-white/5 last:border-b-0 ${
-                              i < 2 ? "bg-pitch/5" : ""
-                            }`}
-                          >
-                            <td className="px-4 py-2">
-                              <span className="flex items-center gap-1.5 text-sm">
-                                <span>{team.flag}</span>
-                                <span className="text-white font-medium">{team.code}</span>
-                              </span>
-                            </td>
-                            <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
-                            <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
-                            <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
-                            <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
-                            <td className="px-2 py-2 text-center text-sm font-bold text-white">0</td>
-                          </tr>
-                        ))}
+                      {liveStandings
+                        ? liveStandings.standings.map((entry, i) => {
+                            const staticTeam = groupTeams.find(
+                              (t) => t.code === entry.team.tla
+                            );
+                            return (
+                              <tr
+                                key={entry.team.tla}
+                                className={`border-b border-white/5 last:border-b-0 ${
+                                  i < 2 ? "bg-pitch/5" : ""
+                                }`}
+                              >
+                                <td className="px-4 py-2">
+                                  <span className="flex items-center gap-1.5 text-sm">
+                                    {entry.team.crest ? (
+                                      <img
+                                        src={entry.team.crest}
+                                        alt={entry.team.name}
+                                        className="w-4 h-4 object-contain"
+                                      />
+                                    ) : (
+                                      <span>{staticTeam?.flag ?? "🏳️"}</span>
+                                    )}
+                                    <span className="text-white font-medium">
+                                      {entry.team.tla}
+                                    </span>
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">
+                                  {entry.played}
+                                </td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">
+                                  {entry.won}
+                                </td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">
+                                  {entry.draw}
+                                </td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">
+                                  {entry.lost}
+                                </td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">
+                                  {entry.goalDifference > 0
+                                    ? `+${entry.goalDifference}`
+                                    : entry.goalDifference}
+                                </td>
+                                <td className="px-2 py-2 text-center text-sm font-bold text-white">
+                                  {entry.points}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        : groupTeams
+                            .sort((a: Team, b: Team) => a.fifaRanking - b.fifaRanking)
+                            .map((team: Team, i: number) => (
+                              <tr
+                                key={team.code}
+                                className={`border-b border-white/5 last:border-b-0 ${
+                                  i < 2 ? "bg-pitch/5" : ""
+                                }`}
+                              >
+                                <td className="px-4 py-2">
+                                  <span className="flex items-center gap-1.5 text-sm">
+                                    <span>{team.flag}</span>
+                                    <span className="text-white font-medium">{team.code}</span>
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
+                                <td className="px-2 py-2 text-center text-sm text-gray-500">0</td>
+                                <td className="px-2 py-2 text-center text-sm font-bold text-white">0</td>
+                              </tr>
+                            ))}
                     </tbody>
                   </table>
                   <div className="px-4 py-2 border-t border-white/5">
@@ -257,40 +355,136 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                 </CardBody>
               </Card>
 
-              {/* Group Matches */}
-              {groupMatches.length > 0 && (
-                <Card>
-                  <CardHeader>
+              {/* Group Matches (live or static) */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
                     <h3 className="font-heading text-base font-bold uppercase tracking-wide text-white">
                       Matches
                     </h3>
-                  </CardHeader>
-                  <CardBody>
-                    <div className="space-y-3">
-                      {groupMatches.map((match) => {
-                        const home = groupTeams.find((t: Team) => t.code === match.homeTeam);
-                        const away = groupTeams.find((t: Team) => t.code === match.awayTeam);
-                        return (
-                          <div key={match.id} className="rounded-lg bg-navy-lighter/30 border border-white/5 px-3 py-2">
-                            <p className="text-xs text-gray-600 mb-1.5">
-                              {parseLocalDate(match.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {match.time} · {match.city}
-                            </p>
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="flex items-center gap-1.5 text-sm text-white">
-                                {home?.flag} {home?.code ?? match.homeTeam}
-                              </span>
-                              <span className="text-xs font-bold text-gray-600">vs</span>
-                              <span className="flex items-center gap-1.5 text-sm text-white">
-                                {away?.code ?? match.awayTeam} {away?.flag}
-                              </span>
+                    {liveMatches.length > 0 && (
+                      <span className="text-xs text-accent">Live scores</span>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <div className="space-y-3">
+                    {liveMatches.length > 0
+                      ? liveMatches.map((match) => {
+                          const isLive = match.isLive;
+                          const isFinished = match.status === "FINISHED";
+                          const hasScore =
+                            match.score.fullTime.home !== null &&
+                            match.score.fullTime.away !== null;
+
+                          return (
+                            <div
+                              key={match.id}
+                              className={`rounded-lg border px-3 py-2 ${
+                                isLive
+                                  ? "bg-red-500/5 border-red-500/20"
+                                  : "bg-navy-lighter/30 border-white/5"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <p className="text-xs text-gray-600 flex-1">
+                                  {new Date(match.utcDate).toLocaleDateString(
+                                    "en-US",
+                                    { month: "short", day: "numeric" }
+                                  )}{" "}
+                                  ·{" "}
+                                  {new Date(match.utcDate).toLocaleTimeString(
+                                    "en-US",
+                                    { hour: "numeric", minute: "2-digit" }
+                                  )}
+                                </p>
+                                {isLive && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-bold text-red-400 animate-pulse">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                                    LIVE
+                                  </span>
+                                )}
+                                {isFinished && (
+                                  <span className="text-xs text-gray-500 font-semibold">
+                                    FT
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="flex items-center gap-1.5 text-sm text-white">
+                                  {match.homeTeam.crest ? (
+                                    <img
+                                      src={match.homeTeam.crest}
+                                      alt={match.homeTeam.shortName}
+                                      className="w-4 h-4 object-contain"
+                                    />
+                                  ) : null}
+                                  {match.homeTeam.tla}
+                                </span>
+                                {hasScore ? (
+                                  <span
+                                    className={`font-heading font-bold ${
+                                      isLive ? "text-red-400" : "text-white"
+                                    }`}
+                                  >
+                                    {match.score.fullTime.home} :{" "}
+                                    {match.score.fullTime.away}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-bold text-gray-600">
+                                    vs
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-1.5 text-sm text-white">
+                                  {match.awayTeam.tla}
+                                  {match.awayTeam.crest ? (
+                                    <img
+                                      src={match.awayTeam.crest}
+                                      alt={match.awayTeam.shortName}
+                                      className="w-4 h-4 object-contain"
+                                    />
+                                  ) : null}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardBody>
-                </Card>
-              )}
+                          );
+                        })
+                      : staticGroupMatches.map((match) => {
+                          const home = groupTeams.find(
+                            (t: Team) => t.code === match.homeTeam
+                          );
+                          const away = groupTeams.find(
+                            (t: Team) => t.code === match.awayTeam
+                          );
+                          return (
+                            <div
+                              key={match.id}
+                              className="rounded-lg bg-navy-lighter/30 border border-white/5 px-3 py-2"
+                            >
+                              <p className="text-xs text-gray-600 mb-1.5">
+                                {parseLocalDate(match.date).toLocaleDateString(
+                                  "en-US",
+                                  { month: "short", day: "numeric" }
+                                )}{" "}
+                                · {match.time} · {match.city}
+                              </p>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="flex items-center gap-1.5 text-sm text-white">
+                                  {home?.flag} {home?.code ?? match.homeTeam}
+                                </span>
+                                <span className="text-xs font-bold text-gray-600">
+                                  vs
+                                </span>
+                                <span className="flex items-center gap-1.5 text-sm text-white">
+                                  {away?.code ?? match.awayTeam} {away?.flag}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                  </div>
+                </CardBody>
+              </Card>
             </div>
           </div>
         </Container>
