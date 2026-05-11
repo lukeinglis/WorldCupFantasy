@@ -3,6 +3,7 @@ import { Oswald, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
+import AuthProvider from "@/components/AuthProvider";
 
 const oswald = Oswald({
   subsets: ["latin"],
@@ -44,9 +45,11 @@ export default function RootLayout({
       <body
         className={`${oswald.variable} ${sourceSans.variable} min-h-screen flex flex-col antialiased`}
       >
-        <SiteNav />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <AuthProvider>
+          <SiteNav />
+          <main className="flex-1">{children}</main>
+          <SiteFooter />
+        </AuthProvider>
       </body>
     </html>
   );

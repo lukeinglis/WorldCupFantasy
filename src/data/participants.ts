@@ -87,7 +87,7 @@ export const tier2Categories = [
     icon: "🏆",
     description: "Predict the winner of every knockout match.",
     scoring: "R32: 2 pts, R16: 4 pts, QF: 6 pts, SF: 8 pts, Final: 10 pts.",
-    maxPoints: 118,
+    maxPoints: 114,
   },
   {
     id: "golden_ball",
@@ -100,8 +100,8 @@ export const tier2Categories = [
 ];
 
 export const TIER1_MAX = 174;  // 144 group + 30 bonus
-export const TIER2_MAX = 128;  // 118 bracket + 10 Golden Ball
-export const OVERALL_MAX = 302;
+export const TIER2_MAX = 124;  // 114 bracket + 10 Golden Ball
+export const OVERALL_MAX = 298;
 
 export const knockoutRoundPoints: Record<string, number> = {
   round_of_32: 2,

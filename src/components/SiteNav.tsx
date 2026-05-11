@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "./AuthProvider";
 
 interface NavItem {
   href: string;
@@ -27,6 +28,7 @@ function isActive(currentPath: string, href: string): boolean {
 export default function SiteNav() {
   const pathname = usePathname() ?? "/";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     setMobileOpen(false);
@@ -64,6 +66,48 @@ export default function SiteNav() {
               </Link>
             );
           })}
+
+          {/* Auth actions */}
+          {user ? (
+            <>
+              <Link
+                href="/my-picks"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(pathname, "/my-picks")
+                    ? "bg-pitch text-white"
+                    : "text-accent hover:bg-accent/10"
+                }`}
+              >
+                My Picks
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(pathname, "/login")
+                    ? "bg-pitch text-white"
+                    : "text-gray-300 hover:bg-white/5 hover:text-accent"
+                }`}
+              >
+                Log In
+              </Link>
+              <Link
+                href="/join"
+                className="ml-1 px-4 py-2 rounded-md text-sm font-bold bg-accent text-navy hover:bg-green-300 transition-colors"
+              >
+                Join
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* Mobile toggle */}
@@ -129,6 +173,46 @@ export default function SiteNav() {
                 </li>
               );
             })}
+
+            {/* Mobile auth items */}
+            <li className="border-t border-white/10 mt-2 pt-2">
+              {user ? (
+                <>
+                  <Link
+                    href="/my-picks"
+                    className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive(pathname, "/my-picks")
+                        ? "bg-pitch text-white"
+                        : "text-accent hover:bg-accent/10"
+                    }`}
+                  >
+                    My Picks
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    Logout ({user.name})
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-accent transition-colors"
+                  >
+                    Log In
+                  </Link>
+                  <Link
+                    href="/join"
+                    className="block px-3 py-2 mt-1 rounded-md text-sm font-bold bg-accent text-navy text-center hover:bg-green-300 transition-colors"
+                  >
+                    Join the Contest
+                  </Link>
+                </>
+              )}
+            </li>
           </ul>
         </nav>
       )}

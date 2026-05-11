@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
-import { schedule, venues, stageLabels } from "@/data/schedule";
+import { schedule, venues, stageLabels, parseLocalDate } from "@/data/schedule";
 import { getTeamByCode } from "@/data/teams";
 
 export const metadata: Metadata = {
@@ -57,7 +57,7 @@ export default function SchedulePage() {
                             {/* Date & Time */}
                             <div className="flex-shrink-0 sm:w-32">
                               <p className="text-sm font-medium text-gray-300">
-                                {new Date(match.date).toLocaleDateString("en-US", {
+                                {parseLocalDate(match.date).toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "numeric",
                                   year: "numeric",

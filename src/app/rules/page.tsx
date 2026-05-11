@@ -214,7 +214,7 @@ export default function RulesPage() {
                 <div className="space-y-6">
                   {/* Bracket Scoring */}
                   <div>
-                    <h3 className="text-sm font-semibold text-white mb-3">🏆 Knockout Bracket (118 pts max)</h3>
+                    <h3 className="text-sm font-semibold text-white mb-3">🏆 Knockout Bracket (114 pts max)</h3>
                     <p className="text-sm text-gray-400 mb-3">
                       Once the knockout bracket is finalized, predict the winner of every match from the Round of 32 through the Final.
                     </p>
@@ -241,7 +241,7 @@ export default function RulesPage() {
                           ))}
                           <tr className="border-t border-white/10 bg-navy-lighter/30">
                             <td colSpan={3} className="px-4 py-2.5 text-sm font-semibold text-white">Total</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-gold">118 pts</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-gold">114 pts</td>
                           </tr>
                         </tbody>
                       </table>
@@ -298,7 +298,7 @@ export default function RulesPage() {
                       </tr>
                       <tr className="border-t border-white/5">
                         <td className="px-4 py-2.5 text-gray-300">Tier 2: Knockout Bracket (31 matches)</td>
-                        <td className="px-4 py-2.5 text-right text-gold font-bold">118 pts</td>
+                        <td className="px-4 py-2.5 text-right text-gold font-bold">114 pts</td>
                       </tr>
                       <tr className="border-t border-white/5">
                         <td className="px-4 py-2.5 text-gray-300">Tier 2: Bonus Pick (Golden Ball)</td>
@@ -391,6 +391,34 @@ export default function RulesPage() {
               </CardBody>
             </Card>
 
+            {/* Buy-In */}
+            <Card className="border-gold/20">
+              <CardHeader className="bg-gold/5">
+                <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
+                  Entry Fee
+                </h2>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-4 text-sm text-gray-300">
+                  <p>
+                    A <strong className="text-gold">$10 buy-in</strong> is required to participate.
+                    The pot goes to the winner.
+                  </p>
+                  <div className="space-y-2">
+                    <p className="font-medium text-white">Payment options:</p>
+                    <ul className="space-y-1 ml-4">
+                      <li>📱 <strong className="text-white">Venmo:</strong> @Luke-Inglis</li>
+                      <li>💳 <strong className="text-white">PayPal:</strong> Send to Luke</li>
+                      <li>💵 <strong className="text-white">Cash or other:</strong> Arrange directly with Luke</li>
+                    </ul>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Payment must be received before the tournament starts on June 11, 2026. You will confirm payment when submitting your picks.
+                  </p>
+                </div>
+              </CardBody>
+            </Card>
+
             {/* House Rules */}
             <Card>
               <CardHeader>
@@ -400,6 +428,10 @@ export default function RulesPage() {
               </CardHeader>
               <CardBody>
                 <ul className="space-y-2 text-sm text-gray-300">
+                  <li className="flex items-start gap-2">
+                    <span className="text-accent mt-0.5">•</span>
+                    <span>$10 buy-in required. Pot goes to the winner.</span>
+                  </li>
                   <li className="flex items-start gap-2">
                     <span className="text-accent mt-0.5">•</span>
                     <span>No changing picks after each tier&apos;s deadline. Period.</span>

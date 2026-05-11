@@ -214,12 +214,12 @@ export default function LeaderboardPage() {
               <div className="px-5 py-4 space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-300">🏆 Knockout Bracket</span>
-                  <span className="font-bold text-gold">118 pts</span>
+                  <span className="font-bold text-gold">114 pts</span>
                 </div>
                 <div className="ml-4 space-y-1">
                   {knockoutRounds.map((r) => (
                     <div key={r.key} className="flex items-center justify-between text-xs text-gray-500">
-                      <span>{r.label}: {r.matches} matches x {r.pts} pts</span>
+                      <span>{r.label}: {r.matches} {r.matches === 1 ? "match" : "matches"} x {r.pts} pts</span>
                       <span>{r.matches * r.pts} pts</span>
                     </div>
                   ))}

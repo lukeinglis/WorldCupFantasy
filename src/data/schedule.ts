@@ -32,7 +32,7 @@ export const schedule: Match[] = [
   { id: "r16-1", date: "2026-07-04", time: "16:00", group: "", homeTeam: "TBD", awayTeam: "TBD", venue: "AT&T Stadium", city: "Dallas", stage: "round_of_16" },
   { id: "qf-1", date: "2026-07-09", time: "16:00", group: "", homeTeam: "TBD", awayTeam: "TBD", venue: "SoFi Stadium", city: "Los Angeles", stage: "quarter" },
   { id: "sf-1", date: "2026-07-14", time: "20:00", group: "", homeTeam: "TBD", awayTeam: "TBD", venue: "AT&T Stadium", city: "Dallas", stage: "semi" },
-  { id: "sf-2", date: "2026-07-15", time: "20:00", group: "", homeTeam: "TBD", awayTeam: "TBD", venue: "MetLife Stadium", city: "New York", stage: "semi" },
+  { id: "sf-2", date: "2026-07-15", time: "20:00", group: "", homeTeam: "TBD", awayTeam: "TBD", venue: "Mercedes-Benz Stadium", city: "Atlanta", stage: "semi" },
   { id: "tp", date: "2026-07-18", time: "16:00", group: "", homeTeam: "TBD", awayTeam: "TBD", venue: "Hard Rock Stadium", city: "Miami", stage: "third_place" },
   { id: "final", date: "2026-07-19", time: "16:00", group: "", homeTeam: "TBD", awayTeam: "TBD", venue: "MetLife Stadium", city: "New York/New Jersey", stage: "final" },
 ];
@@ -50,11 +50,21 @@ export const venues = [
   { name: "Levi's Stadium", city: "Santa Clara, CA", country: "USA", capacity: 68500 },
   { name: "Arrowhead Stadium", city: "Kansas City, MO", country: "USA", capacity: 76416 },
   { name: "Estadio Azteca", city: "Mexico City", country: "Mexico", capacity: 87523 },
-  { name: "Estadio BBVA", city: "Monterrey", country: "Mexico", capacity: 53500 },
+  { name: "Estadio BBVA", city: "Monterrey (Guadalupe)", country: "Mexico", capacity: 53500 },
   { name: "Estadio Akron", city: "Guadalajara", country: "Mexico", capacity: 49850 },
   { name: "BMO Field", city: "Toronto", country: "Canada", capacity: 45736 },
   { name: "BC Place", city: "Vancouver", country: "Canada", capacity: 54500 },
 ];
+
+/**
+ * Parse a date-only string (YYYY-MM-DD) without UTC shift.
+ * Using `new Date("2026-06-11")` parses as UTC midnight, which shows
+ * as the previous day in US timezones. Appending T00:00:00 forces
+ * local-time interpretation.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  return new Date(dateStr + "T00:00:00");
+}
 
 export const stageLabels: Record<string, string> = {
   group: "Group Stage",

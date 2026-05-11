@@ -6,7 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamsByGroup, groupLabels, type Team, getTeamByCode } from "@/data/teams";
 import { participants, getGroupWinnerDistribution } from "@/data/participants";
-import { schedule } from "@/data/schedule";
+import { schedule, parseLocalDate } from "@/data/schedule";
 
 export function generateStaticParams() {
   return groupLabels.map((groupId) => ({ groupId }));
@@ -235,7 +235,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                       {winnerEntries.map(([code, count]) => {
                         const team = getTeamByCode(code);
                         if (!team) return null;
-                        const pct = Math.round((count / participants.length) * 100);
+                        const pct = participants.length > 0 ? Math.round((count / participants.length) * 100) : 0;
                         return (
                           <div key={code} className="flex items-center gap-3">
                             <span className="text-lg">{team.flag}</span>
@@ -273,7 +273,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                         return (
                           <div key={match.id} className="rounded-lg bg-navy-lighter/30 border border-white/5 px-3 py-2">
                             <p className="text-xs text-gray-600 mb-1.5">
-                              {new Date(match.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {match.time} · {match.city}
+                              {parseLocalDate(match.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {match.time} · {match.city}
                             </p>
                             <div className="flex items-center justify-between gap-2">
                               <span className="flex items-center gap-1.5 text-sm text-white">
