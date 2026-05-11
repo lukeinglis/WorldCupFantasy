@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getPicks, savePicks, getUser, type PicksRecord } from "@/lib/storage";
-import { hashPasscode } from "@/lib/auth";
+import { getPicks, savePicks, getUserById, type PicksRecord } from "@/lib/storage";
 
-// GET /api/picks?userId=xxx  or  GET /api/picks?all=true
+// GET /api/picks?userId=xxx
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -28,33 +27,24 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userName, passcode, picks } = body as {
-      userName?: string;
-      passcode?: string;
+    const { userId, picks } = body as {
+      userId?: string;
       picks?: Omit<PicksRecord, "participantId" | "submittedAt">;
     };
 
-    if (!userName || !passcode || !picks) {
+    if (!userId || !picks) {
       return NextResponse.json(
-        { error: "userName, passcode, and picks are required." },
+        { error: "userId and picks are required." },
         { status: 400 }
       );
     }
 
-    // Verify auth
-    const user = await getUser(userName);
+    // Verify user exists
+    const user = await getUserById(userId);
     if (!user) {
       return NextResponse.json(
-        { error: "User not found." },
+        { error: "User not found. Please join the league first." },
         { status: 404 }
-      );
-    }
-
-    const hash = await hashPasscode(passcode);
-    if (hash !== user.passcodeHash) {
-      return NextResponse.json(
-        { error: "Incorrect passcode." },
-        { status: 401 }
       );
     }
 
@@ -80,6 +70,14 @@ export async function POST(request: Request) {
     };
 
     await savePicks(record);
+
+    // Update payment confirmation on user record
+    if (!user.paymentConfirmed) {
+      user.paymentConfirmed = true;
+      // Import updateUser dynamically to avoid circular issues
+      const { updateUser } = await import("@/lib/storage");
+      await updateUser(user);
+    }
 
     return NextResponse.json({ success: true, submittedAt: record.submittedAt });
   } catch (err) {

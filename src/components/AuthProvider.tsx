@@ -12,20 +12,15 @@ interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  login: (name: string, passcode: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, passcode: string) => Promise<{ success: boolean; error?: string }>;
+  join: (name: string, email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  /** Passcode stored in memory (not persisted) for pick submission */
-  passcode: string | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  login: async () => ({ success: false }),
-  register: async () => ({ success: false }),
+  join: async () => ({ success: false }),
   logout: () => {},
-  passcode: null,
 });
 
 export function useAuth() {
@@ -35,7 +30,6 @@ export function useAuth() {
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [passcode, setPasscode] = useState<string | null>(null);
 
   // Load user from localStorage on mount
   useEffect(() => {
@@ -50,45 +44,21 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = useCallback(async (name: string, pc: string) => {
+  const join = useCallback(async (name: string, email: string) => {
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, passcode: pc }),
+        body: JSON.stringify({ name, email }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        return { success: false, error: data.error || "Login failed" };
+        return { success: false, error: data.error || "Something went wrong" };
       }
 
       setUser(data.user);
-      setPasscode(pc);
-      localStorage.setItem("wcf_user", JSON.stringify(data.user));
-      return { success: true };
-    } catch {
-      return { success: false, error: "Network error. Please try again." };
-    }
-  }, []);
-
-  const register = useCallback(async (name: string, email: string, pc: string) => {
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, passcode: pc }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        return { success: false, error: data.error || "Registration failed" };
-      }
-
-      setUser(data.user);
-      setPasscode(pc);
       localStorage.setItem("wcf_user", JSON.stringify(data.user));
       return { success: true };
     } catch {
@@ -98,12 +68,11 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     setUser(null);
-    setPasscode(null);
     localStorage.removeItem("wcf_user");
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, passcode }}>
+    <AuthContext.Provider value={{ user, loading, join, logout }}>
       {children}
     </AuthContext.Provider>
   );

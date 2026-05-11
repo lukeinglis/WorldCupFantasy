@@ -1,15 +1,7 @@
 /**
- * Auth helpers for simple name + passcode authentication.
- * Uses SHA-256 for passcode hashing (sufficient for a casual friends league).
+ * Auth helpers for simple name + email authentication.
+ * No passwords needed for a casual friends league.
  */
-
-export async function hashPasscode(passcode: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(passcode);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 export function generateId(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";

@@ -2,19 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
-import { Card, CardBody, CardHeader } from "@/components/Card";
+import { Card, CardBody } from "@/components/Card";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function JoinPage() {
   const router = useRouter();
-  const { register, user } = useAuth();
+  const { join, user } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [passcode, setPasscode] = useState("");
-  const [confirmPasscode, setConfirmPasscode] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,20 +24,14 @@ export default function JoinPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-
-    if (passcode !== confirmPasscode) {
-      setError("Passcodes do not match.");
-      return;
-    }
-
     setSubmitting(true);
 
-    const result = await register(name, email, passcode);
+    const result = await join(name, email);
 
     if (result.success) {
       router.push("/my-picks");
     } else {
-      setError(result.error ?? "Registration failed");
+      setError(result.error ?? "Something went wrong");
       setSubmitting(false);
     }
   }
@@ -48,25 +39,28 @@ export default function JoinPage() {
   return (
     <>
       <PageHeader
-        title="Join the Contest"
-        subtitle="Sign up to make your World Cup 2026 predictions."
-        icon="🎟️"
+        title="Join the League"
+        subtitle="Make your World Cup 2026 predictions and compete with friends."
+        icon="⚽"
       />
 
       <section className="py-10 sm:py-14">
         <Container>
           <div className="max-w-md mx-auto">
-            <Card>
-              <CardHeader>
-                <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
-                  Create Your Account
-                </h2>
-              </CardHeader>
+            <Card className="border-accent/20">
               <CardBody>
+                <div className="text-center mb-6">
+                  <p className="text-sm text-gray-400">
+                    New? Enter your name and email to get started.
+                    <br />
+                    Returning? Use the same name and email to get back in.
+                  </p>
+                </div>
+
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1.5">
-                      Display Name
+                      Your Name
                     </label>
                     <input
                       id="name"
@@ -74,10 +68,11 @@ export default function JoinPage() {
                       required
                       minLength={2}
                       maxLength={30}
+                      autoComplete="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Your name"
-                      className="w-full rounded-lg border border-white/10 bg-navy-lighter/80 px-4 py-2.5 text-white placeholder-gray-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent text-sm"
+                      placeholder="What should we call you?"
+                      className="w-full rounded-lg border border-white/10 bg-navy-lighter/80 px-4 py-3 text-white placeholder-gray-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent text-base"
                     />
                   </div>
 
@@ -89,46 +84,15 @@ export default function JoinPage() {
                       id="email"
                       type="email"
                       required
+                      autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
-                      className="w-full rounded-lg border border-white/10 bg-navy-lighter/80 px-4 py-2.5 text-white placeholder-gray-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent text-sm"
+                      className="w-full rounded-lg border border-white/10 bg-navy-lighter/80 px-4 py-3 text-white placeholder-gray-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent text-base"
                     />
                     <p className="mt-1 text-xs text-gray-600">
-                      Used for communication only, not shared publicly.
+                      Only used to identify you. Never shared.
                     </p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="passcode" className="block text-sm font-medium text-gray-300 mb-1.5">
-                      Passcode
-                    </label>
-                    <input
-                      id="passcode"
-                      type="password"
-                      required
-                      minLength={4}
-                      value={passcode}
-                      onChange={(e) => setPasscode(e.target.value)}
-                      placeholder="Choose a passcode (4+ characters)"
-                      className="w-full rounded-lg border border-white/10 bg-navy-lighter/80 px-4 py-2.5 text-white placeholder-gray-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="confirmPasscode" className="block text-sm font-medium text-gray-300 mb-1.5">
-                      Confirm Passcode
-                    </label>
-                    <input
-                      id="confirmPasscode"
-                      type="password"
-                      required
-                      minLength={4}
-                      value={confirmPasscode}
-                      onChange={(e) => setConfirmPasscode(e.target.value)}
-                      placeholder="Confirm your passcode"
-                      className="w-full rounded-lg border border-white/10 bg-navy-lighter/80 px-4 py-2.5 text-white placeholder-gray-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent text-sm"
-                    />
                   </div>
 
                   {error && (
@@ -137,32 +101,22 @@ export default function JoinPage() {
                     </div>
                   )}
 
-                  <div className="rounded-lg bg-gold/5 border border-gold/20 px-4 py-3">
-                    <p className="text-sm text-gray-300">
-                      <span className="font-semibold text-gold">$10 buy-in required.</span>{" "}
-                      You will confirm payment when submitting your picks. Pay via Venmo, PayPal, or arrange with Luke.
-                    </p>
-                  </div>
-
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full font-heading rounded-lg bg-pitch px-6 py-3 text-base font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full font-heading rounded-lg bg-accent px-6 py-3.5 text-lg font-bold uppercase tracking-wide text-navy shadow-lg shadow-accent/20 transition-all hover:bg-green-300 hover:shadow-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {submitting ? "Creating Account..." : "Join the Contest"}
+                    {submitting ? "Joining..." : "Let's Go! ⚽"}
                   </button>
                 </form>
-
-                <div className="mt-6 pt-4 border-t border-white/10 text-center">
-                  <p className="text-sm text-gray-500">
-                    Already have an account?{" "}
-                    <Link href="/login" className="text-accent hover:text-green-300 transition-colors">
-                      Log in
-                    </Link>
-                  </p>
-                </div>
               </CardBody>
             </Card>
+
+            <div className="mt-6 text-center">
+              <p className="text-xs text-gray-600">
+                $10 buy-in to play. You will confirm payment when you submit your picks.
+              </p>
+            </div>
           </div>
         </Container>
       </section>

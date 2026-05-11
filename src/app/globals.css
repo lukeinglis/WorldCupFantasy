@@ -84,6 +84,18 @@
 .animate-delay-200 { animation-delay: 0.2s; animation-fill-mode: backwards; }
 .animate-delay-300 { animation-delay: 0.3s; animation-fill-mode: backwards; }
 
+/* Confetti fall animation */
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) rotate(720deg);
+  }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

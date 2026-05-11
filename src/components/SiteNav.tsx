@@ -80,6 +80,7 @@ export default function SiteNav() {
               >
                 My Picks
               </Link>
+              <span className="text-xs text-gray-500 px-1">{user.name}</span>
               <button
                 type="button"
                 onClick={logout}
@@ -89,24 +90,12 @@ export default function SiteNav() {
               </button>
             </>
           ) : (
-            <>
-              <Link
-                href="/login"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive(pathname, "/login")
-                    ? "bg-pitch text-white"
-                    : "text-gray-300 hover:bg-white/5 hover:text-accent"
-                }`}
-              >
-                Log In
-              </Link>
-              <Link
-                href="/join"
-                className="ml-1 px-4 py-2 rounded-md text-sm font-bold bg-accent text-navy hover:bg-green-300 transition-colors"
-              >
-                Join
-              </Link>
-            </>
+            <Link
+              href="/join"
+              className="ml-1 px-4 py-2 rounded-md text-sm font-bold bg-accent text-navy hover:bg-green-300 transition-colors"
+            >
+              Join
+            </Link>
           )}
         </nav>
 
@@ -197,20 +186,12 @@ export default function SiteNav() {
                   </button>
                 </>
               ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-accent transition-colors"
-                  >
-                    Log In
-                  </Link>
-                  <Link
-                    href="/join"
-                    className="block px-3 py-2 mt-1 rounded-md text-sm font-bold bg-accent text-navy text-center hover:bg-green-300 transition-colors"
-                  >
-                    Join the Contest
-                  </Link>
-                </>
+                <Link
+                  href="/join"
+                  className="block px-3 py-2 mt-1 rounded-md text-sm font-bold bg-accent text-navy text-center hover:bg-green-300 transition-colors"
+                >
+                  Join the League
+                </Link>
               )}
             </li>
           </ul>

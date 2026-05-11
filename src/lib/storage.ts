@@ -20,7 +20,7 @@ export interface UserRecord {
   name: string;         // display name
   nameLower: string;    // lowercase for lookup
   email: string;
-  passcodeHash: string; // SHA-256 hex digest
+  emailLower: string;   // lowercase for matching
   paymentConfirmed: boolean;
   createdAt: string;    // ISO timestamp
 }

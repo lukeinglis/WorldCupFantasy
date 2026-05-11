@@ -7,7 +7,7 @@
 - Deployed on Vercel at soccer.lukeinglis.me
 - Two-tier scoring system: Tier 1 (group predictions) + Tier 2 (knockout bracket)
 - Participant data stored in Vercel KV (Redis); requires KV_REST_API_URL and KV_REST_API_TOKEN env vars
-- Simple name + passcode authentication (SHA-256 hashed, stored in KV)
+- Simple name + email authentication (no passwords, friends league)
 - $10 buy-in with honor-system payment confirmation
 
 ## Commands
@@ -32,18 +32,17 @@
 - `src/data/scoring.ts` - Scoring logic for both tiers (group positions, bonuses, bracket)
 - `src/data/schedule.ts` - Match schedule, venues, and `parseLocalDate()` helper
 - `src/lib/storage.ts` - Vercel KV storage layer (user records, picks, participant lists)
-- `src/lib/auth.ts` - SHA-256 passcode hashing and ID generation
+- `src/lib/auth.ts` - User ID generation
 - `src/lib/tournament-dates.ts` - Tournament date constants and pick visibility helpers
 - `src/components/AuthProvider.tsx` - React context for auth state (localStorage + API)
 - `src/components/` - Shared UI components (Card, Container, Nav, PicksTabs, CountdownTimer, etc.)
-- `src/app/api/` - API routes for auth (register, login) and picks (save, fetch, participants list)
-- `src/app/join/` - Registration page
-- `src/app/login/` - Login page
-- `src/app/my-picks/` - Multi-step pick submission form (groups, bonus, payment, review)
+- `src/app/api/` - API routes for auth (join) and picks (save, fetch, participants list)
+- `src/app/join/` - Join/return page (name + email, handles both new and returning users)
+- `src/app/my-picks/` - Single-page pick form with tap-to-rank groups, bonus picks, and submit
 - `src/app/` - All display pages (home, leaderboard, picks, rules, groups, schedule, how-to-play)
 
 ## Data Model
-- `UserRecord` in KV: id, name, email, passcodeHash, paymentConfirmed, createdAt
+- `UserRecord` in KV: id, name, email, emailLower, paymentConfirmed, createdAt
 - `PicksRecord` in KV: participantId, groupPredictions, bonus picks, tiebreaker, knockout picks
 - Scoring: Group exact position = 3 pts, right bucket = 1 pt. Bonuses = 10 pts each. Knockout: R32=2, R16=4, QF=6, SF=8, F=10 pts.
 - Max points: Tier 1 = 174 (144 groups + 30 bonus), Tier 2 = 124 (114 bracket + 10 Golden Ball), Overall = 298
