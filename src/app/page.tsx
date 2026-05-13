@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Container from "@/components/Container";
 import CountdownTimer from "@/components/CountdownTimer";
+import MiniGames from "@/components/games/MiniGames";
 import { Card, CardBody } from "@/components/Card";
 import {
   participants,
@@ -467,6 +468,9 @@ export default async function Home() {
           )}
         </Container>
       </section>
+
+      {/* Mini Games */}
+      <MiniGames />
 
       {/* Buy-In */}
       <section className="py-12 sm:py-16 border-t border-white/10">
