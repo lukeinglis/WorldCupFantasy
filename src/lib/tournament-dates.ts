@@ -8,11 +8,11 @@
  * The data is in the frontend regardless, so this is about presentation, not security.
  */
 
-// Tournament start: opening match kickoff
-export const TOURNAMENT_START = new Date("2026-06-11T17:00:00-05:00");
+// Tournament start: opening match kickoff (MEX vs RSA, 19:00 UTC / 3:00 PM ET)
+export const TOURNAMENT_START = new Date("2026-06-11T19:00:00Z");
 
-// Knockout stage start: first R32 match
-export const KNOCKOUT_START = new Date("2026-06-28T16:00:00-05:00");
+// Knockout stage start: first R32 match (19:00 UTC / 3:00 PM ET)
+export const KNOCKOUT_START = new Date("2026-06-28T19:00:00Z");
 
 export function areTier1PicksRevealed(): boolean {
   return new Date() >= TOURNAMENT_START;
