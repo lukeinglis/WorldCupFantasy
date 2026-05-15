@@ -9,22 +9,45 @@ interface AnimationState {
   ballX: number;
   ballY: number;
   ballSize: number;
+  ballRotation: number;
   keeperX: number;
   keeperDiveDirection: number; // -1 left, 0 center, 1 right
   keeperDiveProgress: number;
   opacity: number;
 }
 
-const ZONE_LABELS = ["Top Left", "Top Center", "Top Right", "Bottom Left", "Bottom Center", "Bottom Right"];
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  color: string;
+  size: number;
+}
 
-// Zone positions relative to goal (x%, y%)
+const CANVAS_W = 600;
+const CANVAS_H = 450;
+
+// Goal proportions (front view, about 40% of canvas height)
+const GOAL_LEFT = CANVAS_W * 0.18;
+const GOAL_RIGHT = CANVAS_W * 0.82;
+const GOAL_TOP = CANVAS_H * 0.08;
+const GOAL_BOTTOM = CANVAS_H * 0.42;
+const GOAL_W = GOAL_RIGHT - GOAL_LEFT;
+const GOAL_H = GOAL_BOTTOM - GOAL_TOP;
+
+const POST_WIDTH = 6;
+const CROSSBAR_HEIGHT = 6;
+
+// Zone positions relative to goal area (x%, y%)
 const ZONE_POSITIONS: { x: number; y: number }[] = [
   { x: 0.2, y: 0.3 },  // top-left
   { x: 0.5, y: 0.25 }, // top-center
   { x: 0.8, y: 0.3 },  // top-right
-  { x: 0.2, y: 0.7 },  // bottom-left
+  { x: 0.2, y: 0.72 }, // bottom-left
   { x: 0.5, y: 0.75 }, // bottom-center
-  { x: 0.8, y: 0.7 },  // bottom-right
+  { x: 0.8, y: 0.72 }, // bottom-right
 ];
 
 function getKeeperSaveZones(streak: number): number[] {
@@ -59,9 +82,485 @@ function setHighScore(score: number) {
   localStorage.setItem(LS_KEY, String(safe));
 }
 
+// Easing: ease out cubic
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+// Easing: ease in out quad
+function easeInOutQuad(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+// --- Drawing helpers ---
+
+function drawPitch(ctx: CanvasRenderingContext2D) {
+  // Green gradient background
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  bgGrad.addColorStop(0, "#0f2e0f");
+  bgGrad.addColorStop(0.25, "#1B5E20");
+  bgGrad.addColorStop(0.6, "#1a6b1f");
+  bgGrad.addColorStop(1, "#145216");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Subtle grass stripe pattern
+  ctx.fillStyle = "rgba(255,255,255,0.015)";
+  for (let i = 0; i < CANVAS_H; i += 20) {
+    if (i % 40 === 0) {
+      ctx.fillRect(0, i, CANVAS_W, 20);
+    }
+  }
+
+  // Goal area box (6 yard box)
+  const sixYardLeft = CANVAS_W * 0.3;
+  const sixYardRight = CANVAS_W * 0.7;
+  const sixYardBottom = GOAL_BOTTOM + 40;
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(sixYardLeft, GOAL_BOTTOM);
+  ctx.lineTo(sixYardLeft, sixYardBottom);
+  ctx.lineTo(sixYardRight, sixYardBottom);
+  ctx.lineTo(sixYardRight, GOAL_BOTTOM);
+  ctx.stroke();
+
+  // Penalty box (18 yard box)
+  const penBoxLeft = CANVAS_W * 0.12;
+  const penBoxRight = CANVAS_W * 0.88;
+  const penBoxBottom = CANVAS_H * 0.7;
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(penBoxLeft, GOAL_BOTTOM - 5);
+  ctx.lineTo(penBoxLeft, penBoxBottom);
+  ctx.lineTo(penBoxRight, penBoxBottom);
+  ctx.lineTo(penBoxRight, GOAL_BOTTOM - 5);
+  ctx.stroke();
+
+  // Penalty spot
+  const spotX = CANVAS_W / 2;
+  const spotY = CANVAS_H * 0.82;
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.beginPath();
+  ctx.arc(spotX, spotY, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Penalty arc (subtle)
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(spotX, spotY, 50, Math.PI * 1.15, Math.PI * 1.85);
+  ctx.stroke();
+}
+
+function drawGoal(ctx: CanvasRenderingContext2D) {
+  // Net background (dark with grid)
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(GOAL_LEFT, GOAL_TOP, GOAL_W, GOAL_H);
+
+  // Net mesh pattern (diamond pattern)
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 0.5;
+  const netSize = 14;
+  for (let x = GOAL_LEFT; x <= GOAL_RIGHT; x += netSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, GOAL_TOP);
+    ctx.lineTo(x, GOAL_BOTTOM);
+    ctx.stroke();
+  }
+  for (let y = GOAL_TOP; y <= GOAL_BOTTOM; y += netSize) {
+    ctx.beginPath();
+    ctx.moveTo(GOAL_LEFT, y);
+    ctx.lineTo(GOAL_RIGHT, y);
+    ctx.stroke();
+  }
+  // Diagonal net lines for depth
+  ctx.strokeStyle = "rgba(255,255,255,0.03)";
+  for (let x = GOAL_LEFT - GOAL_H; x <= GOAL_RIGHT; x += netSize * 2) {
+    ctx.beginPath();
+    ctx.moveTo(Math.max(GOAL_LEFT, x), GOAL_TOP);
+    ctx.lineTo(Math.max(GOAL_LEFT, x + GOAL_H), GOAL_BOTTOM);
+    ctx.stroke();
+  }
+
+  // Goal posts (rounded white bars with subtle shadow)
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.fillRect(GOAL_LEFT - POST_WIDTH + 1, GOAL_TOP + 2, POST_WIDTH, GOAL_H + 2);
+  ctx.fillRect(GOAL_RIGHT + 1, GOAL_TOP + 2, POST_WIDTH, GOAL_H + 2);
+  ctx.fillRect(GOAL_LEFT - POST_WIDTH + 1, GOAL_TOP - CROSSBAR_HEIGHT + 2, GOAL_W + POST_WIDTH * 2, CROSSBAR_HEIGHT);
+
+  // Posts (white)
+  const postGrad = ctx.createLinearGradient(GOAL_LEFT - POST_WIDTH, 0, GOAL_LEFT, 0);
+  postGrad.addColorStop(0, "#e0e0e0");
+  postGrad.addColorStop(0.5, "#ffffff");
+  postGrad.addColorStop(1, "#d0d0d0");
+
+  ctx.fillStyle = postGrad;
+  ctx.fillRect(GOAL_LEFT - POST_WIDTH, GOAL_TOP, POST_WIDTH, GOAL_H);
+
+  const postGrad2 = ctx.createLinearGradient(GOAL_RIGHT, 0, GOAL_RIGHT + POST_WIDTH, 0);
+  postGrad2.addColorStop(0, "#d0d0d0");
+  postGrad2.addColorStop(0.5, "#ffffff");
+  postGrad2.addColorStop(1, "#e0e0e0");
+
+  ctx.fillStyle = postGrad2;
+  ctx.fillRect(GOAL_RIGHT, GOAL_TOP, POST_WIDTH, GOAL_H);
+
+  // Crossbar
+  const barGrad = ctx.createLinearGradient(0, GOAL_TOP - CROSSBAR_HEIGHT, 0, GOAL_TOP);
+  barGrad.addColorStop(0, "#e0e0e0");
+  barGrad.addColorStop(0.5, "#ffffff");
+  barGrad.addColorStop(1, "#d0d0d0");
+
+  ctx.fillStyle = barGrad;
+  ctx.fillRect(GOAL_LEFT - POST_WIDTH, GOAL_TOP - CROSSBAR_HEIGHT, GOAL_W + POST_WIDTH * 2, CROSSBAR_HEIGHT);
+}
+
+function drawKeeper(
+  ctx: CanvasRenderingContext2D,
+  diveDir: number,
+  diveProgress: number
+) {
+  const centerX = GOAL_LEFT + GOAL_W * 0.5;
+  const groundY = GOAL_BOTTOM - 2;
+
+  // Dive offset and body tilt
+  const diveOffset = diveDir * diveProgress * 110;
+  const bodyTilt = diveDir * diveProgress * 0.45; // radians
+  const verticalShift = Math.abs(diveProgress) * 20; // lift off ground slightly during dive
+
+  ctx.save();
+  ctx.translate(centerX + diveOffset, groundY - verticalShift);
+  ctx.rotate(bodyTilt);
+
+  const bodyH = 55;
+  const bodyW = 22;
+  const headR = 10;
+
+  // --- Legs (behind body) ---
+  ctx.strokeStyle = "#1a1a2e";
+  ctx.lineWidth = 6;
+  ctx.lineCap = "round";
+
+  // Left leg
+  ctx.beginPath();
+  ctx.moveTo(-5, 0);
+  if (diveProgress > 0.1) {
+    // During dive: legs trail
+    ctx.lineTo(-5 - diveDir * diveProgress * 15, 18 + diveProgress * 5);
+  } else {
+    ctx.lineTo(-5, 18);
+  }
+  ctx.stroke();
+
+  // Right leg
+  ctx.beginPath();
+  ctx.moveTo(5, 0);
+  if (diveProgress > 0.1) {
+    ctx.lineTo(5 - diveDir * diveProgress * 10, 16 + diveProgress * 8);
+  } else {
+    ctx.lineTo(5, 18);
+  }
+  ctx.stroke();
+
+  // Boots
+  ctx.fillStyle = "#111111";
+  if (diveProgress <= 0.1) {
+    ctx.beginPath();
+    ctx.ellipse(-5, 19, 5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(5, 19, 5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // --- Jersey (body) ---
+  // Bright keeper jersey (orange/yellow gradient)
+  const jerseyGrad = ctx.createLinearGradient(-bodyW / 2, -bodyH, bodyW / 2, 0);
+  jerseyGrad.addColorStop(0, "#ff8f00");
+  jerseyGrad.addColorStop(0.4, "#ffa726");
+  jerseyGrad.addColorStop(1, "#ff6f00");
+  ctx.fillStyle = jerseyGrad;
+
+  // Torso shape
+  ctx.beginPath();
+  ctx.moveTo(-bodyW / 2, -bodyH * 0.35);
+  ctx.lineTo(-bodyW / 2 - 2, -bodyH * 0.8);
+  ctx.quadraticCurveTo(-bodyW / 2 + 2, -bodyH, bodyW / 2 - 2, -bodyH);
+  ctx.lineTo(bodyW / 2 + 2, -bodyH * 0.8);
+  ctx.lineTo(bodyW / 2, -bodyH * 0.35);
+  ctx.quadraticCurveTo(bodyW / 2 - 2, -bodyH * 0.3, 0, -bodyH * 0.28);
+  ctx.quadraticCurveTo(-bodyW / 2 + 2, -bodyH * 0.3, -bodyW / 2, -bodyH * 0.35);
+  ctx.fill();
+
+  // Jersey number "1"
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.font = "bold 14px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("1", 0, -bodyH * 0.6);
+
+  // Shorts
+  ctx.fillStyle = "#1a1a2e";
+  ctx.beginPath();
+  ctx.moveTo(-bodyW / 2, -bodyH * 0.35);
+  ctx.lineTo(-bodyW / 2 - 1, -bodyH * 0.1);
+  ctx.lineTo(-2, -bodyH * 0.05);
+  ctx.lineTo(2, -bodyH * 0.05);
+  ctx.lineTo(bodyW / 2 + 1, -bodyH * 0.1);
+  ctx.lineTo(bodyW / 2, -bodyH * 0.35);
+  ctx.closePath();
+  ctx.fill();
+
+  // --- Arms with gloves ---
+  const armY = -bodyH * 0.75;
+  ctx.strokeStyle = "#ff8f00";
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+
+  // Glove size scales with dive
+  const gloveSize = 7 + diveProgress * 4;
+
+  // Left arm
+  ctx.beginPath();
+  ctx.moveTo(-bodyW / 2 - 2, armY);
+  if (diveProgress > 0.1) {
+    // Diving: arms stretch out in dive direction
+    const armExtend = diveProgress * 35;
+    const armLift = diveProgress * 25;
+    ctx.lineTo(-bodyW / 2 - 15 - armExtend, armY - armLift);
+    ctx.stroke();
+    // Glove
+    ctx.fillStyle = "#66bb6a";
+    ctx.beginPath();
+    ctx.arc(-bodyW / 2 - 15 - armExtend, armY - armLift, gloveSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#43a047";
+    ctx.beginPath();
+    ctx.arc(-bodyW / 2 - 15 - armExtend, armY - armLift, gloveSize * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Standing: arms slightly out
+    ctx.lineTo(-bodyW / 2 - 18, armY + 5);
+    ctx.stroke();
+    ctx.fillStyle = "#66bb6a";
+    ctx.beginPath();
+    ctx.arc(-bodyW / 2 - 18, armY + 5, gloveSize, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Right arm
+  ctx.strokeStyle = "#ff8f00";
+  ctx.beginPath();
+  ctx.moveTo(bodyW / 2 + 2, armY);
+  if (diveProgress > 0.1) {
+    const armExtend = diveProgress * 35;
+    const armLift = diveProgress * 25;
+    ctx.lineTo(bodyW / 2 + 15 + armExtend, armY - armLift);
+    ctx.stroke();
+    ctx.fillStyle = "#66bb6a";
+    ctx.beginPath();
+    ctx.arc(bodyW / 2 + 15 + armExtend, armY - armLift, gloveSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#43a047";
+    ctx.beginPath();
+    ctx.arc(bodyW / 2 + 15 + armExtend, armY - armLift, gloveSize * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.lineTo(bodyW / 2 + 18, armY + 5);
+    ctx.stroke();
+    ctx.fillStyle = "#66bb6a";
+    ctx.beginPath();
+    ctx.arc(bodyW / 2 + 18, armY + 5, gloveSize, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // --- Head ---
+  // Hair / back of head
+  ctx.fillStyle = "#3e2723";
+  ctx.beginPath();
+  ctx.arc(0, -bodyH - headR * 0.7, headR + 1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Skin
+  ctx.fillStyle = "#FFCC80";
+  ctx.beginPath();
+  ctx.arc(0, -bodyH - headR * 0.7, headR, Math.PI * 0.15, Math.PI * 0.85, true);
+  ctx.fill();
+
+  // Face (simplified)
+  ctx.fillStyle = "#FFCC80";
+  ctx.beginPath();
+  ctx.arc(0, -bodyH - headR * 0.5, headR * 0.85, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBall(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  rotation: number,
+  alpha: number
+) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Ball shadow (on ground, more pronounced when ball is near ground)
+  const shadowScale = Math.max(0.3, 1 - (CANVAS_H * 0.85 - y) / (CANVAS_H * 0.5));
+  ctx.fillStyle = `rgba(0,0,0,${0.25 * shadowScale})`;
+  ctx.beginPath();
+  ctx.ellipse(x + 1, CANVAS_H * 0.85, size * 0.9 * shadowScale, size * 0.25 * shadowScale, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ball body (radial gradient for 3D look)
+  const ballGrad = ctx.createRadialGradient(
+    x - size * 0.25, y - size * 0.25, size * 0.05,
+    x, y, size
+  );
+  ballGrad.addColorStop(0, "#ffffff");
+  ballGrad.addColorStop(0.7, "#e8e8e8");
+  ballGrad.addColorStop(1, "#b0b0b0");
+  ctx.fillStyle = ballGrad;
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ball outline
+  ctx.strokeStyle = "rgba(0,0,0,0.15)";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+
+  // Pentagon pattern (rotates with ball flight)
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+
+  // Center pentagon
+  ctx.fillStyle = "rgba(30,30,30,0.65)";
+  ctx.beginPath();
+  const pentR = size * 0.32;
+  for (let i = 0; i < 5; i++) {
+    const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
+    const px = Math.cos(angle) * pentR;
+    const py = Math.sin(angle) * pentR;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Connecting lines from center pentagon to edge
+  ctx.strokeStyle = "rgba(30,30,30,0.2)";
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < 5; i++) {
+    const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
+    const px1 = Math.cos(angle) * pentR;
+    const py1 = Math.sin(angle) * pentR;
+    const px2 = Math.cos(angle) * size * 0.75;
+    const py2 = Math.sin(angle) * size * 0.75;
+    ctx.beginPath();
+    ctx.moveTo(px1, py1);
+    ctx.lineTo(px2, py2);
+    ctx.stroke();
+
+    // Small edge pentagons (partial)
+    const midAngle = ((i + 0.5) * Math.PI * 2) / 5 - Math.PI / 2;
+    const ex = Math.cos(midAngle) * size * 0.7;
+    const ey = Math.sin(midAngle) * size * 0.7;
+    ctx.beginPath();
+    ctx.arc(ex, ey, size * 0.18, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(30,30,30,0.12)";
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawZones(
+  ctx: CanvasRenderingContext2D,
+  hoveredZone: number | null
+) {
+  const zoneW = GOAL_W / 3.3;
+  const zoneH = GOAL_H / 2.8;
+
+  for (let i = 0; i < 6; i++) {
+    const zp = ZONE_POSITIONS[i];
+    const zx = GOAL_LEFT + GOAL_W * zp.x;
+    const zy = GOAL_TOP + GOAL_H * zp.y;
+    const isHovered = hoveredZone === i;
+
+    if (isHovered) {
+      // Highlighted zone
+      ctx.fillStyle = "rgba(0, 230, 118, 0.2)";
+      ctx.beginPath();
+      ctx.roundRect(zx - zoneW / 2, zy - zoneH / 2, zoneW, zoneH, 5);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0, 230, 118, 0.7)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Crosshair
+      const crossSize = 12;
+      ctx.strokeStyle = "rgba(0, 230, 118, 0.9)";
+      ctx.lineWidth = 2;
+      // Horizontal
+      ctx.beginPath();
+      ctx.moveTo(zx - crossSize, zy);
+      ctx.lineTo(zx - 4, zy);
+      ctx.moveTo(zx + 4, zy);
+      ctx.lineTo(zx + crossSize, zy);
+      ctx.stroke();
+      // Vertical
+      ctx.beginPath();
+      ctx.moveTo(zx, zy - crossSize);
+      ctx.lineTo(zx, zy - 4);
+      ctx.moveTo(zx, zy + 4);
+      ctx.lineTo(zx, zy + crossSize);
+      ctx.stroke();
+      // Center dot
+      ctx.fillStyle = "rgba(0, 230, 118, 0.9)";
+      ctx.beginPath();
+      ctx.arc(zx, zy, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Subtle zone outline
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.roundRect(zx - zoneW / 2, zy - zoneH / 2, zoneW, zoneH, 4);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Small target dot
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.beginPath();
+      ctx.arc(zx, zy, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[]) {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 export default function PenaltyKick({ onClose }: { onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
+  const particlesRef = useRef<Particle[]>([]);
 
   const [gameState, setGameState] = useState<GameState>("aiming");
   const [streak, setStreak] = useState(0);
@@ -72,8 +571,9 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
 
   const animStateRef = useRef<AnimationState>({
     ballX: 0.5,
-    ballY: 0.9,
-    ballSize: 18,
+    ballY: 0.85,
+    ballSize: 14,
+    ballRotation: 0,
     keeperX: 0.5,
     keeperDiveDirection: 0,
     keeperDiveProgress: 0,
@@ -84,196 +584,68 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
     setHighScoreState(getHighScore());
   }, []);
 
+  const spawnGoalParticles = useCallback(() => {
+    const colors = ["#00E676", "#FFD700", "#ffffff", "#4CAF50", "#FFEB3B"];
+    const newParticles: Particle[] = [];
+    for (let i = 0; i < 40; i++) {
+      newParticles.push({
+        x: CANVAS_W / 2 + (Math.random() - 0.5) * 200,
+        y: CANVAS_H * 0.15 + Math.random() * 40,
+        vx: (Math.random() - 0.5) * 8,
+        vy: -Math.random() * 6 - 2,
+        life: 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 4 + 2,
+      });
+    }
+    particlesRef.current = newParticles;
+  }, []);
+
   const drawGame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const W = canvas.width;
-    const H = canvas.height;
     const anim = animStateRef.current;
 
     // Clear
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Sky / pitch gradient
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-    bgGrad.addColorStop(0, "#1a2a1a");
-    bgGrad.addColorStop(0.4, "#1B5E20");
-    bgGrad.addColorStop(1, "#0D3B0F");
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, W, H);
+    // Pitch
+    drawPitch(ctx);
 
-    // Pitch lines
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
-    ctx.lineWidth = 1;
-    // Penalty box
-    const boxLeft = W * 0.15;
-    const boxRight = W * 0.85;
-    const boxTop = H * 0.1;
-    const boxBottom = H * 0.75;
-    ctx.strokeRect(boxLeft, boxTop, boxRight - boxLeft, boxBottom - boxTop);
+    // Goal
+    drawGoal(ctx);
 
-    // Goal frame
-    const goalLeft = W * 0.2;
-    const goalRight = W * 0.8;
-    const goalTop = H * 0.08;
-    const goalBottom = H * 0.55;
-
-    // Goal net (subtle grid)
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    ctx.lineWidth = 0.5;
-    const netSpacing = 12;
-    for (let x = goalLeft; x <= goalRight; x += netSpacing) {
-      ctx.beginPath();
-      ctx.moveTo(x, goalTop);
-      ctx.lineTo(x, goalBottom);
-      ctx.stroke();
-    }
-    for (let y = goalTop; y <= goalBottom; y += netSpacing) {
-      ctx.beginPath();
-      ctx.moveTo(goalLeft, y);
-      ctx.lineTo(goalRight, y);
-      ctx.stroke();
-    }
-
-    // Goal back (dark)
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.fillRect(goalLeft, goalTop, goalRight - goalLeft, goalBottom - goalTop);
-
-    // Goal posts (white bars)
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(goalLeft - 4, goalTop - 4, 6, goalBottom - goalTop + 8); // left post
-    ctx.fillRect(goalRight - 2, goalTop - 4, 6, goalBottom - goalTop + 8); // right post
-    ctx.fillRect(goalLeft - 4, goalTop - 4, goalRight - goalLeft + 8, 6); // crossbar
-
-    // Zone hover highlights (only in aiming state)
+    // Zone highlights (only in aiming state)
     if (gameState === "aiming") {
-      for (let i = 0; i < 6; i++) {
-        const zp = ZONE_POSITIONS[i];
-        const zx = goalLeft + (goalRight - goalLeft) * zp.x;
-        const zy = goalTop + (goalBottom - goalTop) * zp.y;
-        const zoneW = (goalRight - goalLeft) / 3.5;
-        const zoneH = (goalBottom - goalTop) / 3;
-
-        if (hoveredZone === i) {
-          ctx.fillStyle = "rgba(0, 230, 118, 0.25)";
-          ctx.beginPath();
-          ctx.roundRect(zx - zoneW / 2, zy - zoneH / 2, zoneW, zoneH, 6);
-          ctx.fill();
-          ctx.strokeStyle = "rgba(0, 230, 118, 0.6)";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        } else {
-          ctx.fillStyle = "rgba(255,255,255,0.06)";
-          ctx.beginPath();
-          ctx.roundRect(zx - zoneW / 2, zy - zoneH / 2, zoneW, zoneH, 6);
-          ctx.fill();
-          ctx.strokeStyle = "rgba(255,255,255,0.15)";
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        }
-
-        // Zone crosshair dot
-        ctx.fillStyle = hoveredZone === i ? "rgba(0, 230, 118, 0.8)" : "rgba(255,255,255,0.3)";
-        ctx.beginPath();
-        ctx.arc(zx, zy, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      drawZones(ctx, hoveredZone);
     }
 
     // Keeper
-    const keeperBaseX = goalLeft + (goalRight - goalLeft) * anim.keeperX;
-    const keeperY = goalBottom - 10;
-    const keeperW = 30;
-    const keeperH = 60;
-    const diveOffset = anim.keeperDiveDirection * anim.keeperDiveProgress * 80;
-    const diveStretch = anim.keeperDiveProgress * 20;
-
-    // Keeper body
-    ctx.fillStyle = "#FFD700";
-    ctx.beginPath();
-    ctx.roundRect(
-      keeperBaseX - keeperW / 2 + diveOffset - diveStretch / 2,
-      keeperY - keeperH + Math.abs(anim.keeperDiveProgress * 15),
-      keeperW + diveStretch,
-      keeperH - Math.abs(anim.keeperDiveProgress * 15),
-      4
-    );
-    ctx.fill();
-
-    // Keeper head
-    ctx.fillStyle = "#FFCC80";
-    ctx.beginPath();
-    ctx.arc(
-      keeperBaseX + diveOffset,
-      keeperY - keeperH - 5 + Math.abs(anim.keeperDiveProgress * 15),
-      10,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-
-    // Keeper arms (stretched during dive)
-    ctx.strokeStyle = "#FFD700";
-    ctx.lineWidth = 4;
-    ctx.lineCap = "round";
-    const armBaseX = keeperBaseX + diveOffset;
-    const armBaseY = keeperY - keeperH + 15 + Math.abs(anim.keeperDiveProgress * 15);
-
-    // Left arm
-    ctx.beginPath();
-    ctx.moveTo(armBaseX - keeperW / 2, armBaseY);
-    ctx.lineTo(
-      armBaseX - keeperW / 2 - 15 - diveStretch,
-      armBaseY - 20 - anim.keeperDiveProgress * 10
-    );
-    ctx.stroke();
-
-    // Right arm
-    ctx.beginPath();
-    ctx.moveTo(armBaseX + keeperW / 2, armBaseY);
-    ctx.lineTo(
-      armBaseX + keeperW / 2 + 15 + diveStretch,
-      armBaseY - 20 - anim.keeperDiveProgress * 10
-    );
-    ctx.stroke();
+    drawKeeper(ctx, anim.keeperDiveDirection, anim.keeperDiveProgress);
 
     // Ball
-    ctx.globalAlpha = anim.opacity;
-    const bx = W * anim.ballX;
-    const by = H * anim.ballY;
-    const bs = anim.ballSize;
+    const bx = CANVAS_W * anim.ballX;
+    const by = CANVAS_H * anim.ballY;
+    drawBall(ctx, bx, by, anim.ballSize, anim.ballRotation, anim.opacity);
 
-    // Ball shadow
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
-    ctx.beginPath();
-    ctx.ellipse(bx + 2, by + bs * 0.8, bs * 0.8, bs * 0.3, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Ball
-    const ballGrad = ctx.createRadialGradient(bx - bs * 0.2, by - bs * 0.2, bs * 0.1, bx, by, bs);
-    ballGrad.addColorStop(0, "#ffffff");
-    ballGrad.addColorStop(1, "#cccccc");
-    ctx.fillStyle = ballGrad;
-    ctx.beginPath();
-    ctx.arc(bx, by, bs, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Ball pentagon pattern
-    ctx.strokeStyle = "rgba(0,0,0,0.2)";
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 5; i++) {
-      const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
-      const px = bx + Math.cos(angle) * bs * 0.5;
-      const py = by + Math.sin(angle) * bs * 0.5;
-      ctx.beginPath();
-      ctx.moveTo(bx, by);
-      ctx.lineTo(px, py);
-      ctx.stroke();
+    // Particles
+    if (particlesRef.current.length > 0) {
+      drawParticles(ctx, particlesRef.current);
+      // Update particles
+      particlesRef.current = particlesRef.current
+        .map(p => ({
+          ...p,
+          x: p.x + p.vx,
+          y: p.y + p.vy,
+          vy: p.vy + 0.15,
+          life: p.life - 0.02,
+          size: p.size * 0.98,
+        }))
+        .filter(p => p.life > 0);
     }
-    ctx.globalAlpha = 1;
   }, [gameState, hoveredZone]);
 
   // Continuous draw loop
@@ -290,24 +662,18 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const x = (clientX - rect.left) / rect.width;
-    const y = (clientY - rect.top) / rect.height;
+    const scaleX = CANVAS_W / rect.width;
+    const scaleY = CANVAS_H / rect.height;
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
 
-    const W = canvas.width;
-    const H = canvas.height;
-    const goalLeft = 0.2;
-    const goalRight = 0.8;
-    const goalTop = 0.08;
-    const goalBottom = 0.55;
-    const goalW = goalRight - goalLeft;
-    const goalH = goalBottom - goalTop;
-    const zoneW = goalW / 3.5;
-    const zoneH = goalH / 3;
+    const zoneW = GOAL_W / 3.3;
+    const zoneH = GOAL_H / 2.8;
 
     for (let i = 0; i < 6; i++) {
       const zp = ZONE_POSITIONS[i];
-      const zx = goalLeft + goalW * zp.x;
-      const zy = goalTop + goalH * zp.y;
+      const zx = GOAL_LEFT + GOAL_W * zp.x;
+      const zy = GOAL_TOP + GOAL_H * zp.y;
 
       if (
         x >= zx - zoneW / 2 &&
@@ -345,40 +711,37 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
     const avgZoneX = saveZones.reduce((sum, z) => sum + ZONE_POSITIONS[z].x, 0) / (saveZones.length || 1);
     const diveDir = avgZoneX < 0.4 ? -1 : avgZoneX > 0.6 ? 1 : 0;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const goalLeft = W * 0.2;
-    const goalRight = W * 0.8;
-    const goalTop = H * 0.08;
-    const goalBottom = H * 0.55;
-
-    const targetX = (goalLeft + (goalRight - goalLeft) * ZONE_POSITIONS[zone].x) / W;
-    const targetY = (goalTop + (goalBottom - goalTop) * ZONE_POSITIONS[zone].y) / H;
+    const targetX = (GOAL_LEFT + GOAL_W * ZONE_POSITIONS[zone].x) / CANVAS_W;
+    const targetY = (GOAL_TOP + GOAL_H * ZONE_POSITIONS[zone].y) / CANVAS_H;
 
     const startBallX = 0.5;
-    const startBallY = 0.9;
-    const startBallSize = 18;
-    const endBallSize = 10;
+    const startBallY = 0.85;
+    const startBallSize = 14;
+    const endBallSize = 9;
+
+    // Slight curve: ball curves slightly toward the corner for top corners
+    const curveAmplitude = (zone === 0 || zone === 2) ? 0.03 : 0.015;
+    const curveDir = zone <= 2 ? (zone === 0 ? 1 : zone === 2 ? -1 : 0) : (zone === 3 ? 1 : zone === 5 ? -1 : 0);
 
     let frame = 0;
-    const totalFrames = 30;
+    const totalFrames = 22; // Snappy
 
     const animate = () => {
       frame++;
       const t = Math.min(frame / totalFrames, 1);
-      // Ease out quad
-      const ease = 1 - (1 - t) * (1 - t);
+      const ease = easeOutCubic(t);
 
-      animStateRef.current.ballX = startBallX + (targetX - startBallX) * ease;
+      // Ball position with slight curve
+      const curveOffset = Math.sin(t * Math.PI) * curveAmplitude * curveDir;
+      animStateRef.current.ballX = startBallX + (targetX - startBallX) * ease + curveOffset;
       animStateRef.current.ballY = startBallY + (targetY - startBallY) * ease;
       animStateRef.current.ballSize = startBallSize + (endBallSize - startBallSize) * ease;
+      animStateRef.current.ballRotation += 0.3; // Spin
 
-      // Keeper dive
+      // Keeper dive (slightly delayed, smooth)
+      const keeperT = Math.max(0, (t - 0.1) / 0.9);
       animStateRef.current.keeperDiveDirection = diveDir;
-      animStateRef.current.keeperDiveProgress = Math.min(t * 1.5, 1);
+      animStateRef.current.keeperDiveProgress = easeInOutQuad(Math.min(keeperT * 1.3, 1));
 
       if (frame < totalFrames) {
         requestAnimationFrame(animate);
@@ -389,10 +752,11 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
           setIsGoal(false);
           setTimeout(() => {
             setGameState("gameover");
-          }, 1200);
+          }, 1500);
         } else {
           setResultText("GOAL!");
           setIsGoal(true);
+          spawnGoalParticles();
           const newStreak = streak + 1;
           setStreak(newStreak);
           if (newStreak > highScore) {
@@ -403,8 +767,9 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
             // Reset for next kick
             animStateRef.current = {
               ballX: 0.5,
-              ballY: 0.9,
-              ballSize: 18,
+              ballY: 0.85,
+              ballSize: 14,
+              ballRotation: 0,
               keeperX: 0.5,
               keeperDiveDirection: 0,
               keeperDiveProgress: 0,
@@ -413,14 +778,14 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
             setResultText("");
             setGameState("aiming");
             setHoveredZone(null);
-          }, 1000);
+          }, 1500);
         }
         setGameState("result");
       }
     };
 
     requestAnimationFrame(animate);
-  }, [gameState, streak, highScore]);
+  }, [gameState, streak, highScore, spawnGoalParticles]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (gameState !== "aiming") return;
@@ -447,10 +812,12 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
     setResultText("");
     setIsGoal(false);
     setHoveredZone(null);
+    particlesRef.current = [];
     animStateRef.current = {
       ballX: 0.5,
-      ballY: 0.9,
-      ballSize: 18,
+      ballY: 0.85,
+      ballSize: 14,
+      ballRotation: 0,
       keeperX: 0.5,
       keeperDiveDirection: 0,
       keeperDiveProgress: 0,
@@ -459,7 +826,7 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
   }, []);
 
   return (
-    <div className="relative w-full max-w-lg mx-auto">
+    <div className="relative w-full max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -500,24 +867,33 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
       <div className="relative rounded-xl overflow-hidden border border-white/10">
         <canvas
           ref={canvasRef}
-          width={400}
-          height={350}
+          width={CANVAS_W}
+          height={CANVAS_H}
           className="w-full cursor-crosshair touch-none"
-          style={{ aspectRatio: "400/350" }}
+          style={{ aspectRatio: `${CANVAS_W}/${CANVAS_H}` }}
           onClick={handleCanvasClick}
           onTouchStart={handleCanvasClick}
           onMouseMove={handleCanvasMove}
           onMouseLeave={() => setHoveredZone(null)}
         />
 
-        {/* Result overlay */}
+        {/* Result overlay, positioned above goal area so it doesn't overlap keeper */}
         {resultText && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div
+            className="absolute left-0 right-0 flex justify-center pointer-events-none"
+            style={{ top: "2%" }}
+          >
             <span
-              className={`font-heading text-5xl font-extrabold uppercase tracking-wider drop-shadow-lg ${
-                isGoal ? "text-accent animate-bounce" : "text-red-400"
+              className={`font-heading text-5xl md:text-6xl font-extrabold uppercase tracking-wider ${
+                isGoal
+                  ? "text-accent animate-bounce"
+                  : "text-red-400"
               }`}
-              style={{ textShadow: "0 4px 20px rgba(0,0,0,0.5)" }}
+              style={{
+                textShadow: isGoal
+                  ? "0 0 30px rgba(0,230,118,0.6), 0 4px 20px rgba(0,0,0,0.5)"
+                  : "0 0 20px rgba(239,68,68,0.4), 0 4px 20px rgba(0,0,0,0.5)",
+              }}
             >
               {resultText}
             </span>
