@@ -3,17 +3,18 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
 type GameState = "aiming" | "shooting" | "result" | "gameover";
-type ShotZone = 0 | 1 | 2 | 3 | 4 | 5; // 6 zones: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right
+type ShotZone = 0 | 1 | 2 | 3 | 4 | 5;
 
-interface AnimationState {
+interface AnimState {
   ballX: number;
   ballY: number;
   ballSize: number;
   ballRotation: number;
   keeperX: number;
-  keeperDiveDirection: number; // -1 left, 0 center, 1 right
-  keeperDiveProgress: number;
-  opacity: number;
+  keeperY: number;
+  keeperDiveAngle: number; // rotation in radians
+  keeperDiveProgress: number; // 0 to 1
+  keeperTargetZone: number; // which zone the keeper is diving toward
 }
 
 interface Particle {
@@ -29,35 +30,42 @@ interface Particle {
 const CANVAS_W = 600;
 const CANVAS_H = 450;
 
-// Goal proportions (front view, about 40% of canvas height)
-const GOAL_LEFT = CANVAS_W * 0.18;
-const GOAL_RIGHT = CANVAS_W * 0.82;
-const GOAL_TOP = CANVAS_H * 0.08;
-const GOAL_BOTTOM = CANVAS_H * 0.42;
+// Goal fills the top portion of canvas. Front-on view.
+const GOAL_LEFT = CANVAS_W * 0.15;
+const GOAL_RIGHT = CANVAS_W * 0.85;
+const GOAL_TOP = CANVAS_H * 0.06;
+const GOAL_BOTTOM = CANVAS_H * 0.44;
 const GOAL_W = GOAL_RIGHT - GOAL_LEFT;
 const GOAL_H = GOAL_BOTTOM - GOAL_TOP;
 
 const POST_WIDTH = 6;
 const CROSSBAR_HEIGHT = 6;
 
-// Zone positions relative to goal area (x%, y%)
-const ZONE_POSITIONS: { x: number; y: number }[] = [
-  { x: 0.2, y: 0.3 },  // top-left
-  { x: 0.5, y: 0.25 }, // top-center
-  { x: 0.8, y: 0.3 },  // top-right
-  { x: 0.2, y: 0.72 }, // bottom-left
-  { x: 0.5, y: 0.75 }, // bottom-center
-  { x: 0.8, y: 0.72 }, // bottom-right
+// Ball starting position (penalty spot)
+const BALL_START_X = CANVAS_W / 2;
+const BALL_START_Y = CANVAS_H * 0.82;
+
+// Keeper center position (standing in goal)
+const KEEPER_CENTER_X = GOAL_LEFT + GOAL_W / 2;
+const KEEPER_CENTER_Y = GOAL_BOTTOM - 5;
+
+// Zone target positions: where the ball should end up in the goal
+// 6 zones: top-left(0), top-center(1), top-right(2), bottom-left(3), bottom-center(4), bottom-right(5)
+const ZONE_TARGETS: { x: number; y: number }[] = [
+  { x: GOAL_LEFT + GOAL_W * 0.17, y: GOAL_TOP + GOAL_H * 0.28 }, // top-left
+  { x: GOAL_LEFT + GOAL_W * 0.50, y: GOAL_TOP + GOAL_H * 0.22 }, // top-center
+  { x: GOAL_LEFT + GOAL_W * 0.83, y: GOAL_TOP + GOAL_H * 0.28 }, // top-right
+  { x: GOAL_LEFT + GOAL_W * 0.17, y: GOAL_TOP + GOAL_H * 0.72 }, // bottom-left
+  { x: GOAL_LEFT + GOAL_W * 0.50, y: GOAL_TOP + GOAL_H * 0.75 }, // bottom-center
+  { x: GOAL_LEFT + GOAL_W * 0.83, y: GOAL_TOP + GOAL_H * 0.72 }, // bottom-right
 ];
 
-function getKeeperSaveZones(streak: number): number[] {
-  // As streak grows, keeper covers more zones
-  // Streak 0-2: covers 1 zone (random)
-  // Streak 3-5: covers 2 zones
-  // Streak 6-8: covers 3 zones
-  // Streak 9+: covers 4 zones (tough but beatable)
-  const coverCount = Math.min(4, 1 + Math.floor(streak / 3));
+// Zone hit-test rectangles for clicking
+const ZONE_HIT_W = GOAL_W / 3.2;
+const ZONE_HIT_H = GOAL_H / 2.6;
 
+function getKeeperSaveZones(streak: number): number[] {
+  const coverCount = Math.min(4, 1 + Math.floor(streak / 3));
   const zones: Set<number> = new Set();
   while (zones.size < coverCount) {
     zones.add(Math.floor(Math.random() * 6));
@@ -82,84 +90,77 @@ function setHighScore(score: number) {
   localStorage.setItem(LS_KEY, String(safe));
 }
 
-// Easing: ease out cubic
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// Easing: ease in out quad
 function easeInOutQuad(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
 
-// --- Drawing helpers ---
+// --- Drawing ---
 
 function drawPitch(ctx: CanvasRenderingContext2D) {
-  // Green gradient background
+  // Dark green gradient
   const bgGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
   bgGrad.addColorStop(0, "#0f2e0f");
-  bgGrad.addColorStop(0.25, "#1B5E20");
+  bgGrad.addColorStop(0.3, "#1B5E20");
   bgGrad.addColorStop(0.6, "#1a6b1f");
   bgGrad.addColorStop(1, "#145216");
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // Subtle grass stripe pattern
+  // Subtle grass stripes
   ctx.fillStyle = "rgba(255,255,255,0.015)";
   for (let i = 0; i < CANVAS_H; i += 20) {
-    if (i % 40 === 0) {
-      ctx.fillRect(0, i, CANVAS_W, 20);
-    }
+    if (i % 40 === 0) ctx.fillRect(0, i, CANVAS_W, 20);
   }
 
-  // Goal area box (6 yard box)
-  const sixYardLeft = CANVAS_W * 0.3;
-  const sixYardRight = CANVAS_W * 0.7;
-  const sixYardBottom = GOAL_BOTTOM + 40;
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  // 6-yard box
+  const sixLeft = CANVAS_W * 0.3;
+  const sixRight = CANVAS_W * 0.7;
+  const sixBottom = GOAL_BOTTOM + 30;
+  ctx.strokeStyle = "rgba(255,255,255,0.15)";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(sixYardLeft, GOAL_BOTTOM);
-  ctx.lineTo(sixYardLeft, sixYardBottom);
-  ctx.lineTo(sixYardRight, sixYardBottom);
-  ctx.lineTo(sixYardRight, GOAL_BOTTOM);
+  ctx.moveTo(sixLeft, GOAL_BOTTOM);
+  ctx.lineTo(sixLeft, sixBottom);
+  ctx.lineTo(sixRight, sixBottom);
+  ctx.lineTo(sixRight, GOAL_BOTTOM);
   ctx.stroke();
 
-  // Penalty box (18 yard box)
-  const penBoxLeft = CANVAS_W * 0.12;
-  const penBoxRight = CANVAS_W * 0.88;
-  const penBoxBottom = CANVAS_H * 0.7;
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  ctx.lineWidth = 1.5;
+  // 18-yard box
+  const penLeft = CANVAS_W * 0.12;
+  const penRight = CANVAS_W * 0.88;
+  const penBottom = CANVAS_H * 0.68;
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
   ctx.beginPath();
-  ctx.moveTo(penBoxLeft, GOAL_BOTTOM - 5);
-  ctx.lineTo(penBoxLeft, penBoxBottom);
-  ctx.lineTo(penBoxRight, penBoxBottom);
-  ctx.lineTo(penBoxRight, GOAL_BOTTOM - 5);
+  ctx.moveTo(penLeft, GOAL_BOTTOM - 5);
+  ctx.lineTo(penLeft, penBottom);
+  ctx.lineTo(penRight, penBottom);
+  ctx.lineTo(penRight, GOAL_BOTTOM - 5);
   ctx.stroke();
 
   // Penalty spot
-  const spotX = CANVAS_W / 2;
-  const spotY = CANVAS_H * 0.82;
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillStyle = "rgba(255,255,255,0.45)";
   ctx.beginPath();
-  ctx.arc(spotX, spotY, 3, 0, Math.PI * 2);
+  ctx.arc(BALL_START_X, BALL_START_Y, 3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Penalty arc (subtle)
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  // Penalty arc
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(spotX, spotY, 50, Math.PI * 1.15, Math.PI * 1.85);
+  ctx.arc(BALL_START_X, BALL_START_Y, 45, Math.PI * 1.15, Math.PI * 1.85);
   ctx.stroke();
 }
 
 function drawGoal(ctx: CanvasRenderingContext2D) {
-  // Net background (dark with grid)
+  // Net background
   ctx.fillStyle = "rgba(0,0,0,0.5)";
   ctx.fillRect(GOAL_LEFT, GOAL_TOP, GOAL_W, GOAL_H);
 
-  // Net mesh pattern (diamond pattern)
+  // Net mesh
   ctx.strokeStyle = "rgba(255,255,255,0.06)";
   ctx.lineWidth = 0.5;
   const netSize = 14;
@@ -175,7 +176,7 @@ function drawGoal(ctx: CanvasRenderingContext2D) {
     ctx.lineTo(GOAL_RIGHT, y);
     ctx.stroke();
   }
-  // Diagonal net lines for depth
+  // Diagonal net lines
   ctx.strokeStyle = "rgba(255,255,255,0.03)";
   for (let x = GOAL_LEFT - GOAL_H; x <= GOAL_RIGHT; x += netSize * 2) {
     ctx.beginPath();
@@ -184,27 +185,26 @@ function drawGoal(ctx: CanvasRenderingContext2D) {
     ctx.stroke();
   }
 
-  // Goal posts (rounded white bars with subtle shadow)
+  // Post shadows
   ctx.fillStyle = "rgba(0,0,0,0.3)";
   ctx.fillRect(GOAL_LEFT - POST_WIDTH + 1, GOAL_TOP + 2, POST_WIDTH, GOAL_H + 2);
   ctx.fillRect(GOAL_RIGHT + 1, GOAL_TOP + 2, POST_WIDTH, GOAL_H + 2);
   ctx.fillRect(GOAL_LEFT - POST_WIDTH + 1, GOAL_TOP - CROSSBAR_HEIGHT + 2, GOAL_W + POST_WIDTH * 2, CROSSBAR_HEIGHT);
 
-  // Posts (white)
-  const postGrad = ctx.createLinearGradient(GOAL_LEFT - POST_WIDTH, 0, GOAL_LEFT, 0);
-  postGrad.addColorStop(0, "#e0e0e0");
-  postGrad.addColorStop(0.5, "#ffffff");
-  postGrad.addColorStop(1, "#d0d0d0");
-
-  ctx.fillStyle = postGrad;
+  // Left post
+  const postGradL = ctx.createLinearGradient(GOAL_LEFT - POST_WIDTH, 0, GOAL_LEFT, 0);
+  postGradL.addColorStop(0, "#e0e0e0");
+  postGradL.addColorStop(0.5, "#ffffff");
+  postGradL.addColorStop(1, "#d0d0d0");
+  ctx.fillStyle = postGradL;
   ctx.fillRect(GOAL_LEFT - POST_WIDTH, GOAL_TOP, POST_WIDTH, GOAL_H);
 
-  const postGrad2 = ctx.createLinearGradient(GOAL_RIGHT, 0, GOAL_RIGHT + POST_WIDTH, 0);
-  postGrad2.addColorStop(0, "#d0d0d0");
-  postGrad2.addColorStop(0.5, "#ffffff");
-  postGrad2.addColorStop(1, "#e0e0e0");
-
-  ctx.fillStyle = postGrad2;
+  // Right post
+  const postGradR = ctx.createLinearGradient(GOAL_RIGHT, 0, GOAL_RIGHT + POST_WIDTH, 0);
+  postGradR.addColorStop(0, "#d0d0d0");
+  postGradR.addColorStop(0.5, "#ffffff");
+  postGradR.addColorStop(1, "#e0e0e0");
+  ctx.fillStyle = postGradR;
   ctx.fillRect(GOAL_RIGHT, GOAL_TOP, POST_WIDTH, GOAL_H);
 
   // Crossbar
@@ -212,187 +212,210 @@ function drawGoal(ctx: CanvasRenderingContext2D) {
   barGrad.addColorStop(0, "#e0e0e0");
   barGrad.addColorStop(0.5, "#ffffff");
   barGrad.addColorStop(1, "#d0d0d0");
-
   ctx.fillStyle = barGrad;
   ctx.fillRect(GOAL_LEFT - POST_WIDTH, GOAL_TOP - CROSSBAR_HEIGHT, GOAL_W + POST_WIDTH * 2, CROSSBAR_HEIGHT);
 }
 
+/**
+ * Draw the keeper. The keeper dives toward a specific zone target.
+ * diveProgress: 0 = standing center, 1 = fully diving to target zone.
+ * targetZone: which zone index the keeper is diving toward.
+ */
 function drawKeeper(
   ctx: CanvasRenderingContext2D,
-  diveDir: number,
+  targetZone: number,
   diveProgress: number
 ) {
-  const centerX = GOAL_LEFT + GOAL_W * 0.5;
-  const groundY = GOAL_BOTTOM - 2;
-
-  // Dive offset and body tilt
-  const diveOffset = diveDir * diveProgress * 110;
-  const bodyTilt = diveDir * diveProgress * 0.45; // radians
-  const verticalShift = Math.abs(diveProgress) * 20; // lift off ground slightly during dive
-
   ctx.save();
-  ctx.translate(centerX + diveOffset, groundY - verticalShift);
-  ctx.rotate(bodyTilt);
 
-  const bodyH = 55;
-  const bodyW = 22;
-  const headR = 10;
+  // Figure out where the keeper should end up when fully diving
+  const target = ZONE_TARGETS[targetZone] || { x: KEEPER_CENTER_X, y: KEEPER_CENTER_Y };
 
-  // --- Legs (behind body) ---
+  // Standing position: centered in goal, feet on the ground line
+  const standX = KEEPER_CENTER_X;
+  const standY = KEEPER_CENTER_Y;
+
+  // Dive position: move toward the target zone
+  const diveX = target.x;
+  // For vertical: keeper moves up for top zones, stays low for bottom zones
+  const isTopZone = targetZone <= 2;
+  const diveY = isTopZone
+    ? target.y + 15 // stretch upward toward top corners
+    : target.y - 5; // stretch sideways for bottom corners
+
+  // Interpolate position
+  const dp = easeInOutQuad(diveProgress);
+  const kx = standX + (diveX - standX) * dp;
+  const ky = standY + (diveY - standY) * dp;
+
+  // Dive angle: tilt body in dive direction
+  const diveDirection = diveX < standX ? -1 : diveX > standX ? 1 : 0;
+  const tiltAngle = diveDirection * dp * 0.55; // radians, keeper tilts into dive
+
+  // Body dimensions
+  const bodyH = 50;
+  const bodyW = 18;
+  const headR = 8;
+
+  ctx.translate(kx, ky);
+  ctx.rotate(tiltAngle);
+
+  // --- Legs ---
   ctx.strokeStyle = "#1a1a2e";
-  ctx.lineWidth = 6;
+  ctx.lineWidth = 5;
   ctx.lineCap = "round";
 
-  // Left leg
-  ctx.beginPath();
-  ctx.moveTo(-5, 0);
-  if (diveProgress > 0.1) {
-    // During dive: legs trail
-    ctx.lineTo(-5 - diveDir * diveProgress * 15, 18 + diveProgress * 5);
-  } else {
-    ctx.lineTo(-5, 18);
-  }
-  ctx.stroke();
-
-  // Right leg
-  ctx.beginPath();
-  ctx.moveTo(5, 0);
-  if (diveProgress > 0.1) {
-    ctx.lineTo(5 - diveDir * diveProgress * 10, 16 + diveProgress * 8);
-  } else {
-    ctx.lineTo(5, 18);
-  }
-  ctx.stroke();
-
-  // Boots
-  ctx.fillStyle = "#111111";
-  if (diveProgress <= 0.1) {
+  if (dp < 0.15) {
+    // Standing: legs straight down
     ctx.beginPath();
-    ctx.ellipse(-5, 19, 5, 3, 0, 0, Math.PI * 2);
+    ctx.moveTo(-5, 0);
+    ctx.lineTo(-6, 16);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(5, 0);
+    ctx.lineTo(6, 16);
+    ctx.stroke();
+
+    // Boots
+    ctx.fillStyle = "#111";
+    ctx.beginPath();
+    ctx.ellipse(-6, 17, 5, 3, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(5, 19, 5, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(6, 17, 5, 3, 0, 0, Math.PI * 2);
     ctx.fill();
+  } else {
+    // Diving: legs trail behind, slight split
+    const trail = dp * 20 * -diveDirection;
+    ctx.beginPath();
+    ctx.moveTo(-4, 0);
+    ctx.lineTo(-4 + trail * 0.6, 14 + dp * 8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(4, 0);
+    ctx.lineTo(4 + trail * 0.4, 12 + dp * 12);
+    ctx.stroke();
   }
 
-  // --- Jersey (body) ---
-  // Bright keeper jersey (orange/yellow gradient)
+  // --- Shorts ---
+  ctx.fillStyle = "#1a1a2e";
+  ctx.beginPath();
+  ctx.moveTo(-bodyW / 2, -bodyH * 0.3);
+  ctx.lineTo(-bodyW / 2 - 1, -bodyH * 0.05);
+  ctx.lineTo(-2, 0);
+  ctx.lineTo(2, 0);
+  ctx.lineTo(bodyW / 2 + 1, -bodyH * 0.05);
+  ctx.lineTo(bodyW / 2, -bodyH * 0.3);
+  ctx.closePath();
+  ctx.fill();
+
+  // --- Jersey (torso) ---
   const jerseyGrad = ctx.createLinearGradient(-bodyW / 2, -bodyH, bodyW / 2, 0);
   jerseyGrad.addColorStop(0, "#ff8f00");
   jerseyGrad.addColorStop(0.4, "#ffa726");
   jerseyGrad.addColorStop(1, "#ff6f00");
   ctx.fillStyle = jerseyGrad;
-
-  // Torso shape
   ctx.beginPath();
-  ctx.moveTo(-bodyW / 2, -bodyH * 0.35);
-  ctx.lineTo(-bodyW / 2 - 2, -bodyH * 0.8);
-  ctx.quadraticCurveTo(-bodyW / 2 + 2, -bodyH, bodyW / 2 - 2, -bodyH);
-  ctx.lineTo(bodyW / 2 + 2, -bodyH * 0.8);
-  ctx.lineTo(bodyW / 2, -bodyH * 0.35);
-  ctx.quadraticCurveTo(bodyW / 2 - 2, -bodyH * 0.3, 0, -bodyH * 0.28);
-  ctx.quadraticCurveTo(-bodyW / 2 + 2, -bodyH * 0.3, -bodyW / 2, -bodyH * 0.35);
+  ctx.moveTo(-bodyW / 2, -bodyH * 0.3);
+  ctx.lineTo(-bodyW / 2 - 2, -bodyH * 0.75);
+  ctx.quadraticCurveTo(-bodyW / 2, -bodyH, 0, -bodyH * 0.98);
+  ctx.quadraticCurveTo(bodyW / 2, -bodyH, bodyW / 2 + 2, -bodyH * 0.75);
+  ctx.lineTo(bodyW / 2, -bodyH * 0.3);
+  ctx.closePath();
   ctx.fill();
 
-  // Jersey number "1"
-  ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.font = "bold 14px sans-serif";
+  // Jersey number
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.font = "bold 12px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("1", 0, -bodyH * 0.6);
 
-  // Shorts
-  ctx.fillStyle = "#1a1a2e";
-  ctx.beginPath();
-  ctx.moveTo(-bodyW / 2, -bodyH * 0.35);
-  ctx.lineTo(-bodyW / 2 - 1, -bodyH * 0.1);
-  ctx.lineTo(-2, -bodyH * 0.05);
-  ctx.lineTo(2, -bodyH * 0.05);
-  ctx.lineTo(bodyW / 2 + 1, -bodyH * 0.1);
-  ctx.lineTo(bodyW / 2, -bodyH * 0.35);
-  ctx.closePath();
-  ctx.fill();
-
-  // --- Arms with gloves ---
-  const armY = -bodyH * 0.75;
+  // --- Arms ---
+  const armBaseY = -bodyH * 0.72;
   ctx.strokeStyle = "#ff8f00";
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 4.5;
   ctx.lineCap = "round";
 
-  // Glove size scales with dive
-  const gloveSize = 7 + diveProgress * 4;
+  // Compute arm endpoints based on dive state
+  let leftArmEndX: number, leftArmEndY: number;
+  let rightArmEndX: number, rightArmEndY: number;
 
-  // Left arm
-  ctx.beginPath();
-  ctx.moveTo(-bodyW / 2 - 2, armY);
-  if (diveProgress > 0.1) {
-    // Diving: arms stretch out in dive direction
-    const armExtend = diveProgress * 35;
-    const armLift = diveProgress * 25;
-    ctx.lineTo(-bodyW / 2 - 15 - armExtend, armY - armLift);
-    ctx.stroke();
-    // Glove
-    ctx.fillStyle = "#66bb6a";
-    ctx.beginPath();
-    ctx.arc(-bodyW / 2 - 15 - armExtend, armY - armLift, gloveSize, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#43a047";
-    ctx.beginPath();
-    ctx.arc(-bodyW / 2 - 15 - armExtend, armY - armLift, gloveSize * 0.6, 0, Math.PI * 2);
-    ctx.fill();
+  if (dp < 0.15) {
+    // Standing: arms out to sides, slightly down (ready position)
+    leftArmEndX = -(18 + dp * 5);
+    leftArmEndY = armBaseY + 3;
+    rightArmEndX = 18 + dp * 5;
+    rightArmEndY = armBaseY + 3;
+  } else if (diveDirection === 0) {
+    // Center dive: both arms reach upward
+    const reach = dp * 30;
+    const lift = dp * (isTopZone ? 28 : 8);
+    leftArmEndX = -(15 + reach * 0.6);
+    leftArmEndY = armBaseY - lift;
+    rightArmEndX = 15 + reach * 0.6;
+    rightArmEndY = armBaseY - lift;
   } else {
-    // Standing: arms slightly out
-    ctx.lineTo(-bodyW / 2 - 18, armY + 5);
-    ctx.stroke();
-    ctx.fillStyle = "#66bb6a";
-    ctx.beginPath();
-    ctx.arc(-bodyW / 2 - 18, armY + 5, gloveSize, 0, Math.PI * 2);
-    ctx.fill();
+    // Left or right dive: leading arm stretches far, trailing arm follows
+    const leadReach = 18 + dp * 42;
+    const trailReach = 10 + dp * 22;
+    const leadLift = dp * (isTopZone ? 28 : 6);
+    const trailLift = dp * (isTopZone ? 18 : 3);
+
+    if (diveDirection < 0) {
+      // Diving left: left arm leads
+      leftArmEndX = -(leadReach);
+      leftArmEndY = armBaseY - leadLift;
+      rightArmEndX = -(trailReach * 0.6);
+      rightArmEndY = armBaseY - trailLift;
+    } else {
+      // Diving right: right arm leads
+      rightArmEndX = leadReach;
+      rightArmEndY = armBaseY - leadLift;
+      leftArmEndX = trailReach * 0.6;
+      leftArmEndY = armBaseY - trailLift;
+    }
   }
 
-  // Right arm
-  ctx.strokeStyle = "#ff8f00";
+  // Draw left arm
   ctx.beginPath();
-  ctx.moveTo(bodyW / 2 + 2, armY);
-  if (diveProgress > 0.1) {
-    const armExtend = diveProgress * 35;
-    const armLift = diveProgress * 25;
-    ctx.lineTo(bodyW / 2 + 15 + armExtend, armY - armLift);
-    ctx.stroke();
-    ctx.fillStyle = "#66bb6a";
-    ctx.beginPath();
-    ctx.arc(bodyW / 2 + 15 + armExtend, armY - armLift, gloveSize, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#43a047";
-    ctx.beginPath();
-    ctx.arc(bodyW / 2 + 15 + armExtend, armY - armLift, gloveSize * 0.6, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    ctx.lineTo(bodyW / 2 + 18, armY + 5);
-    ctx.stroke();
-    ctx.fillStyle = "#66bb6a";
-    ctx.beginPath();
-    ctx.arc(bodyW / 2 + 18, armY + 5, gloveSize, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  ctx.moveTo(-(bodyW / 2 + 1), armBaseY);
+  ctx.lineTo(leftArmEndX, leftArmEndY);
+  ctx.stroke();
+
+  // Draw right arm
+  ctx.beginPath();
+  ctx.moveTo(bodyW / 2 + 1, armBaseY);
+  ctx.lineTo(rightArmEndX, rightArmEndY);
+  ctx.stroke();
+
+  // Gloves: small filled rectangles at hand positions
+  ctx.fillStyle = "#66bb6a";
+  const gloveW = 6 + dp * 3;
+  const gloveH = 4 + dp * 2;
+
+  ctx.save();
+  ctx.translate(leftArmEndX, leftArmEndY);
+  ctx.rotate(tiltAngle * 0.3);
+  ctx.fillRect(-gloveW / 2, -gloveH / 2, gloveW, gloveH);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(rightArmEndX, rightArmEndY);
+  ctx.rotate(tiltAngle * 0.3);
+  ctx.fillRect(-gloveW / 2, -gloveH / 2, gloveW, gloveH);
+  ctx.restore();
 
   // --- Head ---
-  // Hair / back of head
+  // Hair
   ctx.fillStyle = "#3e2723";
   ctx.beginPath();
-  ctx.arc(0, -bodyH - headR * 0.7, headR + 1, 0, Math.PI * 2);
+  ctx.arc(0, -bodyH - headR * 0.6, headR + 1, 0, Math.PI * 2);
   ctx.fill();
-
-  // Skin
+  // Face
   ctx.fillStyle = "#FFCC80";
   ctx.beginPath();
-  ctx.arc(0, -bodyH - headR * 0.7, headR, Math.PI * 0.15, Math.PI * 0.85, true);
-  ctx.fill();
-
-  // Face (simplified)
-  ctx.fillStyle = "#FFCC80";
-  ctx.beginPath();
-  ctx.arc(0, -bodyH - headR * 0.5, headR * 0.85, 0, Math.PI * 2);
+  ctx.arc(0, -bodyH - headR * 0.4, headR * 0.9, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
@@ -409,18 +432,17 @@ function drawBall(
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  // Ball shadow (on ground, more pronounced when ball is near ground)
-  const shadowScale = Math.max(0.3, 1 - (CANVAS_H * 0.85 - y) / (CANVAS_H * 0.5));
-  ctx.fillStyle = `rgba(0,0,0,${0.25 * shadowScale})`;
+  // Shadow on ground
+  const shadowY = Math.min(BALL_START_Y, CANVAS_H * 0.85);
+  const distFromGround = Math.max(0, shadowY - y);
+  const shadowScale = Math.max(0.3, 1 - distFromGround / (CANVAS_H * 0.5));
+  ctx.fillStyle = `rgba(0,0,0,${0.2 * shadowScale})`;
   ctx.beginPath();
-  ctx.ellipse(x + 1, CANVAS_H * 0.85, size * 0.9 * shadowScale, size * 0.25 * shadowScale, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 1, shadowY, size * 0.8 * shadowScale, size * 0.2 * shadowScale, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Ball body (radial gradient for 3D look)
-  const ballGrad = ctx.createRadialGradient(
-    x - size * 0.25, y - size * 0.25, size * 0.05,
-    x, y, size
-  );
+  // Ball body
+  const ballGrad = ctx.createRadialGradient(x - size * 0.25, y - size * 0.25, size * 0.05, x, y, size);
   ballGrad.addColorStop(0, "#ffffff");
   ballGrad.addColorStop(0.7, "#e8e8e8");
   ballGrad.addColorStop(1, "#b0b0b0");
@@ -429,20 +451,17 @@ function drawBall(
   ctx.arc(x, y, size, 0, Math.PI * 2);
   ctx.fill();
 
-  // Ball outline
-  ctx.strokeStyle = "rgba(0,0,0,0.15)";
-  ctx.lineWidth = 0.8;
+  ctx.strokeStyle = "rgba(0,0,0,0.12)";
+  ctx.lineWidth = 0.7;
   ctx.stroke();
 
-  // Pentagon pattern (rotates with ball flight)
+  // Pentagon pattern
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rotation);
-
-  // Center pentagon
-  ctx.fillStyle = "rgba(30,30,30,0.65)";
+  ctx.fillStyle = "rgba(30,30,30,0.6)";
   ctx.beginPath();
-  const pentR = size * 0.32;
+  const pentR = size * 0.3;
   for (let i = 0; i < 5; i++) {
     const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
     const px = Math.cos(angle) * pentR;
@@ -453,94 +472,70 @@ function drawBall(
   ctx.closePath();
   ctx.fill();
 
-  // Connecting lines from center pentagon to edge
-  ctx.strokeStyle = "rgba(30,30,30,0.2)";
-  ctx.lineWidth = 0.8;
+  ctx.strokeStyle = "rgba(30,30,30,0.18)";
+  ctx.lineWidth = 0.7;
   for (let i = 0; i < 5; i++) {
     const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
     const px1 = Math.cos(angle) * pentR;
     const py1 = Math.sin(angle) * pentR;
-    const px2 = Math.cos(angle) * size * 0.75;
-    const py2 = Math.sin(angle) * size * 0.75;
+    const px2 = Math.cos(angle) * size * 0.7;
+    const py2 = Math.sin(angle) * size * 0.7;
     ctx.beginPath();
     ctx.moveTo(px1, py1);
     ctx.lineTo(px2, py2);
     ctx.stroke();
-
-    // Small edge pentagons (partial)
-    const midAngle = ((i + 0.5) * Math.PI * 2) / 5 - Math.PI / 2;
-    const ex = Math.cos(midAngle) * size * 0.7;
-    const ey = Math.sin(midAngle) * size * 0.7;
-    ctx.beginPath();
-    ctx.arc(ex, ey, size * 0.18, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(30,30,30,0.12)";
-    ctx.stroke();
   }
-
   ctx.restore();
   ctx.restore();
 }
 
-function drawZones(
-  ctx: CanvasRenderingContext2D,
-  hoveredZone: number | null
-) {
-  const zoneW = GOAL_W / 3.3;
-  const zoneH = GOAL_H / 2.8;
-
+function drawZones(ctx: CanvasRenderingContext2D, hoveredZone: number | null) {
   for (let i = 0; i < 6; i++) {
-    const zp = ZONE_POSITIONS[i];
-    const zx = GOAL_LEFT + GOAL_W * zp.x;
-    const zy = GOAL_TOP + GOAL_H * zp.y;
+    const zt = ZONE_TARGETS[i];
     const isHovered = hoveredZone === i;
 
     if (isHovered) {
-      // Highlighted zone
       ctx.fillStyle = "rgba(0, 230, 118, 0.2)";
       ctx.beginPath();
-      ctx.roundRect(zx - zoneW / 2, zy - zoneH / 2, zoneW, zoneH, 5);
+      ctx.roundRect(zt.x - ZONE_HIT_W / 2, zt.y - ZONE_HIT_H / 2, ZONE_HIT_W, ZONE_HIT_H, 5);
       ctx.fill();
       ctx.strokeStyle = "rgba(0, 230, 118, 0.7)";
       ctx.lineWidth = 2;
       ctx.stroke();
 
       // Crosshair
-      const crossSize = 12;
+      const cs = 12;
       ctx.strokeStyle = "rgba(0, 230, 118, 0.9)";
       ctx.lineWidth = 2;
-      // Horizontal
       ctx.beginPath();
-      ctx.moveTo(zx - crossSize, zy);
-      ctx.lineTo(zx - 4, zy);
-      ctx.moveTo(zx + 4, zy);
-      ctx.lineTo(zx + crossSize, zy);
+      ctx.moveTo(zt.x - cs, zt.y);
+      ctx.lineTo(zt.x - 4, zt.y);
+      ctx.moveTo(zt.x + 4, zt.y);
+      ctx.lineTo(zt.x + cs, zt.y);
       ctx.stroke();
-      // Vertical
       ctx.beginPath();
-      ctx.moveTo(zx, zy - crossSize);
-      ctx.lineTo(zx, zy - 4);
-      ctx.moveTo(zx, zy + 4);
-      ctx.lineTo(zx, zy + crossSize);
+      ctx.moveTo(zt.x, zt.y - cs);
+      ctx.lineTo(zt.x, zt.y - 4);
+      ctx.moveTo(zt.x, zt.y + 4);
+      ctx.lineTo(zt.x, zt.y + cs);
       ctx.stroke();
-      // Center dot
+
       ctx.fillStyle = "rgba(0, 230, 118, 0.9)";
       ctx.beginPath();
-      ctx.arc(zx, zy, 2.5, 0, Math.PI * 2);
+      ctx.arc(zt.x, zt.y, 2.5, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // Subtle zone outline
       ctx.strokeStyle = "rgba(255,255,255,0.12)";
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.roundRect(zx - zoneW / 2, zy - zoneH / 2, zoneW, zoneH, 4);
+      ctx.roundRect(zt.x - ZONE_HIT_W / 2, zt.y - ZONE_HIT_H / 2, ZONE_HIT_W, ZONE_HIT_H, 4);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Small target dot
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
       ctx.beginPath();
-      ctx.arc(zx, zy, 2, 0, Math.PI * 2);
+      ctx.arc(zt.x, zt.y, 2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -574,15 +569,16 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
   const [isGoal, setIsGoal] = useState(false);
   const [hoveredZone, setHoveredZone] = useState<number | null>(null);
 
-  const animStateRef = useRef<AnimationState>({
-    ballX: 0.5,
-    ballY: 0.85,
+  const animStateRef = useRef<AnimState>({
+    ballX: BALL_START_X,
+    ballY: BALL_START_Y,
     ballSize: 14,
     ballRotation: 0,
-    keeperX: 0.5,
-    keeperDiveDirection: 0,
+    keeperX: KEEPER_CENTER_X,
+    keeperY: KEEPER_CENTER_Y,
+    keeperDiveAngle: 0,
     keeperDiveProgress: 0,
-    opacity: 1,
+    keeperTargetZone: 4, // center bottom (default)
   });
 
   useEffect(() => {
@@ -614,32 +610,24 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
 
     const anim = animStateRef.current;
 
-    // Clear
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Pitch
     drawPitch(ctx);
-
-    // Goal
     drawGoal(ctx);
 
-    // Zone highlights (only in aiming state)
     if (gameState === "aiming") {
       drawZones(ctx, hoveredZone);
     }
 
-    // Keeper
-    drawKeeper(ctx, anim.keeperDiveDirection, anim.keeperDiveProgress);
+    // Draw keeper
+    drawKeeper(ctx, anim.keeperTargetZone, anim.keeperDiveProgress);
 
-    // Ball
-    const bx = CANVAS_W * anim.ballX;
-    const by = CANVAS_H * anim.ballY;
-    drawBall(ctx, bx, by, anim.ballSize, anim.ballRotation, anim.opacity);
+    // Draw ball
+    drawBall(ctx, anim.ballX, anim.ballY, anim.ballSize, anim.ballRotation, 1);
 
     // Particles
     if (particlesRef.current.length > 0) {
       drawParticles(ctx, particlesRef.current);
-      // Update particles
       particlesRef.current = particlesRef.current
         .map(p => ({
           ...p,
@@ -653,7 +641,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     }
   }, [gameState, hoveredZone]);
 
-  // Continuous draw loop
+  // Render loop
   useEffect(() => {
     const loop = () => {
       drawGame();
@@ -672,19 +660,13 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     const x = (clientX - rect.left) * scaleX;
     const y = (clientY - rect.top) * scaleY;
 
-    const zoneW = GOAL_W / 3.3;
-    const zoneH = GOAL_H / 2.8;
-
     for (let i = 0; i < 6; i++) {
-      const zp = ZONE_POSITIONS[i];
-      const zx = GOAL_LEFT + GOAL_W * zp.x;
-      const zy = GOAL_TOP + GOAL_H * zp.y;
-
+      const zt = ZONE_TARGETS[i];
       if (
-        x >= zx - zoneW / 2 &&
-        x <= zx + zoneW / 2 &&
-        y >= zy - zoneH / 2 &&
-        y <= zy + zoneH / 2
+        x >= zt.x - ZONE_HIT_W / 2 &&
+        x <= zt.x + ZONE_HIT_W / 2 &&
+        y >= zt.y - ZONE_HIT_H / 2 &&
+        y <= zt.y + ZONE_HIT_H / 2
       ) {
         return i;
       }
@@ -692,127 +674,145 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     return null;
   }, []);
 
-  const handleCanvasMove = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (gameState !== "aiming") return;
-    let clientX: number, clientY: number;
-    if ("touches" in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-    setHoveredZone(getZoneFromPosition(clientX, clientY));
-  }, [gameState, getZoneFromPosition]);
-
-  const shoot = useCallback((zone: ShotZone) => {
-    if (gameState !== "aiming") return;
-    setGameState("shooting");
-
-    const saveZones = getKeeperSaveZones(streak);
-    const saved = saveZones.includes(zone);
-
-    // Determine keeper dive direction based on save zones
-    const avgZoneX = saveZones.reduce((sum, z) => sum + ZONE_POSITIONS[z].x, 0) / (saveZones.length || 1);
-    const diveDir = avgZoneX < 0.4 ? -1 : avgZoneX > 0.6 ? 1 : 0;
-
-    const targetX = (GOAL_LEFT + GOAL_W * ZONE_POSITIONS[zone].x) / CANVAS_W;
-    const targetY = (GOAL_TOP + GOAL_H * ZONE_POSITIONS[zone].y) / CANVAS_H;
-
-    const startBallX = 0.5;
-    const startBallY = 0.85;
-    const startBallSize = 14;
-    const endBallSize = 9;
-
-    // Slight curve: ball curves slightly toward the corner for top corners
-    const curveAmplitude = (zone === 0 || zone === 2) ? 0.03 : 0.015;
-    const curveDir = zone <= 2 ? (zone === 0 ? 1 : zone === 2 ? -1 : 0) : (zone === 3 ? 1 : zone === 5 ? -1 : 0);
-
-    let frame = 0;
-    const totalFrames = 22; // Snappy
-
-    const animate = () => {
-      frame++;
-      const t = Math.min(frame / totalFrames, 1);
-      const ease = easeOutCubic(t);
-
-      // Ball position with slight curve
-      const curveOffset = Math.sin(t * Math.PI) * curveAmplitude * curveDir;
-      animStateRef.current.ballX = startBallX + (targetX - startBallX) * ease + curveOffset;
-      animStateRef.current.ballY = startBallY + (targetY - startBallY) * ease;
-      animStateRef.current.ballSize = startBallSize + (endBallSize - startBallSize) * ease;
-      animStateRef.current.ballRotation += 0.3; // Spin
-
-      // Keeper dive (slightly delayed, smooth)
-      const keeperT = Math.max(0, (t - 0.1) / 0.9);
-      animStateRef.current.keeperDiveDirection = diveDir;
-      animStateRef.current.keeperDiveProgress = easeInOutQuad(Math.min(keeperT * 1.3, 1));
-
-      if (frame < totalFrames) {
-        requestAnimationFrame(animate);
+  const handleCanvasMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (gameState !== "aiming") return;
+      let clientX: number, clientY: number;
+      if ("touches" in e) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
       } else {
-        // Result
-        if (saved) {
-          setResultText("SAVED!");
-          setIsGoal(false);
-          setTimeout(() => {
-            if (streak > 0 && onScoreSubmit) {
-              onScoreSubmit(streak);
-            }
-            setGameState("gameover");
-          }, 1500);
-        } else {
-          setResultText("GOAL!");
-          setIsGoal(true);
-          spawnGoalParticles();
-          const newStreak = streak + 1;
-          setStreak(newStreak);
-          if (newStreak > highScore) {
-            setHighScoreState(newStreak);
-            setHighScore(newStreak);
-          }
-          setTimeout(() => {
-            // Reset for next kick
-            animStateRef.current = {
-              ballX: 0.5,
-              ballY: 0.85,
-              ballSize: 14,
-              ballRotation: 0,
-              keeperX: 0.5,
-              keeperDiveDirection: 0,
-              keeperDiveProgress: 0,
-              opacity: 1,
-            };
-            setResultText("");
-            setGameState("aiming");
-            setHoveredZone(null);
-          }, 1500);
-        }
-        setGameState("result");
+        clientX = e.clientX;
+        clientY = e.clientY;
       }
-    };
+      setHoveredZone(getZoneFromPosition(clientX, clientY));
+    },
+    [gameState, getZoneFromPosition]
+  );
 
-    requestAnimationFrame(animate);
-  }, [gameState, streak, highScore, spawnGoalParticles]);
+  const shoot = useCallback(
+    (zone: ShotZone) => {
+      if (gameState !== "aiming") return;
+      setGameState("shooting");
 
-  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (gameState !== "aiming") return;
+      const saveZones = getKeeperSaveZones(streak);
+      const saved = saveZones.includes(zone);
 
-    let clientX: number, clientY: number;
-    if ("touches" in e) {
-      e.preventDefault();
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
+      // Ball target: the zone the user clicked
+      const ballTarget = ZONE_TARGETS[zone];
 
-    const zone = getZoneFromPosition(clientX, clientY);
-    if (zone !== null) {
-      shoot(zone as ShotZone);
-    }
-  }, [gameState, getZoneFromPosition, shoot]);
+      // Keeper target: if saved, keeper dives to the ball zone.
+      // If missed, keeper dives to one of its other save zones (not the ball zone).
+      let keeperDiveZone: number;
+      if (saved) {
+        keeperDiveZone = zone; // keeper goes where the ball goes
+      } else {
+        // Keeper dives to its primary save zone (first in the list)
+        keeperDiveZone = saveZones[0];
+      }
+
+      // Animation
+      const startBallX = BALL_START_X;
+      const startBallY = BALL_START_Y;
+      const startBallSize = 14;
+      const endBallSize = 9;
+
+      // Slight curve for corners
+      const isCorner = zone === 0 || zone === 2 || zone === 3 || zone === 5;
+      const curveAmplitude = isCorner ? 8 : 3;
+      const curveDir = (zone % 3 === 0) ? 1 : (zone % 3 === 2) ? -1 : 0;
+
+      let frame = 0;
+      const totalFrames = 24;
+
+      const animate = () => {
+        frame++;
+        const t = Math.min(frame / totalFrames, 1);
+        const ease = easeOutCubic(t);
+
+        // Ball position with slight lateral curve
+        const curveOffset = Math.sin(t * Math.PI) * curveAmplitude * curveDir;
+        animStateRef.current.ballX = startBallX + (ballTarget.x - startBallX) * ease + curveOffset;
+        animStateRef.current.ballY = startBallY + (ballTarget.y - startBallY) * ease;
+        animStateRef.current.ballSize = startBallSize + (endBallSize - startBallSize) * ease;
+        animStateRef.current.ballRotation += 0.3;
+
+        // Keeper dive: slightly delayed, same duration
+        const keeperT = Math.max(0, (t - 0.08) / 0.92);
+        animStateRef.current.keeperTargetZone = keeperDiveZone;
+        animStateRef.current.keeperDiveProgress = Math.min(keeperT * 1.2, 1);
+
+        if (frame < totalFrames) {
+          requestAnimationFrame(animate);
+        } else {
+          // Result
+          if (saved) {
+            setResultText("SAVED!");
+            setIsGoal(false);
+            setTimeout(() => {
+              if (streak > 0 && onScoreSubmit) {
+                onScoreSubmit(streak);
+              }
+              setGameState("gameover");
+            }, 1500);
+          } else {
+            setResultText("GOAL!");
+            setIsGoal(true);
+            spawnGoalParticles();
+            const newStreak = streak + 1;
+            setStreak(newStreak);
+            if (newStreak > highScore) {
+              setHighScoreState(newStreak);
+              setHighScore(newStreak);
+            }
+            setTimeout(() => {
+              // Reset for next kick
+              animStateRef.current = {
+                ballX: BALL_START_X,
+                ballY: BALL_START_Y,
+                ballSize: 14,
+                ballRotation: 0,
+                keeperX: KEEPER_CENTER_X,
+                keeperY: KEEPER_CENTER_Y,
+                keeperDiveAngle: 0,
+                keeperDiveProgress: 0,
+                keeperTargetZone: 4,
+              };
+              setResultText("");
+              setGameState("aiming");
+              setHoveredZone(null);
+            }, 1500);
+          }
+          setGameState("result");
+        }
+      };
+
+      requestAnimationFrame(animate);
+    },
+    [gameState, streak, highScore, spawnGoalParticles, onScoreSubmit]
+  );
+
+  const handleCanvasClick = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (gameState !== "aiming") return;
+
+      let clientX: number, clientY: number;
+      if ("touches" in e) {
+        e.preventDefault();
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      const zone = getZoneFromPosition(clientX, clientY);
+      if (zone !== null) {
+        shoot(zone as ShotZone);
+      }
+    },
+    [gameState, getZoneFromPosition, shoot]
+  );
 
   const resetGame = useCallback(() => {
     setStreak(0);
@@ -822,14 +822,15 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     setHoveredZone(null);
     particlesRef.current = [];
     animStateRef.current = {
-      ballX: 0.5,
-      ballY: 0.85,
+      ballX: BALL_START_X,
+      ballY: BALL_START_Y,
       ballSize: 14,
       ballRotation: 0,
-      keeperX: 0.5,
-      keeperDiveDirection: 0,
+      keeperX: KEEPER_CENTER_X,
+      keeperY: KEEPER_CENTER_Y,
+      keeperDiveAngle: 0,
       keeperDiveProgress: 0,
-      opacity: 1,
+      keeperTargetZone: 4,
     };
   }, []);
 
@@ -885,22 +886,23 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
           onMouseLeave={() => setHoveredZone(null)}
         />
 
-        {/* Result overlay, positioned above goal area so it doesn't overlap keeper */}
+        {/* Result overlay: positioned ABOVE the canvas area */}
         {resultText && (
           <div
             className="absolute left-0 right-0 flex justify-center pointer-events-none"
-            style={{ top: "2%" }}
+            style={{ bottom: "8px" }}
           >
             <span
-              className={`font-heading text-5xl md:text-6xl font-extrabold uppercase tracking-wider ${
+              className={`font-heading text-4xl md:text-5xl font-extrabold uppercase tracking-wider px-4 py-1 rounded-lg ${
                 isGoal
-                  ? "text-accent animate-bounce"
-                  : "text-red-400"
+                  ? "text-accent bg-navy/80"
+                  : "text-red-400 bg-navy/80"
               }`}
               style={{
                 textShadow: isGoal
-                  ? "0 0 30px rgba(0,230,118,0.6), 0 4px 20px rgba(0,0,0,0.5)"
-                  : "0 0 20px rgba(239,68,68,0.4), 0 4px 20px rgba(0,0,0,0.5)",
+                  ? "0 0 20px rgba(0,230,118,0.5)"
+                  : "0 0 15px rgba(239,68,68,0.4)",
+                backdropFilter: "blur(4px)",
               }}
             >
               {resultText}
