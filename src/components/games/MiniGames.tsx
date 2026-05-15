@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Container from "@/components/Container";
 import { Card, CardBody } from "@/components/Card";
+import { useAuth } from "@/components/AuthProvider";
+import GameLeaderboard from "./GameLeaderboard";
 
 // Lazy-load games to keep the homepage bundle lean
 const PenaltyKick = dynamic(() => import("./PenaltyKick"), { ssr: false });
@@ -24,9 +26,11 @@ function safeGetScore(key: string): number {
 }
 
 export default function MiniGames() {
+  const { user } = useAuth();
   const [activeGame, setActiveGame] = useState<ActiveGame>(null);
   const [penaltyBest, setPenaltyBest] = useState(0);
   const [flagBest, setFlagBest] = useState(0);
+  const [leaderboardRefreshKey, setLeaderboardRefreshKey] = useState(0);
 
   // Read high scores on mount
   useEffect(() => {
@@ -41,6 +45,48 @@ export default function MiniGames() {
     setActiveGame(null);
   };
 
+  // Submit score to API and bump leaderboard refresh
+  const handleScoreSubmit = useCallback(
+    async (game: "penalty" | "flags", score: number) => {
+      if (!user) return;
+      if (!Number.isFinite(score) || score <= 0) return;
+      try {
+        await fetch("/api/games/scores", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.id,
+            userName: user.name,
+            game,
+            score: Math.floor(score),
+          }),
+        });
+      } catch {
+        // Silently fail; localStorage is the fallback
+      }
+      setLeaderboardRefreshKey((k) => k + 1);
+    },
+    [user]
+  );
+
+  const handlePenaltyScore = useCallback(
+    (score: number) => handleScoreSubmit("penalty", score),
+    [handleScoreSubmit]
+  );
+
+  const handleFlagScore = useCallback(
+    (score: number) => handleScoreSubmit("flags", score),
+    [handleScoreSubmit]
+  );
+
+  // Map activeGame to the leaderboard game key
+  const leaderboardGame: "penalty" | "flags" | null =
+    activeGame === "penalty"
+      ? "penalty"
+      : activeGame === "flag"
+        ? "flags"
+        : null;
+
   return (
     <section className="py-12 sm:py-16 border-t border-white/10">
       <Container>
@@ -53,11 +99,36 @@ export default function MiniGames() {
           </p>
         </div>
 
-        {/* Active game overlay */}
+        {/* Active game with leaderboard side panel */}
         {activeGame && (
-          <div className="mb-8 rounded-xl border border-white/10 bg-navy-light/80 backdrop-blur-sm p-4 sm:p-6">
-            {activeGame === "penalty" && <PenaltyKick onClose={handleClose} />}
-            {activeGame === "flag" && <GuessTheFlag onClose={handleClose} />}
+          <div className="mb-8 flex flex-col lg:flex-row gap-4">
+            {/* Game area (2/3 on desktop) */}
+            <div className="w-full lg:w-2/3 rounded-xl border border-white/10 bg-navy-light/80 backdrop-blur-sm p-4 sm:p-6">
+              {activeGame === "penalty" && (
+                <PenaltyKick
+                  onClose={handleClose}
+                  onScoreSubmit={handlePenaltyScore}
+                />
+              )}
+              {activeGame === "flag" && (
+                <GuessTheFlag
+                  onClose={handleClose}
+                  onScoreSubmit={handleFlagScore}
+                />
+              )}
+            </div>
+
+            {/* Leaderboard panel (1/3 on desktop, full width and collapsible on mobile) */}
+            {leaderboardGame && (
+              <div className="w-full lg:w-1/3">
+                <GameLeaderboard
+                  game={leaderboardGame}
+                  currentUserId={user?.id ?? null}
+                  refreshKey={leaderboardRefreshKey}
+                  defaultCollapsed={false}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -66,7 +137,10 @@ export default function MiniGames() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-3xl mx-auto">
             {/* Penalty Kick card */}
             <button
-              onClick={() => setActiveGame("penalty")}
+              onClick={() => {
+                setActiveGame("penalty");
+                setLeaderboardRefreshKey((k) => k + 1);
+              }}
               className="text-left group"
             >
               <Card hover className="h-full transition-all group-hover:border-accent/30">
@@ -88,7 +162,7 @@ export default function MiniGames() {
                         How many penalties can you score in a row? Pick your spot and beat the keeper.
                       </p>
                       <span className="inline-block mt-3 font-heading text-xs font-bold uppercase tracking-wide text-accent group-hover:text-green-300 transition-colors">
-                        Play Now →
+                        Play Now &rarr;
                       </span>
                     </div>
                   </div>
@@ -98,7 +172,10 @@ export default function MiniGames() {
 
             {/* Guess the Flag card */}
             <button
-              onClick={() => setActiveGame("flag")}
+              onClick={() => {
+                setActiveGame("flag");
+                setLeaderboardRefreshKey((k) => k + 1);
+              }}
               className="text-left group"
             >
               <Card hover className="h-full transition-all group-hover:border-accent/30">
@@ -120,7 +197,7 @@ export default function MiniGames() {
                         How many World Cup flags can you identify? One wrong answer and it is game over.
                       </p>
                       <span className="inline-block mt-3 font-heading text-xs font-bold uppercase tracking-wide text-accent group-hover:text-green-300 transition-colors">
-                        Play Now →
+                        Play Now &rarr;
                       </span>
                     </div>
                   </div>

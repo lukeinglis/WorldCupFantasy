@@ -557,7 +557,12 @@ function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[]) {
   ctx.globalAlpha = 1;
 }
 
-export default function PenaltyKick({ onClose }: { onClose: () => void }) {
+interface PenaltyKickProps {
+  onClose: () => void;
+  onScoreSubmit?: (score: number) => void;
+}
+
+export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
   const particlesRef = useRef<Particle[]>([]);
@@ -751,6 +756,9 @@ export default function PenaltyKick({ onClose }: { onClose: () => void }) {
           setResultText("SAVED!");
           setIsGoal(false);
           setTimeout(() => {
+            if (streak > 0 && onScoreSubmit) {
+              onScoreSubmit(streak);
+            }
             setGameState("gameover");
           }, 1500);
         } else {

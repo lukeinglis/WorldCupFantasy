@@ -48,7 +48,12 @@ function generateRounds(): Round[] {
   });
 }
 
-export default function GuessTheFlag({ onClose }: { onClose: () => void }) {
+interface GuessTheFlagProps {
+  onClose: () => void;
+  onScoreSubmit?: (score: number) => void;
+}
+
+export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagProps) {
   const [gameState, setGameState] = useState<GameState>("ready");
   const [rounds, setRounds] = useState<Round[]>([]);
   const [currentRound, setCurrentRound] = useState(0);
@@ -101,6 +106,9 @@ export default function GuessTheFlag({ onClose }: { onClose: () => void }) {
               setHighScore(newScore);
               setIsNewHighScore(true);
             }
+            if (newScore > 0 && onScoreSubmit) {
+              onScoreSubmit(newScore);
+            }
             setGameState("gameover");
           } else {
             setCurrentRound(nextRound);
@@ -116,6 +124,9 @@ export default function GuessTheFlag({ onClose }: { onClose: () => void }) {
             setHighScoreState(score);
             setHighScore(score);
             setIsNewHighScore(true);
+          }
+          if (score > 0 && onScoreSubmit) {
+            onScoreSubmit(score);
           }
           setGameState("gameover");
         }, 1200);
