@@ -326,7 +326,8 @@ export default function PicksPage() {
   useEffect(() => {
     async function fetchParticipants() {
       try {
-        const res = await fetch("/api/participants");
+        const url = user ? `/api/participants?userId=${user.id}` : "/api/participants";
+        const res = await fetch(url);
         const data = await res.json();
         setKvConfigured(data.kvConfigured !== false);
         setParticipantsList(data.participants ?? []);
@@ -336,7 +337,7 @@ export default function PicksPage() {
       setLoading(false);
     }
     fetchParticipants();
-  }, []);
+  }, [user]);
 
   // Filter visible participants based on reveal dates
   const visibleParticipants = tier1Revealed

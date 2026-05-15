@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   description:
     "Pick your winners for the FIFA World Cup 2026 in USA, Mexico, and Canada. Compete with friends in the ultimate World Cup fantasy contest.",
-  metadataBase: new URL("https://soccer.lukeinglis.me"),
+  metadataBase: new URL("https://worldcup.lukeinglis.me"),
   openGraph: {
     title: "World Cup 2026 Fantasy",
     description:
