@@ -42,25 +42,29 @@ function setHighScore(score: number) {
   localStorage.setItem(LS_KEY, String(safe));
 }
 
-// Ball end position for each zone (percentage offsets from goal center)
-// These define where in the goal the ball lands
+// Ball end position for each zone (px offsets from penalty spot).
+// Ball starts at left:50%, top:82%. Goal spans top:6%-44%, left:15%-85%.
+// To reach mid-goal (~25% of container = ~112px on 450px), ball must move ~257px up.
+// Goal width is 70% of container = ~420px on 600px. Half is ~210px.
 const BALL_ZONE_POSITIONS: Record<number, { x: number; y: number }> = {
-  0: { x: -34, y: -70 }, // top-left
-  1: { x: 0, y: -78 },   // top-center
-  2: { x: 34, y: -70 },  // top-right
-  3: { x: -34, y: -30 }, // bottom-left
-  4: { x: 0, y: -25 },   // bottom-center
-  5: { x: 34, y: -30 },  // bottom-right
+  0: { x: -130, y: -270 }, // top-left
+  1: { x: 0, y: -285 },    // top-center
+  2: { x: 130, y: -270 },  // top-right
+  3: { x: -120, y: -200 }, // bottom-left
+  4: { x: 0, y: -190 },    // bottom-center
+  5: { x: 120, y: -200 },  // bottom-right
 };
 
-// Keeper dive positions (percentage offsets from center standing position)
+// Keeper dive positions (px offsets from standing center in goal).
+// Keeper stands at left:50%, bottom:0 inside goal div.
+// Goal div is ~420px wide, so diving to left/right post = ~180px.
 const KEEPER_DIVE_POSITIONS: Record<number, { x: number; y: number; rotate: number }> = {
-  0: { x: -80, y: -50, rotate: -35 },  // top-left
-  1: { x: 0, y: -45, rotate: 0 },      // top-center
-  2: { x: 80, y: -50, rotate: 35 },    // top-right
-  3: { x: -75, y: -5, rotate: -45 },   // bottom-left
-  4: { x: 0, y: 5, rotate: 0 },        // bottom-center
-  5: { x: 75, y: -5, rotate: 45 },     // bottom-right
+  0: { x: -160, y: -70, rotate: -55 },  // top-left: big lateral dive + up
+  1: { x: 0, y: -80, rotate: 0 },       // top-center: jump up
+  2: { x: 160, y: -70, rotate: 55 },    // top-right: big lateral dive + up
+  3: { x: -150, y: 10, rotate: -70 },   // bottom-left: low dive
+  4: { x: 0, y: 15, rotate: 0 },        // bottom-center: drop down
+  5: { x: 150, y: 10, rotate: 70 },     // bottom-right: low dive
 };
 
 interface Confetto {
@@ -228,13 +232,14 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
 
   // Compute keeper transform
   const keeperPos = keeperTarget !== null ? KEEPER_DIVE_POSITIONS[keeperTarget] : null;
+  const isDivingLateral = keeperPos && Math.abs(keeperPos.x) > 50;
   const keeperStyle: React.CSSProperties = keeperDiving && keeperPos
     ? {
-        transform: `translate(${keeperPos.x}px, ${keeperPos.y}px) rotate(${keeperPos.rotate}deg)`,
-        transition: "transform 0.38s cubic-bezier(0.25, 0.8, 0.25, 1)",
+        transform: `translate(${keeperPos.x}px, ${keeperPos.y}px) rotate(${keeperPos.rotate}deg) ${isDivingLateral ? "scaleX(1.4) scaleY(0.85)" : ""}`,
+        transition: "transform 0.42s cubic-bezier(0.2, 0.7, 0.3, 1)",
       }
     : {
-        transform: "translate(0, 0) rotate(0deg)",
+        transform: "translate(0, 0) rotate(0deg) scaleX(1) scaleY(1)",
         transition: "transform 0.3s ease-out",
       };
 
