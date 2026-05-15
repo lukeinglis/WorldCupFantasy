@@ -5,17 +5,11 @@ import { useState, useCallback, useEffect, useRef } from "react";
 type GameState = "aiming" | "shooting" | "result" | "gameover";
 type ShotZone = 0 | 1 | 2 | 3 | 4 | 5;
 
-// Zone labels for keeper dive targeting
 const ZONE_LABELS = [
-  "top-left",
-  "top-center",
-  "top-right",
-  "bottom-left",
-  "bottom-center",
-  "bottom-right",
+  "top-left", "top-center", "top-right",
+  "bottom-left", "bottom-center", "bottom-right",
 ] as const;
 
-// Keeper coverage increases with streak: 1 zone at 0-2, up to 4 at 9+
 function getKeeperSaveZones(streak: number): number[] {
   const coverCount = Math.min(4, 1 + Math.floor(streak / 3));
   const zones: Set<number> = new Set();
@@ -42,41 +36,25 @@ function setHighScore(score: number) {
   localStorage.setItem(LS_KEY, String(safe));
 }
 
-// Ball end position for each zone (px offsets from penalty spot).
-// Ball starts at left:50%, top:82%. Goal spans top:6%-44%, left:15%-85%.
-// To reach mid-goal (~25% of container = ~112px on 450px), ball must move ~257px up.
-// Goal width is 70% of container = ~420px on 600px. Half is ~210px.
-const BALL_ZONE_POSITIONS: Record<number, { x: number; y: number }> = {
-  0: { x: -130, y: -270 }, // top-left
-  1: { x: 0, y: -285 },    // top-center
-  2: { x: 130, y: -270 },  // top-right
-  3: { x: -120, y: -200 }, // bottom-left
-  4: { x: 0, y: -190 },    // bottom-center
-  5: { x: 120, y: -200 },  // bottom-right
+// Zone grid positions as percentages within the goal (left%, top%)
+const ZONE_GRID: Record<number, { col: number; row: number }> = {
+  0: { col: 0, row: 0 }, // top-left
+  1: { col: 1, row: 0 }, // top-center
+  2: { col: 2, row: 0 }, // top-right
+  3: { col: 0, row: 1 }, // bottom-left
+  4: { col: 1, row: 1 }, // bottom-center
+  5: { col: 2, row: 1 }, // bottom-right
 };
 
-// Keeper dive positions (px offsets from standing center in goal).
-// Keeper stands at left:50%, bottom:0 inside goal div.
-// Goal div is ~420px wide, so diving to left/right post = ~180px.
-const KEEPER_DIVE_POSITIONS: Record<number, { x: number; y: number; rotate: number }> = {
-  0: { x: -160, y: -70, rotate: -55 },  // top-left: big lateral dive + up
-  1: { x: 0, y: -80, rotate: 0 },       // top-center: jump up
-  2: { x: 160, y: -70, rotate: 55 },    // top-right: big lateral dive + up
-  3: { x: -150, y: 10, rotate: -70 },   // bottom-left: low dive
-  4: { x: 0, y: 15, rotate: 0 },        // bottom-center: drop down
-  5: { x: 150, y: 10, rotate: 70 },     // bottom-right: low dive
+// Where the gloves land for each zone (% from goal center)
+const GLOVE_POSITIONS: Record<number, { left: string; top: string; rotate: string }> = {
+  0: { left: "12%", top: "15%", rotate: "-25deg" },
+  1: { left: "42%", top: "5%", rotate: "0deg" },
+  2: { left: "72%", top: "15%", rotate: "25deg" },
+  3: { left: "10%", top: "60%", rotate: "-35deg" },
+  4: { left: "42%", top: "65%", rotate: "0deg" },
+  5: { left: "72%", top: "60%", rotate: "35deg" },
 };
-
-interface Confetto {
-  id: number;
-  x: number;
-  y: number;
-  color: string;
-  delay: number;
-  duration: number;
-  rotate: number;
-  size: number;
-}
 
 interface PenaltyKickProps {
   onClose: () => void;
@@ -91,39 +69,17 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
   const [isGoal, setIsGoal] = useState(false);
   const [hoveredZone, setHoveredZone] = useState<number | null>(null);
 
-  // Animation state
-  const [ballAnimating, setBallAnimating] = useState(false);
-  const [ballTarget, setBallTarget] = useState<number | null>(null);
-  const [keeperDiving, setKeeperDiving] = useState(false);
-  const [keeperTarget, setKeeperTarget] = useState<number | null>(null);
-  const [confetti, setConfetti] = useState<Confetto[]>([]);
-  const [ballWiggle, setBallWiggle] = useState(false);
+  const [ballZone, setBallZone] = useState<number | null>(null);
+  const [ballFlying, setBallFlying] = useState(false);
+  const [glovesZone, setGlovesZone] = useState<number | null>(null);
+  const [glovesDiving, setGlovesDiving] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
-  // Ref to track current streak for timeout callbacks
   const streakRef = useRef(streak);
   streakRef.current = streak;
 
   useEffect(() => {
     setHighScoreState(getHighScore());
-  }, []);
-
-  const spawnConfetti = useCallback(() => {
-    const colors = ["#00E676", "#FFD700", "#ffffff", "#4CAF50", "#FFEB3B", "#FF5722", "#2196F3"];
-    const pieces: Confetto[] = [];
-    for (let i = 0; i < 30; i++) {
-      pieces.push({
-        id: i,
-        x: 40 + Math.random() * 20,
-        y: 10 + Math.random() * 15,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        delay: Math.random() * 0.3,
-        duration: 0.8 + Math.random() * 0.8,
-        rotate: Math.random() * 720 - 360,
-        size: 4 + Math.random() * 6,
-      });
-    }
-    setConfetti(pieces);
-    setTimeout(() => setConfetti([]), 2500);
   }, []);
 
   const shoot = useCallback(
@@ -134,69 +90,57 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
 
       const saveZones = getKeeperSaveZones(streak);
       const saved = saveZones.includes(zone);
-
-      // Keeper dives to ball zone if saving, otherwise to first save zone
       const keeperDiveZone = saved ? zone : saveZones[0];
 
-      // Step 1: Ball wiggle anticipation
-      setBallWiggle(true);
+      // Kick the ball
+      setBallZone(zone);
+      setBallFlying(true);
 
+      // Gloves dive (slight delay)
       setTimeout(() => {
-        setBallWiggle(false);
+        setGlovesZone(keeperDiveZone);
+        setGlovesDiving(true);
+      }, 80);
 
-        // Step 2: Kick the ball
-        setBallTarget(zone);
-        setBallAnimating(true);
+      // Show result
+      setTimeout(() => {
+        setGameState("result");
 
-        // Step 3: Keeper dives (slightly delayed)
-        setTimeout(() => {
-          setKeeperTarget(keeperDiveZone);
-          setKeeperDiving(true);
-        }, 50);
+        if (saved) {
+          setResultText("SAVED!");
+          setIsGoal(false);
+          setTimeout(() => {
+            const currentStreak = streakRef.current;
+            if (currentStreak > 0 && onScoreSubmit) onScoreSubmit(currentStreak);
+            setGameState("gameover");
+          }, 1400);
+        } else {
+          setResultText("GOAL!");
+          setIsGoal(true);
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 2000);
 
-        // Step 4: Show result after ball arrives
-        setTimeout(() => {
-          setGameState("result");
+          setStreak((prev) => {
+            const newStreak = prev + 1;
+            if (newStreak > getHighScore()) {
+              setHighScoreState(newStreak);
+              setHighScore(newStreak);
+            }
+            return newStreak;
+          });
 
-          if (saved) {
-            setResultText("SAVED!");
-            setIsGoal(false);
-
-            setTimeout(() => {
-              const currentStreak = streakRef.current;
-              if (currentStreak > 0 && onScoreSubmit) {
-                onScoreSubmit(currentStreak);
-              }
-              setGameState("gameover");
-            }, 1500);
-          } else {
-            setResultText("GOAL!");
-            setIsGoal(true);
-            spawnConfetti();
-
-            setStreak((prev) => {
-              const newStreak = prev + 1;
-              if (newStreak > getHighScore()) {
-                setHighScoreState(newStreak);
-                setHighScore(newStreak);
-              }
-              return newStreak;
-            });
-
-            // Reset for next kick
-            setTimeout(() => {
-              setBallAnimating(false);
-              setBallTarget(null);
-              setKeeperDiving(false);
-              setKeeperTarget(null);
-              setResultText("");
-              setGameState("aiming");
-            }, 1500);
-          }
-        }, 500);
-      }, 200);
+          setTimeout(() => {
+            setBallFlying(false);
+            setBallZone(null);
+            setGlovesDiving(false);
+            setGlovesZone(null);
+            setResultText("");
+            setGameState("aiming");
+          }, 1400);
+        }
+      }, 550);
     },
-    [gameState, streak, spawnConfetti, onScoreSubmit]
+    [gameState, streak, onScoreSubmit]
   );
 
   const resetGame = useCallback(() => {
@@ -205,70 +149,31 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     setResultText("");
     setIsGoal(false);
     setHoveredZone(null);
-    setBallAnimating(false);
-    setBallTarget(null);
-    setKeeperDiving(false);
-    setKeeperTarget(null);
-    setConfetti([]);
-    setBallWiggle(false);
+    setBallFlying(false);
+    setBallZone(null);
+    setGlovesDiving(false);
+    setGlovesZone(null);
+    setShowConfetti(false);
   }, []);
 
-  // Compute ball transform
-  const ballPos = ballTarget !== null ? BALL_ZONE_POSITIONS[ballTarget] : null;
-  const ballStyle: React.CSSProperties = ballAnimating && ballPos
-    ? {
-        transform: `translate(${ballPos.x}px, ${ballPos.y}px) scale(0.7) rotate(720deg)`,
-        transition: "transform 0.45s cubic-bezier(0.2, 0.8, 0.3, 1)",
-      }
-    : ballWiggle
-      ? {
-          transform: "translate(0, 0) scale(1) rotate(0deg)",
-          animation: "ball-wiggle 0.2s ease-in-out",
-        }
-      : {
-          transform: "translate(0, 0) scale(1) rotate(0deg)",
-          transition: "transform 0.3s ease-out",
-        };
-
-  // Compute keeper transform
-  const keeperPos = keeperTarget !== null ? KEEPER_DIVE_POSITIONS[keeperTarget] : null;
-  const isDivingLateral = keeperPos && Math.abs(keeperPos.x) > 50;
-  const keeperStyle: React.CSSProperties = keeperDiving && keeperPos
-    ? {
-        transform: `translate(${keeperPos.x}px, ${keeperPos.y}px) rotate(${keeperPos.rotate}deg) ${isDivingLateral ? "scaleX(1.4) scaleY(0.85)" : ""}`,
-        transition: "transform 0.42s cubic-bezier(0.2, 0.7, 0.3, 1)",
-      }
-    : {
-        transform: "translate(0, 0) rotate(0deg) scaleX(1) scaleY(1)",
-        transition: "transform 0.3s ease-out",
-      };
+  // Ball target position (center of the zone cell)
+  const ballTarget = ballZone !== null ? ZONE_GRID[ballZone] : null;
 
   return (
     <div className="relative w-full max-w-2xl mx-auto">
-      {/* Keyframe animations */}
       <style>{`
-        @keyframes ball-wiggle {
-          0% { transform: translate(0, 0) rotate(0deg); }
-          25% { transform: translate(-3px, -1px) rotate(-3deg); }
-          50% { transform: translate(2px, 0px) rotate(2deg); }
-          75% { transform: translate(-2px, 1px) rotate(-2deg); }
-          100% { transform: translate(0, 0) rotate(0deg); }
+        @keyframes ball-kick {
+          0% { opacity: 1; }
+          100% { opacity: 1; }
         }
-        @keyframes confetto-fall {
-          0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
-          100% { opacity: 0; transform: translate(var(--cx), 80px) rotate(var(--cr)) scale(0.3); }
+        @keyframes confetti-burst {
+          0% { transform: translate(0, 0) scale(1); opacity: 1; }
+          100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
         }
-        @keyframes goal-pulse {
-          0%, 100% { text-shadow: 0 0 20px rgba(0,230,118,0.5); }
-          50% { text-shadow: 0 0 40px rgba(0,230,118,0.8), 0 0 60px rgba(0,230,118,0.3); }
-        }
-        @keyframes saved-pulse {
-          0%, 100% { text-shadow: 0 0 15px rgba(239,68,68,0.4); }
-          50% { text-shadow: 0 0 30px rgba(239,68,68,0.7); }
-        }
-        @keyframes net-shimmer {
-          0%, 100% { opacity: 0.06; }
-          50% { opacity: 0.1; }
+        @keyframes result-pop {
+          0% { transform: scale(0.5); opacity: 0; }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
 
@@ -284,11 +189,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
             </span>
           )}
         </div>
-        <button
-          onClick={onClose}
-          className="text-gray-500 hover:text-white transition-colors text-sm"
-          aria-label="Close game"
-        >
+        <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors text-sm" aria-label="Close game">
           ✕
         </button>
       </div>
@@ -300,489 +201,202 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
           <p className="text-xs text-gray-500 uppercase tracking-wide">Goals</p>
         </div>
         {streak >= 3 && (
-          <div className="text-center">
-            <p className="text-xs text-gold font-bold animate-pulse">
-              {streak >= 9 ? "LEGENDARY!" : streak >= 6 ? "ON FIRE!" : "HOT STREAK!"}
-            </p>
-          </div>
+          <p className="text-xs text-gold font-bold animate-pulse">
+            {streak >= 9 ? "LEGENDARY!" : streak >= 6 ? "ON FIRE!" : "HOT STREAK!"}
+          </p>
         )}
       </div>
 
-      {/* Game Area */}
+      {/* Game Area: compact, goal-focused */}
       <div
-        className="relative rounded-xl overflow-hidden border border-white/10 select-none"
+        className="relative rounded-xl overflow-hidden border border-white/10"
         style={{
           width: "100%",
-          aspectRatio: "600 / 450",
-          background: "linear-gradient(180deg, #0f2e0f 0%, #1B5E20 30%, #1a6b1f 60%, #145216 100%)",
+          aspectRatio: "4 / 3",
+          background: "linear-gradient(180deg, #0d2e0d 0%, #1B5E20 40%, #165a19 100%)",
         }}
       >
         {/* Grass stripes */}
-        <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.025 }}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-full"
-              style={{
-                top: `${i * 8.33}%`,
-                height: "4.16%",
-                background: i % 2 === 0 ? "white" : "transparent",
-              }}
-            />
-          ))}
-        </div>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-full pointer-events-none"
+            style={{
+              top: `${i * 12.5}%`,
+              height: "6.25%",
+              background: i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent",
+            }}
+          />
+        ))}
 
-        {/* 18-yard box lines */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            left: "12%",
-            right: "12%",
-            top: "40%",
-            bottom: "32%",
-            border: "1.5px solid rgba(255,255,255,0.10)",
-            borderTop: "none",
-          }}
-        />
-
-        {/* 6-yard box lines */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            left: "30%",
-            right: "30%",
-            top: "44%",
-            bottom: "48%",
-            border: "1.5px solid rgba(255,255,255,0.15)",
-            borderTop: "none",
-          }}
-        />
-
-        {/* Penalty arc */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            left: "50%",
-            top: "82%",
-            width: "90px",
-            height: "90px",
-            marginLeft: "-45px",
-            marginTop: "-45px",
-            borderRadius: "50%",
-            border: "1px solid rgba(255,255,255,0.06)",
-            clipPath: "polygon(0 0, 100% 0, 100% 50%, 0 50%)",
-          }}
-        />
-
-        {/* Penalty spot */}
-        <div
-          className="absolute pointer-events-none rounded-full"
-          style={{
-            left: "50%",
-            top: "82%",
-            width: "6px",
-            height: "6px",
-            marginLeft: "-3px",
-            marginTop: "-3px",
-            background: "rgba(255,255,255,0.45)",
-          }}
-        />
-
-        {/* ========== GOAL ========== */}
+        {/* Goal frame: positioned in upper portion */}
         <div
           className="absolute"
-          style={{
-            left: "15%",
-            right: "15%",
-            top: "6%",
-            bottom: "56%",
-          }}
+          style={{ left: "10%", right: "10%", top: "5%", height: "55%" }}
         >
           {/* Net background */}
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 rounded-t-sm"
             style={{
-              background: "rgba(0,0,0,0.55)",
+              background: "rgba(0,0,0,0.5)",
               backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)
+                linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
               `,
-              backgroundSize: "14px 14px",
-            }}
-          />
-
-          {/* Net diagonal overlay */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: `
-                repeating-linear-gradient(
-                  45deg,
-                  transparent,
-                  transparent 19px,
-                  rgba(255,255,255,0.03) 19px,
-                  rgba(255,255,255,0.03) 20px
-                )
-              `,
-              animation: "net-shimmer 4s ease-in-out infinite",
+              backgroundSize: "16px 16px",
             }}
           />
 
           {/* Left post */}
-          <div
-            className="absolute"
-            style={{
-              left: "-6px",
-              top: "-6px",
-              width: "6px",
-              bottom: "0",
-              background: "linear-gradient(90deg, #e0e0e0, #ffffff 50%, #d0d0d0)",
-              borderRadius: "2px 0 0 2px",
-              boxShadow: "-2px 2px 4px rgba(0,0,0,0.3)",
-            }}
-          />
+          <div className="absolute left-0 top-0 bottom-0 w-[5px]" style={{
+            background: "linear-gradient(90deg, #ccc, #fff 60%, #bbb)",
+            boxShadow: "2px 0 8px rgba(0,0,0,0.3)",
+          }} />
 
           {/* Right post */}
-          <div
-            className="absolute"
-            style={{
-              right: "-6px",
-              top: "-6px",
-              width: "6px",
-              bottom: "0",
-              background: "linear-gradient(90deg, #d0d0d0, #ffffff 50%, #e0e0e0)",
-              borderRadius: "0 2px 2px 0",
-              boxShadow: "2px 2px 4px rgba(0,0,0,0.3)",
-            }}
-          />
+          <div className="absolute right-0 top-0 bottom-0 w-[5px]" style={{
+            background: "linear-gradient(90deg, #bbb, #fff 40%, #ccc)",
+            boxShadow: "-2px 0 8px rgba(0,0,0,0.3)",
+          }} />
 
           {/* Crossbar */}
-          <div
-            className="absolute"
-            style={{
-              left: "-6px",
-              right: "-6px",
-              top: "-6px",
-              height: "6px",
-              background: "linear-gradient(180deg, #e0e0e0, #ffffff 50%, #d0d0d0)",
-              borderRadius: "2px 2px 0 0",
-              boxShadow: "0 -2px 4px rgba(0,0,0,0.3)",
-            }}
-          />
+          <div className="absolute left-0 right-0 top-0 h-[5px]" style={{
+            background: "linear-gradient(180deg, #ddd, #fff 60%, #bbb)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          }} />
 
-          {/* ========== CLICKABLE ZONES (3x2 grid) ========== */}
+          {/* ===== CLICKABLE ZONES (3x2 grid inside goal) ===== */}
           {gameState === "aiming" && (
-            <div
-              className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-0"
-              style={{ zIndex: 10 }}
-            >
+            <div className="absolute inset-[5px] grid grid-cols-3 grid-rows-2 gap-[2px]" style={{ zIndex: 10 }}>
               {[0, 1, 2, 3, 4, 5].map((zone) => (
                 <button
                   key={zone}
-                  className="relative w-full h-full cursor-crosshair group"
+                  className="relative cursor-crosshair group rounded-sm overflow-hidden"
                   onClick={() => shoot(zone as ShotZone)}
                   onMouseEnter={() => setHoveredZone(zone)}
                   onMouseLeave={() => setHoveredZone(null)}
                   aria-label={`Shoot ${ZONE_LABELS[zone]}`}
+                  style={{
+                    background: hoveredZone === zone
+                      ? "rgba(0, 230, 118, 0.2)"
+                      : "rgba(255,255,255,0.02)",
+                    border: hoveredZone === zone
+                      ? "2px solid rgba(0, 230, 118, 0.6)"
+                      : "1px solid rgba(255,255,255,0.06)",
+                    transition: "all 0.15s ease",
+                  }}
                 >
-                  {/* Hover highlight */}
+                  {/* Target dot */}
                   <div
-                    className="absolute inset-1 rounded transition-all duration-150"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
                     style={{
-                      background:
-                        hoveredZone === zone
-                          ? "rgba(0, 230, 118, 0.18)"
-                          : "transparent",
-                      border:
-                        hoveredZone === zone
-                          ? "2px solid rgba(0, 230, 118, 0.7)"
-                          : "1px dashed rgba(255,255,255,0.12)",
-                      boxShadow:
-                        hoveredZone === zone
-                          ? "inset 0 0 20px rgba(0,230,118,0.1)"
-                          : "none",
+                      width: hoveredZone === zone ? "10px" : "5px",
+                      height: hoveredZone === zone ? "10px" : "5px",
+                      background: hoveredZone === zone
+                        ? "rgba(0, 230, 118, 0.8)"
+                        : "rgba(255,255,255,0.15)",
+                      boxShadow: hoveredZone === zone
+                        ? "0 0 12px rgba(0, 230, 118, 0.4)"
+                        : "none",
+                      transition: "all 0.15s ease",
                     }}
                   />
-                  {/* Crosshair dot */}
-                  <div
-                    className="absolute top-1/2 left-1/2 rounded-full transition-all duration-150"
-                    style={{
-                      width: hoveredZone === zone ? "6px" : "4px",
-                      height: hoveredZone === zone ? "6px" : "4px",
-                      marginLeft: hoveredZone === zone ? "-3px" : "-2px",
-                      marginTop: hoveredZone === zone ? "-3px" : "-2px",
-                      background:
-                        hoveredZone === zone
-                          ? "rgba(0, 230, 118, 0.9)"
-                          : "rgba(255,255,255,0.2)",
-                    }}
-                  />
-                  {/* Crosshair lines on hover */}
-                  {hoveredZone === zone && (
-                    <>
-                      <div
-                        className="absolute top-1/2 left-1/2"
-                        style={{
-                          width: "20px",
-                          height: "2px",
-                          marginLeft: "-10px",
-                          marginTop: "-1px",
-                          background: "rgba(0, 230, 118, 0.7)",
-                          maskImage: "linear-gradient(90deg, transparent 0%, transparent 35%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 65%, transparent 65%, transparent 100%)",
-                          WebkitMaskImage: "linear-gradient(90deg, rgba(0,230,118,1) 0%, rgba(0,230,118,1) 30%, transparent 40%, transparent 60%, rgba(0,230,118,1) 70%, rgba(0,230,118,1) 100%)",
-                        }}
-                      />
-                      <div
-                        className="absolute top-1/2 left-1/2"
-                        style={{
-                          width: "2px",
-                          height: "20px",
-                          marginLeft: "-1px",
-                          marginTop: "-10px",
-                          background: "rgba(0, 230, 118, 0.7)",
-                          WebkitMaskImage: "linear-gradient(180deg, rgba(0,230,118,1) 0%, rgba(0,230,118,1) 30%, transparent 40%, transparent 60%, rgba(0,230,118,1) 70%, rgba(0,230,118,1) 100%)",
-                        }}
-                      />
-                    </>
-                  )}
                 </button>
               ))}
             </div>
           )}
 
-          {/* ========== KEEPER ========== */}
+          {/* ===== GOALKEEPER GLOVES ===== */}
           <div
             className="absolute pointer-events-none"
             style={{
-              left: "50%",
-              bottom: "0",
-              marginLeft: "-20px",
+              left: glovesDiving && glovesZone !== null ? GLOVE_POSITIONS[glovesZone].left : "42%",
+              top: glovesDiving && glovesZone !== null ? GLOVE_POSITIONS[glovesZone].top : "40%",
+              transform: `rotate(${glovesDiving && glovesZone !== null ? GLOVE_POSITIONS[glovesZone].rotate : "0deg"})`,
+              transition: "all 0.4s cubic-bezier(0.2, 0.8, 0.3, 1)",
               zIndex: 5,
-              ...keeperStyle,
+              fontSize: "42px",
+              lineHeight: 1,
+              filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.5))",
             }}
           >
-            {/* Keeper body */}
-            <div className="relative" style={{ width: "40px", height: "60px" }}>
-              {/* Head */}
-              <div
-                className="absolute rounded-full"
-                style={{
-                  top: "0",
-                  left: "50%",
-                  marginLeft: "-8px",
-                  width: "16px",
-                  height: "16px",
-                  background: "radial-gradient(circle at 40% 35%, #FFCC80, #E0A050)",
-                  boxShadow: "0 -2px 0 2px #5D4037, inset 0 -1px 2px rgba(0,0,0,0.1)",
-                }}
-              />
-
-              {/* Jersey/torso */}
-              <div
-                className="absolute"
-                style={{
-                  top: "14px",
-                  left: "4px",
-                  right: "4px",
-                  height: "26px",
-                  background: "linear-gradient(180deg, #FFA726 0%, #FF8F00 50%, #FF6F00 100%)",
-                  borderRadius: "3px 3px 2px 2px",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2)",
-                }}
-              >
-                {/* Jersey number */}
-                <span
-                  className="absolute top-1/2 left-1/2 font-bold text-xs"
-                  style={{
-                    transform: "translate(-50%, -50%)",
-                    color: "rgba(0,0,0,0.15)",
-                    fontSize: "11px",
-                  }}
-                >
-                  1
-                </span>
-              </div>
-
-              {/* Left arm */}
-              <div
-                className="absolute"
-                style={{
-                  top: "16px",
-                  left: "-8px",
-                  width: "12px",
-                  height: "5px",
-                  background: "#FF8F00",
-                  borderRadius: "3px",
-                  transform: "rotate(-15deg)",
-                  transformOrigin: "right center",
-                }}
-              >
-                {/* Glove */}
-                <div
-                  className="absolute rounded"
-                  style={{
-                    left: "-4px",
-                    top: "-1px",
-                    width: "7px",
-                    height: "7px",
-                    background: "#66BB6A",
-                  }}
-                />
-              </div>
-
-              {/* Right arm */}
-              <div
-                className="absolute"
-                style={{
-                  top: "16px",
-                  right: "-8px",
-                  width: "12px",
-                  height: "5px",
-                  background: "#FF8F00",
-                  borderRadius: "3px",
-                  transform: "rotate(15deg)",
-                  transformOrigin: "left center",
-                }}
-              >
-                {/* Glove */}
-                <div
-                  className="absolute rounded"
-                  style={{
-                    right: "-4px",
-                    top: "-1px",
-                    width: "7px",
-                    height: "7px",
-                    background: "#66BB6A",
-                  }}
-                />
-              </div>
-
-              {/* Shorts */}
-              <div
-                className="absolute"
-                style={{
-                  top: "38px",
-                  left: "6px",
-                  right: "6px",
-                  height: "10px",
-                  background: "#1a1a2e",
-                  borderRadius: "0 0 2px 2px",
-                }}
-              />
-
-              {/* Left leg */}
-              <div
-                className="absolute"
-                style={{
-                  top: "46px",
-                  left: "8px",
-                  width: "5px",
-                  height: "12px",
-                  background: "#1a1a2e",
-                  borderRadius: "0 0 2px 2px",
-                }}
-              >
-                {/* Boot */}
-                <div
-                  className="absolute rounded-sm"
-                  style={{
-                    bottom: "-3px",
-                    left: "-1px",
-                    width: "8px",
-                    height: "4px",
-                    background: "#111",
-                  }}
-                />
-              </div>
-
-              {/* Right leg */}
-              <div
-                className="absolute"
-                style={{
-                  top: "46px",
-                  right: "8px",
-                  width: "5px",
-                  height: "12px",
-                  background: "#1a1a2e",
-                  borderRadius: "0 0 2px 2px",
-                }}
-              >
-                {/* Boot */}
-                <div
-                  className="absolute rounded-sm"
-                  style={{
-                    bottom: "-3px",
-                    right: "-1px",
-                    width: "8px",
-                    height: "4px",
-                    background: "#111",
-                  }}
-                />
-              </div>
-            </div>
+            🧤
           </div>
         </div>
 
-        {/* ========== BALL ========== */}
+        {/* Penalty area lines */}
+        <div className="absolute pointer-events-none" style={{
+          left: "20%", right: "20%", top: "60%", bottom: "12%",
+          borderLeft: "1px solid rgba(255,255,255,0.08)",
+          borderRight: "1px solid rgba(255,255,255,0.08)",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+        }} />
+
+        {/* Penalty spot */}
+        <div className="absolute pointer-events-none" style={{
+          left: "50%", bottom: "18%",
+          width: "6px", height: "6px",
+          marginLeft: "-3px",
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.4)",
+        }} />
+
+        {/* ===== BALL ===== */}
         <div
           className="absolute pointer-events-none"
           style={{
-            left: "50%",
-            top: "82%",
-            marginLeft: "-15px",
-            marginTop: "-15px",
+            left: ballFlying && ballTarget
+              ? `calc(10% + ${(ballTarget.col * 33.33 + 16.66)}% * 0.8)`
+              : "50%",
+            top: ballFlying && ballTarget
+              ? `calc(5% + ${(ballTarget.row * 50 + 25)}% * 0.55)`
+              : "78%",
+            transform: `translate(-50%, -50%) scale(${ballFlying ? 0.7 : 1}) rotate(${ballFlying ? "540deg" : "0deg"})`,
+            transition: ballFlying
+              ? "all 0.45s cubic-bezier(0.15, 0.8, 0.3, 1)"
+              : "all 0.3s ease-out",
             zIndex: 8,
-            ...ballStyle,
+            fontSize: "36px",
+            lineHeight: 1,
+            filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.5))",
           }}
         >
-          <div
-            style={{
-              width: "30px",
-              height: "30px",
-              fontSize: "28px",
-              lineHeight: "30px",
-              textAlign: "center",
-              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.4))",
-            }}
-          >
-            ⚽
-          </div>
+          ⚽
         </div>
 
-        {/* ========== CONFETTI ========== */}
-        {confetti.map((c) => (
+        {/* ===== CONFETTI ===== */}
+        {showConfetti && Array.from({ length: 24 }).map((_, i) => (
           <div
-            key={c.id}
+            key={i}
             className="absolute pointer-events-none"
             style={{
-              left: `${c.x}%`,
-              top: `${c.y}%`,
-              width: `${c.size}px`,
-              height: `${c.size}px`,
-              background: c.color,
-              borderRadius: c.id % 3 === 0 ? "50%" : "1px",
-              ["--cx" as string]: `${(Math.random() - 0.5) * 60}px`,
-              ["--cr" as string]: `${c.rotate}deg`,
-              animation: `confetto-fall ${c.duration}s ${c.delay}s ease-out forwards`,
-              opacity: 0,
-              animationFillMode: "forwards",
+              left: `${20 + Math.random() * 60}%`,
+              top: `${10 + Math.random() * 30}%`,
+              width: `${4 + Math.random() * 6}px`,
+              height: `${4 + Math.random() * 6}px`,
+              borderRadius: i % 3 === 0 ? "50%" : "1px",
+              background: ["#00E676", "#FFD700", "#fff", "#4CAF50", "#FF5722", "#2196F3"][i % 6],
+              ["--dx" as string]: `${(Math.random() - 0.5) * 100}px`,
+              ["--dy" as string]: `${40 + Math.random() * 80}px`,
+              animation: `confetti-burst ${0.6 + Math.random() * 0.6}s ${Math.random() * 0.2}s ease-out forwards`,
             }}
           />
         ))}
 
-        {/* ========== RESULT TEXT ========== */}
+        {/* ===== RESULT TEXT ===== */}
         {resultText && (
-          <div
-            className="absolute inset-0 flex items-end justify-center pointer-events-none"
-            style={{ paddingBottom: "8px", zIndex: 20 }}
-          >
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 20 }}>
             <span
-              className="font-heading text-4xl md:text-5xl font-extrabold uppercase tracking-wider px-4 py-1 rounded-lg"
+              className="font-heading text-5xl md:text-6xl font-black uppercase tracking-wider px-6 py-2 rounded-lg"
               style={{
                 color: isGoal ? "#00E676" : "#EF4444",
-                background: "rgba(10, 22, 40, 0.85)",
-                backdropFilter: "blur(4px)",
-                animation: isGoal ? "goal-pulse 0.6s ease-in-out infinite" : "saved-pulse 0.8s ease-in-out infinite",
+                background: "rgba(10, 22, 40, 0.9)",
+                backdropFilter: "blur(6px)",
+                border: `2px solid ${isGoal ? "rgba(0,230,118,0.3)" : "rgba(239,68,68,0.3)"}`,
+                animation: "result-pop 0.3s ease-out",
+                textShadow: isGoal
+                  ? "0 0 30px rgba(0,230,118,0.5)"
+                  : "0 0 30px rgba(239,68,68,0.4)",
               }}
             >
               {resultText}
@@ -803,15 +417,13 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
       {/* Difficulty indicator */}
       {gameState === "aiming" && (
         <div className="mt-2 flex items-center gap-2">
-          <span className="text-xs text-gray-500">Keeper difficulty:</span>
+          <span className="text-xs text-gray-500">Keeper:</span>
           <div className="flex gap-0.5">
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
                 className={`w-4 h-1.5 rounded-full ${
-                  i < Math.min(4, 1 + Math.floor(streak / 3))
-                    ? "bg-accent"
-                    : "bg-white/10"
+                  i < Math.min(4, 1 + Math.floor(streak / 3)) ? "bg-accent" : "bg-white/10"
                 }`}
               />
             ))}
