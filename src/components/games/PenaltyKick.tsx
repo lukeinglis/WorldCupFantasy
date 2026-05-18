@@ -29,6 +29,51 @@ interface PenaltyKickProps {
   onScoreSubmit?: (score: number) => void;
 }
 
+function KeeperSVG() {
+  return (
+    <svg width="56" height="72" viewBox="0 0 56 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Head */}
+      <circle cx="28" cy="10" r="8" fill="#E8B87A" stroke="#C4935A" strokeWidth="1" />
+      {/* Hair */}
+      <path d="M20 8 C20 3, 36 3, 36 8" fill="#4A3520" />
+      {/* Jersey */}
+      <rect x="16" y="18" width="24" height="22" rx="3" fill="#FF8F00" />
+      <rect x="16" y="18" width="24" height="22" rx="3" fill="url(#jerseyGrad)" />
+      {/* Jersey number */}
+      <text x="28" y="33" textAnchor="middle" fill="rgba(0,0,0,0.12)" fontSize="14" fontWeight="bold" fontFamily="sans-serif">1</text>
+      {/* Left arm */}
+      <rect x="2" y="19" width="14" height="6" rx="3" fill="#FF8F00" />
+      {/* Left glove */}
+      <rect x="0" y="17" width="7" height="10" rx="2" fill="#4CAF50" />
+      {/* Right arm */}
+      <rect x="40" y="19" width="14" height="6" rx="3" fill="#FF8F00" />
+      {/* Right glove */}
+      <rect x="49" y="17" width="7" height="10" rx="2" fill="#4CAF50" />
+      {/* Shorts */}
+      <rect x="18" y="38" width="9" height="10" rx="2" fill="#1a1a2e" />
+      <rect x="29" y="38" width="9" height="10" rx="2" fill="#1a1a2e" />
+      {/* Left leg */}
+      <rect x="19" y="47" width="7" height="14" rx="2" fill="#E8B87A" />
+      {/* Right leg */}
+      <rect x="30" y="47" width="7" height="14" rx="2" fill="#E8B87A" />
+      {/* Left sock */}
+      <rect x="19" y="54" width="7" height="7" rx="1" fill="#FF8F00" />
+      {/* Right sock */}
+      <rect x="30" y="54" width="7" height="7" rx="1" fill="#FF8F00" />
+      {/* Left boot */}
+      <rect x="17" y="60" width="10" height="5" rx="2" fill="#222" />
+      {/* Right boot */}
+      <rect x="29" y="60" width="10" height="5" rx="2" fill="#222" />
+      <defs>
+        <linearGradient id="jerseyGrad" x1="16" y1="18" x2="16" y2="40" gradientUnits="userSpaceOnUse">
+          <stop stopColor="rgba(255,255,255,0.15)" />
+          <stop offset="1" stopColor="rgba(0,0,0,0.1)" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps) {
   const [gameState, setGameState] = useState<GameState>("ready");
   const [streak, setStreak] = useState(0);
@@ -37,6 +82,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
   const [keeperDir, setKeeperDir] = useState<Direction | null>(null);
   const [isGoal, setIsGoal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [hoveredZone, setHoveredZone] = useState<Direction | null>(null);
 
   const streakRef = useRef(streak);
   streakRef.current = streak;
@@ -55,7 +101,6 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     setKeeperDir(keeper);
     setGameState("kicking");
 
-    // Show result after animations finish
     setTimeout(() => {
       setIsGoal(goal);
       setGameState("result");
@@ -73,11 +118,11 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
           return next;
         });
 
-        // Reset for next kick
         setTimeout(() => {
           setShotDir(null);
           setKeeperDir(null);
           setGameState("ready");
+          setHoveredZone(null);
         }, 1600);
       } else {
         setTimeout(() => {
@@ -96,90 +141,68 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     setKeeperDir(null);
     setIsGoal(false);
     setShowConfetti(false);
+    setHoveredZone(null);
   }, []);
 
-  // Keeper CSS class based on dive direction
-  const keeperClass = keeperDir === "left"
-    ? "keeper-dive-left"
-    : keeperDir === "right"
-      ? "keeper-dive-right"
-      : keeperDir === "center"
-        ? "keeper-jump-center"
-        : "";
+  const keeperAnimClass =
+    keeperDir === "left" ? "animate-keeper-left" :
+    keeperDir === "right" ? "animate-keeper-right" :
+    keeperDir === "center" ? "animate-keeper-center" : "";
 
-  // Ball CSS class
-  const ballClass = shotDir === "left"
-    ? "ball-fly-left"
-    : shotDir === "right"
-      ? "ball-fly-right"
-      : shotDir === "center"
-        ? "ball-fly-center"
-        : "";
+  const ballAnimClass =
+    shotDir === "left" ? "animate-ball-left" :
+    shotDir === "right" ? "animate-ball-right" :
+    shotDir === "center" ? "animate-ball-center" : "";
 
   return (
     <div className="relative w-full max-w-xl mx-auto">
       <style>{`
-        /* Keeper animations */
-        @keyframes dive-left {
+        @keyframes keeper-dive-left {
           0% { transform: translate(0, 0) rotate(0deg); }
-          40% { transform: translate(-85px, 10px) rotate(-30deg); }
-          100% { transform: translate(-110px, 20px) rotate(-75deg) scaleX(1.2); }
+          35% { transform: translate(-30px, 5px) rotate(-15deg); }
+          100% { transform: translate(-105px, 15px) rotate(-70deg); }
         }
-        @keyframes dive-right {
+        @keyframes keeper-dive-right {
           0% { transform: translate(0, 0) rotate(0deg); }
-          40% { transform: translate(85px, 10px) rotate(30deg); }
-          100% { transform: translate(110px, 20px) rotate(75deg) scaleX(1.2); }
+          35% { transform: translate(30px, 5px) rotate(15deg); }
+          100% { transform: translate(105px, 15px) rotate(70deg); }
         }
-        @keyframes jump-center {
-          0% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(0, -30px) scale(1.1); }
-          100% { transform: translate(0, -25px) scale(1.15) scaleY(1.1); }
+        @keyframes keeper-jump-center {
+          0% { transform: translateY(0) scale(1); }
+          45% { transform: translateY(-28px) scaleY(1.12); }
+          100% { transform: translateY(-22px) scaleY(1.1) scaleX(1.15); }
         }
-        .keeper-dive-left { animation: dive-left 0.5s cubic-bezier(0.3, 0, 0.7, 1) forwards; }
-        .keeper-dive-right { animation: dive-right 0.5s cubic-bezier(0.3, 0, 0.7, 1) forwards; }
-        .keeper-jump-center { animation: jump-center 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+        .animate-keeper-left { animation: keeper-dive-left 0.5s cubic-bezier(0.25, 0.1, 0.6, 1) forwards; }
+        .animate-keeper-right { animation: keeper-dive-right 0.5s cubic-bezier(0.25, 0.1, 0.6, 1) forwards; }
+        .animate-keeper-center { animation: keeper-jump-center 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
 
-        /* Ball animations */
-        @keyframes fly-left {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
-          60% { transform: translate(-100px, -140px) scale(0.7) rotate(360deg); opacity: 1; }
-          100% { transform: translate(-120px, -175px) scale(0.55) rotate(540deg); opacity: 1; }
+        @keyframes ball-to-left {
+          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+          50% { transform: translate(-60px, -95px) scale(0.8) rotate(270deg); }
+          100% { transform: translate(-115px, -170px) scale(0.6) rotate(540deg); }
         }
-        @keyframes fly-center {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
-          60% { transform: translate(0, -155px) scale(0.7) rotate(360deg); opacity: 1; }
-          100% { transform: translate(0, -190px) scale(0.55) rotate(540deg); opacity: 1; }
+        @keyframes ball-to-center {
+          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+          50% { transform: translate(0, -105px) scale(0.8) rotate(270deg); }
+          100% { transform: translate(0, -185px) scale(0.6) rotate(540deg); }
         }
-        @keyframes fly-right {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
-          60% { transform: translate(100px, -140px) scale(0.7) rotate(360deg); opacity: 1; }
-          100% { transform: translate(120px, -175px) scale(0.55) rotate(540deg); opacity: 1; }
+        @keyframes ball-to-right {
+          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+          50% { transform: translate(60px, -95px) scale(0.8) rotate(270deg); }
+          100% { transform: translate(115px, -170px) scale(0.6) rotate(540deg); }
         }
-        .ball-fly-left { animation: fly-left 0.55s cubic-bezier(0.1, 0.7, 0.3, 1) forwards; }
-        .ball-fly-center { animation: fly-center 0.55s cubic-bezier(0.1, 0.7, 0.3, 1) forwards; }
-        .ball-fly-right { animation: fly-right 0.55s cubic-bezier(0.1, 0.7, 0.3, 1) forwards; }
+        .animate-ball-left { animation: ball-to-left 0.55s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
+        .animate-ball-center { animation: ball-to-center 0.55s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
+        .animate-ball-right { animation: ball-to-right 0.55s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
 
-        /* Result pop */
         @keyframes result-pop {
           0% { transform: scale(0); opacity: 0; }
-          60% { transform: scale(1.2); opacity: 1; }
+          60% { transform: scale(1.15); opacity: 1; }
           100% { transform: scale(1); opacity: 1; }
         }
-
-        /* Confetti */
         @keyframes confetti-pop {
-          0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
-          100% { transform: translate(var(--dx), var(--dy)) rotate(var(--dr)) scale(0); opacity: 0; }
-        }
-
-        /* Button hover glow */
-        .shoot-btn:hover {
-          background: rgba(0, 230, 118, 0.15);
-          border-color: rgba(0, 230, 118, 0.6);
-          box-shadow: 0 0 20px rgba(0, 230, 118, 0.15);
-        }
-        .shoot-btn:active {
-          transform: scale(0.95);
+          0% { transform: translate(0,0) rotate(0) scale(1); opacity:1; }
+          100% { transform: translate(var(--dx),var(--dy)) rotate(var(--dr)) scale(0); opacity:0; }
         }
       `}</style>
 
@@ -188,9 +211,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
         <div className="flex items-center gap-3">
           <span className="font-heading text-lg font-bold text-white uppercase tracking-wide">Penalty Kicks</span>
           {highScore > 0 && (
-            <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-xs font-bold text-gold">
-              Best: {highScore}
-            </span>
+            <span className="rounded-full bg-gold/20 px-2.5 py-0.5 text-xs font-bold text-gold">Best: {highScore}</span>
           )}
         </div>
         <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors" aria-label="Close">✕</button>
@@ -209,64 +230,91 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
         )}
       </div>
 
-      {/* Pitch + Goal */}
+      {/* Pitch */}
       <div
-        className="relative rounded-xl overflow-hidden border border-white/10 mx-auto"
+        className="relative rounded-xl overflow-hidden border border-white/10"
         style={{
           aspectRatio: "16 / 10",
           background: "linear-gradient(180deg, #0e2b0e 0%, #1a6b1f 35%, #1B5E20 100%)",
         }}
       >
         {/* Grass stripes */}
-        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        {[0,1,2,3,4,5,6,7].map(i => (
           <div key={i} className="absolute w-full pointer-events-none" style={{
-            top: `${i * 12.5}%`, height: "6.25%",
-            background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
+            top: `${i*12.5}%`, height: "6.25%",
+            background: i%2===0 ? "rgba(255,255,255,0.02)" : "transparent",
           }} />
         ))}
 
-        {/* Goal frame */}
+        {/* Goal */}
         <div className="absolute" style={{ left: "15%", right: "15%", top: "8%", height: "45%" }}>
           {/* Net */}
           <div className="absolute inset-0" style={{
             background: "rgba(0,0,0,0.45)",
             backgroundImage: `
               linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)
-            `,
+              linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)`,
             backgroundSize: "14px 14px",
           }} />
 
           {/* Posts + crossbar */}
-          <div className="absolute left-0 top-0 bottom-0 w-[5px]" style={{
-            background: "linear-gradient(90deg, #ccc, #fff 50%, #aaa)",
-            boxShadow: "2px 0 6px rgba(0,0,0,0.4)",
-          }} />
-          <div className="absolute right-0 top-0 bottom-0 w-[5px]" style={{
-            background: "linear-gradient(90deg, #aaa, #fff 50%, #ccc)",
-            boxShadow: "-2px 0 6px rgba(0,0,0,0.4)",
-          }} />
-          <div className="absolute left-0 right-0 top-0 h-[5px]" style={{
-            background: "linear-gradient(180deg, #ddd, #fff 50%, #aaa)",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
-          }} />
+          <div className="absolute left-0 top-0 bottom-0 w-[5px]" style={{ background: "linear-gradient(90deg, #ccc, #fff 50%, #aaa)", boxShadow: "2px 0 6px rgba(0,0,0,0.4)" }} />
+          <div className="absolute right-0 top-0 bottom-0 w-[5px]" style={{ background: "linear-gradient(90deg, #aaa, #fff 50%, #ccc)", boxShadow: "-2px 0 6px rgba(0,0,0,0.4)" }} />
+          <div className="absolute left-0 right-0 top-0 h-[5px]" style={{ background: "linear-gradient(180deg, #ddd, #fff 50%, #aaa)", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }} />
 
-          {/* Keeper */}
+          {/* === CLICKABLE ZONES (3 columns on the goal) === */}
+          {gameState === "ready" && (
+            <div className="absolute inset-[5px] grid grid-cols-3 gap-0" style={{ zIndex: 10 }}>
+              {(["left", "center", "right"] as Direction[]).map((dir) => (
+                <button
+                  key={dir}
+                  className="relative w-full h-full cursor-crosshair"
+                  onClick={() => shoot(dir)}
+                  onMouseEnter={() => setHoveredZone(dir)}
+                  onMouseLeave={() => setHoveredZone(null)}
+                  aria-label={`Shoot ${dir}`}
+                  style={{
+                    background: hoveredZone === dir ? "rgba(0, 230, 118, 0.15)" : "transparent",
+                    borderLeft: dir !== "left" ? "1px solid rgba(255,255,255,0.05)" : "none",
+                    transition: "background 0.15s ease",
+                  }}
+                >
+                  {/* Target circle on hover */}
+                  {hoveredZone === dir && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                      <div style={{
+                        width: "28px", height: "28px",
+                        borderRadius: "50%",
+                        border: "2px solid rgba(0, 230, 118, 0.7)",
+                        background: "rgba(0, 230, 118, 0.1)",
+                        boxShadow: "0 0 16px rgba(0, 230, 118, 0.2)",
+                      }}>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full bg-accent/80" />
+                      </div>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* === KEEPER === */}
           <div
-            className={`absolute ${keeperClass}`}
+            className={keeperAnimClass}
             style={{
-              left: "50%", bottom: "0",
-              marginLeft: "-22px",
+              position: "absolute",
+              left: "50%",
+              bottom: "2px",
+              marginLeft: "-28px",
               zIndex: 5,
-              fontSize: "44px", lineHeight: 1,
-              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))",
+              filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
             }}
           >
-            🧤
+            <KeeperSVG />
           </div>
         </div>
 
-        {/* Penalty box lines */}
+        {/* Penalty box */}
         <div className="absolute pointer-events-none" style={{
           left: "22%", right: "22%", top: "53%", bottom: "15%",
           borderLeft: "1px solid rgba(255,255,255,0.07)",
@@ -276,19 +324,16 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
 
         {/* Penalty spot */}
         <div className="absolute rounded-full pointer-events-none" style={{
-          left: "50%", bottom: "22%",
-          width: "5px", height: "5px", marginLeft: "-2.5px",
+          left: "50%", bottom: "22%", width: "5px", height: "5px", marginLeft: "-2.5px",
           background: "rgba(255,255,255,0.35)",
         }} />
 
-        {/* Ball */}
+        {/* === BALL === */}
         <div
-          className={`absolute pointer-events-none ${ballClass}`}
+          className={`absolute pointer-events-none ${ballAnimClass}`}
           style={{
-            left: "50%", bottom: "20%",
-            marginLeft: "-18px",
-            zIndex: 8,
-            fontSize: "36px", lineHeight: 1,
+            left: "50%", bottom: "20%", marginLeft: "-18px",
+            zIndex: 8, fontSize: "36px", lineHeight: 1,
             filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.5))",
           }}
         >
@@ -298,16 +343,14 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
         {/* Confetti */}
         {showConfetti && Array.from({ length: 20 }).map((_, i) => (
           <div key={i} className="absolute pointer-events-none" style={{
-            left: `${30 + Math.random() * 40}%`,
-            top: `${15 + Math.random() * 25}%`,
-            width: `${4 + Math.random() * 5}px`,
-            height: `${4 + Math.random() * 5}px`,
-            borderRadius: i % 3 === 0 ? "50%" : "1px",
-            background: ["#00E676", "#FFD700", "#fff", "#4CAF50", "#FF5722", "#2196F3"][i % 6],
-            ["--dx" as string]: `${(Math.random() - 0.5) * 120}px`,
-            ["--dy" as string]: `${30 + Math.random() * 80}px`,
-            ["--dr" as string]: `${Math.random() * 360}deg`,
-            animation: `confetti-pop ${0.5 + Math.random() * 0.5}s ${Math.random() * 0.15}s ease-out forwards`,
+            left: `${25+Math.random()*50}%`, top: `${10+Math.random()*30}%`,
+            width: `${4+Math.random()*5}px`, height: `${4+Math.random()*5}px`,
+            borderRadius: i%3===0 ? "50%" : "1px",
+            background: ["#00E676","#FFD700","#fff","#4CAF50","#FF5722","#2196F3"][i%6],
+            ["--dx" as string]: `${(Math.random()-0.5)*120}px`,
+            ["--dy" as string]: `${30+Math.random()*80}px`,
+            ["--dr" as string]: `${Math.random()*360}deg`,
+            animation: `confetti-pop ${0.5+Math.random()*0.5}s ${Math.random()*0.15}s ease-out forwards`,
           }} />
         ))}
 
@@ -318,7 +361,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
               className="font-heading text-5xl md:text-6xl font-black uppercase tracking-wider px-5 py-2 rounded-lg"
               style={{
                 color: isGoal ? "#00E676" : "#EF4444",
-                background: "rgba(10, 22, 40, 0.88)",
+                background: "rgba(10,22,40,0.88)",
                 border: `2px solid ${isGoal ? "rgba(0,230,118,0.3)" : "rgba(239,68,68,0.3)"}`,
                 animation: "result-pop 0.35s ease-out forwards",
                 textShadow: isGoal ? "0 0 25px rgba(0,230,118,0.4)" : "0 0 25px rgba(239,68,68,0.3)",
@@ -328,29 +371,30 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
             </span>
           </div>
         )}
+
+        {/* Hint */}
+        {gameState === "ready" && streak === 0 && (
+          <div className="absolute bottom-3 left-0 right-0 text-center pointer-events-none" style={{ zIndex: 15 }}>
+            <span className="inline-block bg-navy/80 backdrop-blur-sm rounded-full px-3 py-1 text-xs text-gray-300">
+              Click where you want to shoot
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Shoot Buttons */}
-      {gameState === "ready" && (
-        <div className="grid grid-cols-3 gap-3 mt-4">
-          {(["left", "center", "right"] as Direction[]).map((dir) => (
-            <button
-              key={dir}
-              onClick={() => shoot(dir)}
-              className="shoot-btn font-heading rounded-lg border border-white/15 py-3 text-sm font-bold uppercase tracking-wide text-gray-200 transition-all duration-150"
-            >
-              {dir === "left" ? "⬅ Left" : dir === "right" ? "Right ➡" : "Center ⬆"}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Kick indicator (during animation) */}
+      {/* Kick info */}
       {(gameState === "kicking" || gameState === "result") && shotDir && (
-        <div className="mt-4 text-center">
+        <div className="mt-3 text-center">
           <p className="text-xs text-gray-500">
             You kicked {shotDir}{keeperDir ? `, keeper dove ${keeperDir}` : ""}
           </p>
+        </div>
+      )}
+
+      {/* Difficulty */}
+      {gameState === "ready" && streak > 0 && (
+        <div className="mt-2 text-center">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wide">Streak: {streak}</p>
         </div>
       )}
 
@@ -361,9 +405,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
           <p className="text-gray-400 text-sm mb-1">
             {streak === 0 ? "Better luck next time!" : `You scored ${streak} goal${streak === 1 ? "" : "s"} in a row!`}
           </p>
-          <p className="text-xs text-gray-500 mb-4">
-            You kicked {shotDir}, keeper dove {keeperDir}
-          </p>
+          <p className="text-xs text-gray-500 mb-4">You kicked {shotDir}, keeper dove {keeperDir}</p>
           {streak > 0 && streak >= highScore && (
             <p className="text-gold text-sm font-bold mb-3">New High Score!</p>
           )}
