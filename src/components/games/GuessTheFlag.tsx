@@ -157,7 +157,7 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
         }, 1200);
       }
     },
-    [gameState, rounds, currentRound, score, highScore]
+    [gameState, rounds, currentRound, score, highScore, onScoreSubmit, stopTimer]
   );
 
   const round = rounds[currentRound];
