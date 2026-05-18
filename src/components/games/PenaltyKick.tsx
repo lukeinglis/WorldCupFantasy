@@ -3,7 +3,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 
 type GameState = "ready" | "kicking" | "result" | "gameover";
-type Direction = "left" | "center" | "right";
+type Zone = 0 | 1 | 2 | 3 | 4 | 5;
+
+const ZONE_NAMES = ["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"];
 
 const LS_KEY = "wcf-penalty-highscore";
 
@@ -22,7 +24,7 @@ function setHighScoreLS(score: number) {
   localStorage.setItem(LS_KEY, String(safe));
 }
 
-const DIRECTIONS: Direction[] = ["left", "center", "right"];
+const ALL_ZONES: Zone[] = [0, 1, 2, 3, 4, 5];
 
 interface PenaltyKickProps {
   onClose: () => void;
@@ -78,11 +80,11 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
   const [gameState, setGameState] = useState<GameState>("ready");
   const [streak, setStreak] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [shotDir, setShotDir] = useState<Direction | null>(null);
-  const [keeperDir, setKeeperDir] = useState<Direction | null>(null);
+  const [shotZone, setShotZone] = useState<Zone | null>(null);
+  const [keeperZone, setKeeperZone] = useState<Zone | null>(null);
   const [isGoal, setIsGoal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [hoveredZone, setHoveredZone] = useState<Direction | null>(null);
+  const [hoveredZone, setHoveredZone] = useState<Zone | null>(null);
 
   const streakRef = useRef(streak);
   streakRef.current = streak;
@@ -91,14 +93,14 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     setHighScore(getHighScore());
   }, []);
 
-  const shoot = useCallback((dir: Direction) => {
+  const shoot = useCallback((zone: Zone) => {
     if (gameState !== "ready") return;
 
-    const keeper = DIRECTIONS[Math.floor(Math.random() * 3)];
-    const goal = dir !== keeper;
+    const keeper = ALL_ZONES[Math.floor(Math.random() * 6)];
+    const goal = zone !== keeper;
 
-    setShotDir(dir);
-    setKeeperDir(keeper);
+    setShotZone(zone);
+    setKeeperZone(keeper);
     setGameState("kicking");
 
     setTimeout(() => {
@@ -119,8 +121,8 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
         });
 
         setTimeout(() => {
-          setShotDir(null);
-          setKeeperDir(null);
+          setShotZone(null);
+          setKeeperZone(null);
           setGameState("ready");
           setHoveredZone(null);
         }, 1600);
@@ -137,63 +139,46 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
   const resetGame = useCallback(() => {
     setStreak(0);
     setGameState("ready");
-    setShotDir(null);
-    setKeeperDir(null);
+    setShotZone(null);
+    setKeeperZone(null);
     setIsGoal(false);
     setShowConfetti(false);
     setHoveredZone(null);
   }, []);
 
-  const keeperAnimClass =
-    keeperDir === "left" ? "animate-keeper-left" :
-    keeperDir === "right" ? "animate-keeper-right" :
-    keeperDir === "center" ? "animate-keeper-center" : "";
-
-  const ballAnimClass =
-    shotDir === "left" ? "animate-ball-left" :
-    shotDir === "right" ? "animate-ball-right" :
-    shotDir === "center" ? "animate-ball-center" : "";
+  const keeperAnimClass = keeperZone !== null ? `animate-keeper-z${keeperZone}` : "";
+  const ballAnimClass = shotZone !== null ? `animate-ball-z${shotZone}` : "";
 
   return (
     <div className="relative w-full max-w-xl mx-auto">
       <style>{`
-        @keyframes keeper-dive-left {
-          0% { transform: translate(0, 0) rotate(0deg); }
-          35% { transform: translate(-30px, 5px) rotate(-15deg); }
-          100% { transform: translate(-105px, 15px) rotate(-70deg); }
-        }
-        @keyframes keeper-dive-right {
-          0% { transform: translate(0, 0) rotate(0deg); }
-          35% { transform: translate(30px, 5px) rotate(15deg); }
-          100% { transform: translate(105px, 15px) rotate(70deg); }
-        }
-        @keyframes keeper-jump-center {
-          0% { transform: translateY(0) scale(1); }
-          45% { transform: translateY(-28px) scaleY(1.12); }
-          100% { transform: translateY(-22px) scaleY(1.1) scaleX(1.15); }
-        }
-        .animate-keeper-left { animation: keeper-dive-left 0.5s cubic-bezier(0.25, 0.1, 0.6, 1) forwards; }
-        .animate-keeper-right { animation: keeper-dive-right 0.5s cubic-bezier(0.25, 0.1, 0.6, 1) forwards; }
-        .animate-keeper-center { animation: keeper-jump-center 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+        /* Keeper: 6 dive animations */
+        @keyframes k-z0 { 0%{transform:translate(0,0) rotate(0)} 35%{transform:translate(-35px,-15px) rotate(-15deg)} 100%{transform:translate(-105px,-35px) rotate(-65deg)} }
+        @keyframes k-z1 { 0%{transform:translate(0,0) scale(1)} 45%{transform:translate(0,-30px) scaleY(1.12)} 100%{transform:translate(0,-25px) scaleY(1.1) scaleX(1.15)} }
+        @keyframes k-z2 { 0%{transform:translate(0,0) rotate(0)} 35%{transform:translate(35px,-15px) rotate(15deg)} 100%{transform:translate(105px,-35px) rotate(65deg)} }
+        @keyframes k-z3 { 0%{transform:translate(0,0) rotate(0)} 35%{transform:translate(-30px,5px) rotate(-15deg)} 100%{transform:translate(-105px,15px) rotate(-70deg)} }
+        @keyframes k-z4 { 0%{transform:translate(0,0) scale(1)} 45%{transform:translate(0,8px) scaleX(1.2)} 100%{transform:translate(0,5px) scaleX(1.25) scaleY(0.9)} }
+        @keyframes k-z5 { 0%{transform:translate(0,0) rotate(0)} 35%{transform:translate(30px,5px) rotate(15deg)} 100%{transform:translate(105px,15px) rotate(70deg)} }
+        .animate-keeper-z0 { animation: k-z0 0.5s cubic-bezier(0.25,0.1,0.6,1) forwards; }
+        .animate-keeper-z1 { animation: k-z1 0.45s cubic-bezier(0.2,0.8,0.3,1) forwards; }
+        .animate-keeper-z2 { animation: k-z2 0.5s cubic-bezier(0.25,0.1,0.6,1) forwards; }
+        .animate-keeper-z3 { animation: k-z3 0.5s cubic-bezier(0.25,0.1,0.6,1) forwards; }
+        .animate-keeper-z4 { animation: k-z4 0.45s cubic-bezier(0.2,0.8,0.3,1) forwards; }
+        .animate-keeper-z5 { animation: k-z5 0.5s cubic-bezier(0.25,0.1,0.6,1) forwards; }
 
-        @keyframes ball-to-left {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-          50% { transform: translate(-60px, -95px) scale(0.8) rotate(270deg); }
-          100% { transform: translate(-115px, -170px) scale(0.6) rotate(540deg); }
-        }
-        @keyframes ball-to-center {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-          50% { transform: translate(0, -105px) scale(0.8) rotate(270deg); }
-          100% { transform: translate(0, -185px) scale(0.6) rotate(540deg); }
-        }
-        @keyframes ball-to-right {
-          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-          50% { transform: translate(60px, -95px) scale(0.8) rotate(270deg); }
-          100% { transform: translate(115px, -170px) scale(0.6) rotate(540deg); }
-        }
-        .animate-ball-left { animation: ball-to-left 0.55s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
-        .animate-ball-center { animation: ball-to-center 0.55s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
-        .animate-ball-right { animation: ball-to-right 0.55s cubic-bezier(0.1, 0.6, 0.3, 1) forwards; }
+        /* Ball: 6 flight animations */
+        @keyframes b-z0 { 0%{transform:translate(0,0) scale(1) rotate(0)} 50%{transform:translate(-55px,-100px) scale(0.8) rotate(270deg)} 100%{transform:translate(-110px,-180px) scale(0.6) rotate(540deg)} }
+        @keyframes b-z1 { 0%{transform:translate(0,0) scale(1) rotate(0)} 50%{transform:translate(0,-110px) scale(0.8) rotate(270deg)} 100%{transform:translate(0,-195px) scale(0.6) rotate(540deg)} }
+        @keyframes b-z2 { 0%{transform:translate(0,0) scale(1) rotate(0)} 50%{transform:translate(55px,-100px) scale(0.8) rotate(270deg)} 100%{transform:translate(110px,-180px) scale(0.6) rotate(540deg)} }
+        @keyframes b-z3 { 0%{transform:translate(0,0) scale(1) rotate(0)} 50%{transform:translate(-50px,-75px) scale(0.85) rotate(270deg)} 100%{transform:translate(-100px,-130px) scale(0.7) rotate(540deg)} }
+        @keyframes b-z4 { 0%{transform:translate(0,0) scale(1) rotate(0)} 50%{transform:translate(0,-80px) scale(0.85) rotate(270deg)} 100%{transform:translate(0,-140px) scale(0.7) rotate(540deg)} }
+        @keyframes b-z5 { 0%{transform:translate(0,0) scale(1) rotate(0)} 50%{transform:translate(50px,-75px) scale(0.85) rotate(270deg)} 100%{transform:translate(100px,-130px) scale(0.7) rotate(540deg)} }
+        .animate-ball-z0 { animation: b-z0 0.55s cubic-bezier(0.1,0.6,0.3,1) forwards; }
+        .animate-ball-z1 { animation: b-z1 0.55s cubic-bezier(0.1,0.6,0.3,1) forwards; }
+        .animate-ball-z2 { animation: b-z2 0.55s cubic-bezier(0.1,0.6,0.3,1) forwards; }
+        .animate-ball-z3 { animation: b-z3 0.55s cubic-bezier(0.1,0.6,0.3,1) forwards; }
+        .animate-ball-z4 { animation: b-z4 0.55s cubic-bezier(0.1,0.6,0.3,1) forwards; }
+        .animate-ball-z5 { animation: b-z5 0.55s cubic-bezier(0.1,0.6,0.3,1) forwards; }
 
         @keyframes result-pop {
           0% { transform: scale(0); opacity: 0; }
@@ -262,25 +247,25 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
           <div className="absolute right-0 top-0 bottom-0 w-[5px]" style={{ background: "linear-gradient(90deg, #aaa, #fff 50%, #ccc)", boxShadow: "-2px 0 6px rgba(0,0,0,0.4)" }} />
           <div className="absolute left-0 right-0 top-0 h-[5px]" style={{ background: "linear-gradient(180deg, #ddd, #fff 50%, #aaa)", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }} />
 
-          {/* === CLICKABLE ZONES (3 columns on the goal) === */}
+          {/* === CLICKABLE ZONES (3x2 grid on the goal) === */}
           {gameState === "ready" && (
-            <div className="absolute inset-[5px] grid grid-cols-3 gap-0" style={{ zIndex: 10 }}>
-              {(["left", "center", "right"] as Direction[]).map((dir) => (
+            <div className="absolute inset-[5px] grid grid-cols-3 grid-rows-2 gap-0" style={{ zIndex: 10 }}>
+              {(ALL_ZONES).map((zone) => (
                 <button
-                  key={dir}
+                  key={zone}
                   className="relative w-full h-full cursor-crosshair"
-                  onClick={() => shoot(dir)}
-                  onMouseEnter={() => setHoveredZone(dir)}
+                  onClick={() => shoot(zone)}
+                  onMouseEnter={() => setHoveredZone(zone)}
                   onMouseLeave={() => setHoveredZone(null)}
-                  aria-label={`Shoot ${dir}`}
+                  aria-label={`Shoot ${ZONE_NAMES[zone]}`}
                   style={{
-                    background: hoveredZone === dir ? "rgba(0, 230, 118, 0.15)" : "transparent",
-                    borderLeft: dir !== "left" ? "1px solid rgba(255,255,255,0.05)" : "none",
+                    background: hoveredZone === zone ? "rgba(0, 230, 118, 0.15)" : "transparent",
+                    borderLeft: zone % 3 !== 0 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                    borderTop: zone >= 3 ? "1px solid rgba(255,255,255,0.05)" : "none",
                     transition: "background 0.15s ease",
                   }}
                 >
-                  {/* Target circle on hover */}
-                  {hoveredZone === dir && (
+                  {hoveredZone === zone && (
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                       <div style={{
                         width: "28px", height: "28px",
@@ -383,10 +368,10 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
       </div>
 
       {/* Kick info */}
-      {(gameState === "kicking" || gameState === "result") && shotDir && (
+      {(gameState === "kicking" || gameState === "result") && shotZone !== null && (
         <div className="mt-3 text-center">
           <p className="text-xs text-gray-500">
-            You kicked {shotDir}{keeperDir ? `, keeper dove ${keeperDir}` : ""}
+            You kicked {shotZone !== null ? ZONE_NAMES[shotZone] : ""}{keeperZone !== null ? `, keeper dove ${ZONE_NAMES[keeperZone]}` : ""}
           </p>
         </div>
       )}
@@ -405,7 +390,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
           <p className="text-gray-400 text-sm mb-1">
             {streak === 0 ? "Better luck next time!" : `You scored ${streak} goal${streak === 1 ? "" : "s"} in a row!`}
           </p>
-          <p className="text-xs text-gray-500 mb-4">You kicked {shotDir}, keeper dove {keeperDir}</p>
+          <p className="text-xs text-gray-500 mb-4">You kicked {shotZone !== null ? ZONE_NAMES[shotZone] : ""}, keeper dove {keeperZone !== null ? ZONE_NAMES[keeperZone] : ""}</p>
           {streak > 0 && streak >= highScore && (
             <p className="text-gold text-sm font-bold mb-3">New High Score!</p>
           )}
