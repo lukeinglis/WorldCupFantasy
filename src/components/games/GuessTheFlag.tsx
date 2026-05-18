@@ -27,6 +27,17 @@ function setHighScore(score: number) {
   localStorage.setItem(LS_KEY, String(safe));
 }
 
+function formatTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const tenths = Math.floor((ms % 1000) / 100);
+  if (minutes > 0) {
+    return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
+  }
+  return `${seconds}.${tenths}s`;
+}
+
 function shuffle<T>(arr: T[]): T[] {
   const shuffled = [...arr];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -39,10 +50,9 @@ function shuffle<T>(arr: T[]): T[] {
 function generateRounds(): Round[] {
   const shuffledTeams = shuffle(teams);
   return shuffledTeams.map((correctTeam) => {
-    // Pick 3 wrong answers from the same pool (no repeats)
     const wrongOptions = shuffle(
       teams.filter((t) => t.code !== correctTeam.code)
-    ).slice(0, 3);
+    ).slice(0, 5);
     const options = shuffle([correctTeam, ...wrongOptions]);
     return { correctTeam, options };
   });
@@ -61,27 +71,43 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
   const [highScore, setHighScoreState] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isNewHighScore, setIsNewHighScore] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setHighScoreState(getHighScore());
   }, []);
 
-  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
     };
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   }, []);
 
   const startGame = useCallback(() => {
     setRounds(generateRounds());
     setCurrentRound(0);
     setScore(0);
+    setElapsedMs(0);
     setGameState("playing");
     setSelectedAnswer(null);
     setIsNewHighScore(false);
-  }, []);
+    startTimeRef.current = Date.now();
+    stopTimer();
+    timerRef.current = setInterval(() => {
+      setElapsedMs(Date.now() - startTimeRef.current);
+    }, 100);
+  }, [stopTimer]);
 
   const handleAnswer = useCallback(
     (team: Team) => {
@@ -92,7 +118,6 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
       setSelectedAnswer(team.code);
 
       if (team.code === round.correctTeam.code) {
-        // Correct!
         const newScore = score + 1;
         setScore(newScore);
         setGameState("correct");
@@ -100,7 +125,7 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
         timeoutRef.current = setTimeout(() => {
           const nextRound = currentRound + 1;
           if (nextRound >= rounds.length) {
-            // Beat all 48 flags!
+            stopTimer();
             if (newScore > highScore) {
               setHighScoreState(newScore);
               setHighScore(newScore);
@@ -117,8 +142,8 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
           }
         }, 600);
       } else {
-        // Wrong! Game over
         setGameState("wrong");
+        stopTimer();
         timeoutRef.current = setTimeout(() => {
           if (score > highScore) {
             setHighScoreState(score);
@@ -185,19 +210,24 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
         <>
           {/* Score bar */}
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="font-heading text-2xl font-bold text-accent">{score}</span>
-              <span className="text-xs text-gray-500">correct</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="font-heading text-2xl font-bold text-accent">{score}</span>
+                <span className="text-xs text-gray-500">correct</span>
+              </div>
+              {score >= 10 && (
+                <span className="text-xs text-gold font-bold animate-pulse">
+                  {score >= 40 ? "WORLD CLASS!" : score >= 25 ? "INCREDIBLE!" : "GREAT RUN!"}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <span className="text-xs text-gray-500">
                 {currentRound + 1} / {rounds.length}
               </span>
-              {score >= 10 && (
-                <span className="text-xs text-gold font-bold animate-pulse">
-                  {score >= 40 ? "WORLD CLASS!" : score >= 25 ? "INCREDIBLE!" : score >= 10 ? "GREAT RUN!" : ""}
-                </span>
-              )}
+              <span className="font-mono text-sm text-gray-400 tabular-nums">
+                {formatTime(elapsedMs)}
+              </span>
             </div>
           </div>
 
@@ -227,7 +257,7 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
           </div>
 
           {/* Answer options */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {round.options.map((option) => {
               let btnClass = "border-white/10 hover:border-accent/50 hover:bg-accent/5";
               const isSelected = selectedAnswer === option.code;
@@ -271,7 +301,7 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
           <span className="text-5xl block mb-3">
             {score >= 48 ? "👑" : score >= 30 ? "🌟" : score >= 15 ? "⚽" : "😅"}
           </span>
-          <p className="font-heading text-3xl font-bold text-white mb-1">{score}</p>
+          <p className="font-heading text-3xl font-bold text-white mb-1">{score} <span className="text-lg text-gray-400 font-normal">in {formatTime(elapsedMs)}</span></p>
           <p className="text-sm text-gray-400 mb-4">
             {score >= 48
               ? "PERFECT! You identified every single flag!"
