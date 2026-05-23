@@ -149,16 +149,28 @@ export async function POST(request: Request) {
       groupPredictions: hasTier1
         ? picks.groupPredictions!
         : existing?.groupPredictions ?? [],
-      goldenBoot: picks.goldenBoot || existing?.goldenBoot || "",
-      mostGoalsTeam: picks.mostGoalsTeam || existing?.mostGoalsTeam || "",
-      fewestConcededTeam: picks.fewestConcededTeam || existing?.fewestConcededTeam || "",
-      goldenBall: picks.goldenBall || existing?.goldenBall || "",
-      tiebreaker: picks.tiebreaker || existing?.tiebreaker || { homeScore: 0, awayScore: 0 },
+      goldenBoot: tier1Locked
+        ? (existing?.goldenBoot || "")
+        : (picks.goldenBoot || existing?.goldenBoot || ""),
+      mostGoalsTeam: tier1Locked
+        ? (existing?.mostGoalsTeam || "")
+        : (picks.mostGoalsTeam || existing?.mostGoalsTeam || ""),
+      fewestConcededTeam: tier1Locked
+        ? (existing?.fewestConcededTeam || "")
+        : (picks.fewestConcededTeam || existing?.fewestConcededTeam || ""),
+      goldenBall: tier2Locked
+        ? (existing?.goldenBall || "")
+        : (picks.goldenBall || existing?.goldenBall || ""),
+      tiebreaker: tier1Locked
+        ? (existing?.tiebreaker || { homeScore: 0, awayScore: 0 })
+        : (picks.tiebreaker || existing?.tiebreaker || { homeScore: 0, awayScore: 0 }),
       submittedAt: new Date().toISOString(),
       tier2Submitted: hasTier2 ? true : existing?.tier2Submitted ?? false,
-      knockoutPicks: hasTier2
-        ? picks.knockoutPicks!
-        : existing?.knockoutPicks ?? [],
+      knockoutPicks: tier2Locked
+        ? (existing?.knockoutPicks ?? [])
+        : hasTier2
+          ? picks.knockoutPicks!
+          : existing?.knockoutPicks ?? [],
     };
 
     await savePicks(record);

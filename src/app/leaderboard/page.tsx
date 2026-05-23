@@ -142,16 +142,10 @@ export default async function LeaderboardPage() {
                 </p>
               </>
             )}
-            <p className="text-xs text-gray-600 mt-2">
-              Last updated: {new Date(lastUpdated).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              })}
-            </p>
             <LivePoller
               hasLiveMatches={hasLiveMatches}
               isTournamentActive={isTournamentActive}
+              serverTimestamp={lastUpdated}
             />
           </div>
 
