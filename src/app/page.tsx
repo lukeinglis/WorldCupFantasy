@@ -15,6 +15,7 @@ import {
 } from "@/data/participants";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
+import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
 import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
 
 export const dynamic = "force-dynamic";
@@ -250,6 +251,8 @@ export default async function Home() {
                             width={32}
                             height={32}
                             className="w-8 h-8 object-contain"
+                            placeholder="blur"
+                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                           />
                         )}
                         <span className="font-heading font-bold text-white">
@@ -270,6 +273,8 @@ export default async function Home() {
                             width={32}
                             height={32}
                             className="w-8 h-8 object-contain"
+                            placeholder="blur"
+                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                           />
                         )}
                       </div>
@@ -326,6 +331,8 @@ export default async function Home() {
                             width={24}
                             height={24}
                             className="w-6 h-6 object-contain"
+                            placeholder="blur"
+                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                           />
                         )}
                         <span className="text-sm font-medium text-white">
@@ -346,6 +353,8 @@ export default async function Home() {
                             width={24}
                             height={24}
                             className="w-6 h-6 object-contain"
+                            placeholder="blur"
+                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                           />
                         )}
                       </div>
@@ -377,6 +386,8 @@ export default async function Home() {
                           width={20}
                           height={20}
                           className="w-5 h-5 object-contain"
+                          placeholder="blur"
+                          blurDataURL={CREST_BLUR_PLACEHOLDER}
                         />
                       )}
                       <span className="text-xs text-gray-500">{scorer.teamTla}</span>

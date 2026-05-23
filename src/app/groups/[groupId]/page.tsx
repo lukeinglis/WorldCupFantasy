@@ -9,6 +9,7 @@ import { getTeamsByGroup, groupLabels, type Team, getTeamByCode } from "@/data/t
 import { participants, getGroupWinnerDistribution } from "@/data/participants";
 import { schedule, parseLocalDate } from "@/data/schedule";
 import { getStandings, getMatches, isApiConfigured } from "@/lib/football-api";
+import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
 import type { TransformedGroupStandings, TransformedMatch } from "@/lib/football-api-types";
 
 export function generateStaticParams() {
@@ -110,6 +111,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                                 width={40}
                                 height={40}
                                 className="w-10 h-10 object-contain"
+                                placeholder="blur"
+                                blurDataURL={CREST_BLUR_PLACEHOLDER}
                               />
                             ) : (
                               <span className="text-4xl">{team.flag}</span>
@@ -258,6 +261,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                                         width={16}
                                         height={16}
                                         className="w-4 h-4 object-contain"
+                                        placeholder="blur"
+                                        blurDataURL={CREST_BLUR_PLACEHOLDER}
                                       />
                                     ) : (
                                       <span>{staticTeam?.flag ?? "🏳️"}</span>
@@ -424,6 +429,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                                       width={16}
                                       height={16}
                                       className="w-4 h-4 object-contain"
+                                      placeholder="blur"
+                                      blurDataURL={CREST_BLUR_PLACEHOLDER}
                                     />
                                   ) : null}
                                   {match.homeTeam.tla}
@@ -451,6 +458,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                                       width={16}
                                       height={16}
                                       className="w-4 h-4 object-contain"
+                                      placeholder="blur"
+                                      blurDataURL={CREST_BLUR_PLACEHOLDER}
                                     />
                                   ) : null}
                                 </span>
