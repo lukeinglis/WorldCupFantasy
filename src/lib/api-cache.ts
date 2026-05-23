@@ -9,6 +9,10 @@
  *   scorers:       15 minutes
  */
 
+import logger from "./logger";
+
+const log = logger.child({ module: "api-cache" });
+
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
@@ -33,10 +37,15 @@ export const CacheTTL = {
  */
 export function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
+  if (!entry) {
+    log.debug({ key }, "cache miss (no entry)");
     return null;
   }
+  if (Date.now() > entry.expiresAt) {
+    log.debug({ key }, "cache miss (expired)");
+    return null;
+  }
+  log.debug({ key }, "cache hit");
   return entry.data;
 }
 
@@ -45,7 +54,11 @@ export function getCached<T>(key: string): T | null {
  */
 export function getStaleCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
-  if (!entry) return null;
+  if (!entry) {
+    log.debug({ key }, "stale cache miss");
+    return null;
+  }
+  log.info({ key }, "serving stale cache fallback");
   return entry.data;
 }
 
@@ -65,7 +78,10 @@ export function setCache<T>(key: string, data: T, ttlMs: number): void {
         oldest = { key: k, expiresAt: entry.expiresAt };
       }
     }
-    if (oldest) cache.delete(oldest.key);
+    if (oldest) {
+      log.info({ evictedKey: oldest.key, cacheSize: cache.size }, "cache eviction (max size)");
+      cache.delete(oldest.key);
+    }
   }
 }
 

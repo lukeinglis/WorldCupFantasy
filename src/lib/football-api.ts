@@ -28,6 +28,9 @@ import {
 } from "./football-api-types";
 
 import { getCached, getStaleCached, setCache, CacheTTL } from "./api-cache";
+import logger from "./logger";
+
+const log = logger.child({ module: "football-api" });
 
 // ── Config ──
 
@@ -55,19 +58,19 @@ async function apiFetch<T>(path: string): Promise<T | null> {
     });
 
     if (res.status === 429) {
-      console.warn("[football-api] Rate limited. Returning cached data or null.");
+      log.warn({ path, status: 429 }, "rate limited, returning cached data or null");
       return null;
     }
 
     if (!res.ok) {
-      console.warn(`[football-api] ${res.status} ${res.statusText} for ${path}`);
+      log.warn({ path, status: res.status, statusText: res.statusText }, "API error");
       return null;
     }
 
     const data: T = await res.json();
     return data;
   } catch (err) {
-    console.error(`[football-api] Network error for ${path}:`, err);
+    log.error({ path, err }, "network error");
     return null;
   }
 }
