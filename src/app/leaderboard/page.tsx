@@ -21,6 +21,7 @@ import {
   getLiveBonusResults,
   getLiveTournamentStatus,
 } from "@/lib/live-scoring";
+import LivePoller from "@/components/LivePoller";
 
 export const metadata: Metadata = {
   title: "Leaderboard",
@@ -50,6 +51,8 @@ function getMedalColor(rank: number): string {
 export default async function LeaderboardPage() {
   // Try to inject live results before scoring
   let hasLiveScoring = false;
+  let hasLiveMatches = false;
+  let isTournamentActive = false;
 
   if (isApiConfigured()) {
     const [groupResults, bonusResults, tournamentStatus] = await Promise.all([
@@ -68,9 +71,13 @@ export default async function LeaderboardPage() {
       hasLiveScoring = true;
     }
 
-    // Tournament status for display (not used for scoring directly)
-    void tournamentStatus;
+    if (tournamentStatus) {
+      hasLiveMatches = tournamentStatus.liveMatches > 0;
+      isTournamentActive = tournamentStatus.playedMatches > 0;
+    }
   }
+
+  const lastUpdated = new Date().toISOString();
 
   // Calculate points with live data injected
   const withPoints = calculateAllPoints(participants);
@@ -135,6 +142,17 @@ export default async function LeaderboardPage() {
                 </p>
               </>
             )}
+            <p className="text-xs text-gray-600 mt-2">
+              Last updated: {new Date(lastUpdated).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
+            </p>
+            <LivePoller
+              hasLiveMatches={hasLiveMatches}
+              isTournamentActive={isTournamentActive}
+            />
           </div>
 
           {/* Main Standings Table */}
