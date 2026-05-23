@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 
 type GameState = "ready" | "kicking" | "result" | "gameover";
 type Zone = 0 | 1 | 2 | 3 | 4 | 5;
@@ -86,11 +86,27 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
   const [showConfetti, setShowConfetti] = useState(false);
   const [hoveredZone, setHoveredZone] = useState<Zone | null>(null);
 
+  const confettiPieces = useMemo(() =>
+    Array.from({ length: 20 }, () => ({
+      left: 25 + Math.random() * 50,
+      top: 10 + Math.random() * 30,
+      width: 4 + Math.random() * 5,
+      height: 4 + Math.random() * 5,
+      dx: (Math.random() - 0.5) * 120,
+      dy: 30 + Math.random() * 80,
+      dr: Math.random() * 360,
+      duration: 0.5 + Math.random() * 0.5,
+      delay: Math.random() * 0.15,
+    })), [showConfetti]);
+
   const streakRef = useRef(streak);
-  streakRef.current = streak;
+  useEffect(() => {
+    streakRef.current = streak;
+  }, [streak]);
 
   useEffect(() => {
-    setHighScore(getHighScore());
+    const saved = getHighScore();
+    if (saved !== 0) setHighScore(saved);
   }, []);
 
   const shoot = useCallback((zone: Zone) => {
@@ -326,16 +342,16 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
         </div>
 
         {/* Confetti */}
-        {showConfetti && Array.from({ length: 20 }).map((_, i) => (
+        {showConfetti && confettiPieces.map((piece, i) => (
           <div key={i} className="absolute pointer-events-none" style={{
-            left: `${25+Math.random()*50}%`, top: `${10+Math.random()*30}%`,
-            width: `${4+Math.random()*5}px`, height: `${4+Math.random()*5}px`,
+            left: `${piece.left}%`, top: `${piece.top}%`,
+            width: `${piece.width}px`, height: `${piece.height}px`,
             borderRadius: i%3===0 ? "50%" : "1px",
             background: ["#00E676","#FFD700","#fff","#4CAF50","#FF5722","#2196F3"][i%6],
-            ["--dx" as string]: `${(Math.random()-0.5)*120}px`,
-            ["--dy" as string]: `${30+Math.random()*80}px`,
-            ["--dr" as string]: `${Math.random()*360}deg`,
-            animation: `confetti-pop ${0.5+Math.random()*0.5}s ${Math.random()*0.15}s ease-out forwards`,
+            ["--dx" as string]: `${piece.dx}px`,
+            ["--dy" as string]: `${piece.dy}px`,
+            ["--dr" as string]: `${piece.dr}deg`,
+            animation: `confetti-pop ${piece.duration}s ${piece.delay}s ease-out forwards`,
           }} />
         ))}
 
