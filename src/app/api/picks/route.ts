@@ -74,24 +74,24 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!picks || typeof picks !== "object") {
+      return NextResponse.json(
+        { error: "picks object is required." },
+        { status: 400 }
+      );
+    }
+
     const now = new Date();
     const tier1Locked = now >= TOURNAMENT_START;
     const tier2Locked = now >= KNOCKOUT_START;
 
-    const hasTier1 = !tier1Locked && Array.isArray(picks?.groupPredictions) && picks.groupPredictions.length > 0;
-    const hasTier2 = !tier2Locked && Array.isArray(picks?.knockoutPicks) && picks.knockoutPicks.length > 0;
+    const hasTier1 = !tier1Locked && Array.isArray(picks.groupPredictions) && picks.groupPredictions.length > 0;
+    const hasTier2 = !tier2Locked && Array.isArray(picks.knockoutPicks) && picks.knockoutPicks.length > 0;
 
     if (!hasTier1 && !hasTier2) {
       return NextResponse.json(
         { error: "All pick deadlines have passed. Picks can no longer be submitted." },
         { status: 403 }
-      );
-    }
-
-    if (!picks || typeof picks !== "object") {
-      return NextResponse.json(
-        { error: "picks object is required." },
-        { status: 400 }
       );
     }
 
