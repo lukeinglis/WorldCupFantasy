@@ -17,6 +17,7 @@ World Cup 2026 Fantasy contest app: a friends league with two-tier scoring (grou
 - src/lib/**/*
 - eval/**/*
 - public/**/*
+- factory.md
 
 ### Read-only
 
