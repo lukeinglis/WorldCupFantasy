@@ -34,9 +34,17 @@ export function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
-    cache.delete(key);
     return null;
   }
+  return entry.data;
+}
+
+/**
+ * Get a stale (expired) cached value as a fallback when upstream fails.
+ */
+export function getStaleCached<T>(key: string): T | null {
+  const entry = cache.get(key) as CacheEntry<T> | undefined;
+  if (!entry) return null;
   return entry.data;
 }
 

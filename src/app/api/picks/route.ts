@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 import { getPicks, savePicks, getUserById, type PicksRecord } from "@/lib/storage";
+import { TOURNAMENT_START, KNOCKOUT_START } from "@/lib/tournament-dates";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // GET /api/picks?userId=xxx
 export async function GET(request: Request) {
+  const ip = getClientIp(request);
+  const rl = rateLimit({ key: `picks-get:${ip}`, limit: 30, windowMs: 60_000 });
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -45,6 +56,32 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "userId is required and must be a string." },
         { status: 400 }
+      );
+    }
+
+    const rl = rateLimit({ key: `picks-post:${userId}`, limit: 10, windowMs: 60_000 });
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
+      );
+    }
+
+    const now = new Date();
+    const hasTier1 = Array.isArray(picks?.groupPredictions) && picks.groupPredictions.length > 0;
+    const hasTier2 = Array.isArray(picks?.knockoutPicks) && picks.knockoutPicks.length > 0;
+
+    if (hasTier1 && now >= TOURNAMENT_START) {
+      return NextResponse.json(
+        { error: "Tier 1 picks deadline has passed. Picks can no longer be submitted." },
+        { status: 403 }
+      );
+    }
+
+    if (hasTier2 && now >= KNOCKOUT_START) {
+      return NextResponse.json(
+        { error: "Tier 2 picks deadline has passed. Picks can no longer be submitted." },
+        { status: 403 }
       );
     }
 

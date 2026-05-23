@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
-
-// Tournament start: picks are hidden until the first match kicks off
-const TOURNAMENT_START = new Date("2026-06-11T19:00:00Z");
-const KNOCKOUT_START = new Date("2026-06-28T19:00:00Z");
+import { TOURNAMENT_START, KNOCKOUT_START } from "@/lib/tournament-dates";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // GET /api/participants - Get all participants with their picks (for leaderboard/picks display)
 export async function GET(request: Request) {
+  const ip = getClientIp(request);
+  const rl = rateLimit({ key: `participants:${ip}`, limit: 30, windowMs: 60_000 });
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
+    );
+  }
+
   try {
     if (!isKvConfigured()) {
       return NextResponse.json({ participants: [], kvConfigured: false });
