@@ -1,5 +1,6 @@
 import type { Participant, GroupPrediction, Points } from "./participants";
 import { knockoutRoundPoints } from "./participants";
+import logger from "@/lib/logger";
 
 /**
  * Tier 1 Group Scoring
@@ -25,6 +26,8 @@ export let actualGroupResults: Record<string, [string, string, string, string]> 
 export function setActualGroupResults(
   results: Record<string, [string, string, string, string]> | null
 ): void {
+  const groupCount = results ? Object.keys(results).length : 0;
+  logger.info({ groupCount, hasResults: results !== null }, "group results updated");
   actualGroupResults = results;
 }
 
@@ -37,13 +40,14 @@ export function scoreGroupPrediction(
     const predicted = prediction.order[i];
     const actualPosition = actual.indexOf(predicted);
 
-    if (actualPosition === -1) continue; // team not in group (shouldn't happen)
+    if (actualPosition === -1) {
+      logger.warn({ team: predicted, group: prediction.group }, "predicted team not found in actual results");
+      continue;
+    }
 
     if (actualPosition === i) {
-      // Exact position match
       points += 3;
     } else {
-      // Check bucket: positions 0,1 = "advances", positions 2,3 = "exits"
       const predictedAdvances = i <= 1;
       const actualAdvances = actualPosition <= 1;
       if (predictedAdvances === actualAdvances) {
@@ -51,11 +55,15 @@ export function scoreGroupPrediction(
       }
     }
   }
+  logger.debug({ group: prediction.group, points, predicted: prediction.order, actual }, "group prediction scored");
   return points;
 }
 
 export function scoreTier1Groups(participant: Participant): number {
-  if (!actualGroupResults) return 0;
+  if (!actualGroupResults) {
+    logger.debug({ participantId: participant.id }, "no group results available, returning 0");
+    return 0;
+  }
 
   let total = 0;
   for (const gp of participant.groupPredictions) {
@@ -64,6 +72,7 @@ export function scoreTier1Groups(participant: Participant): number {
       total += scoreGroupPrediction(gp, actual);
     }
   }
+  logger.debug({ participantId: participant.id, tier1Groups: total }, "tier 1 groups scored");
   return total;
 }
 
@@ -86,6 +95,7 @@ export function setActualBonusResults(results: {
   mostGoalsTeam: string | null;
   fewestConcededTeam: string | null;
 }): void {
+  logger.info({ goldenBoot: results.goldenBoot, mostGoalsTeam: results.mostGoalsTeam, fewestConcededTeam: results.fewestConcededTeam }, "bonus results updated");
   actualBonusResults = {
     ...actualBonusResults,
     goldenBoot: results.goldenBoot,
@@ -105,28 +115,24 @@ export function scoreTier1Bonus(participant: Participant): number {
   if (actualBonusResults.fewestConcededTeam && participant.bonusPicks.fewestConcededTeam === actualBonusResults.fewestConcededTeam) {
     points += 10;
   }
+  logger.debug({ participantId: participant.id, tier1Bonus: points }, "tier 1 bonus scored");
   return points;
 }
 
 export function scoreTier2Bracket(participant: Participant): number {
-  // Knockout picks would be scored against actual knockout results
-  // For now, no knockout results exist
   const points = 0;
   for (const pick of participant.knockoutPicks) {
-    // Would check against actual results here
     const roundPts = knockoutRoundPoints[pick.round] ?? 0;
-    // If pick.winner matches actual winner of that match: points += roundPts
-    // For now, all 0
     void roundPts;
   }
+  logger.debug({ participantId: participant.id, knockoutPicks: participant.knockoutPicks.length, tier2Bracket: points }, "tier 2 bracket scored");
   return points;
 }
 
 export function scoreTier2Bonus(participant: Participant): number {
-  if (actualBonusResults.goldenBall && participant.bonusPicks.goldenBall === actualBonusResults.goldenBall) {
-    return 10;
-  }
-  return 0;
+  const points = (actualBonusResults.goldenBall && participant.bonusPicks.goldenBall === actualBonusResults.goldenBall) ? 10 : 0;
+  logger.debug({ participantId: participant.id, tier2Bonus: points }, "tier 2 bonus scored");
+  return points;
 }
 
 export function calculatePoints(participant: Participant): Points {
@@ -134,17 +140,14 @@ export function calculatePoints(participant: Participant): Points {
   const tier1Bonus = scoreTier1Bonus(participant);
   const tier2Bracket = scoreTier2Bracket(participant);
   const tier2Bonus = scoreTier2Bonus(participant);
+  const total = tier1Groups + tier1Bonus + tier2Bracket + tier2Bonus;
 
-  return {
-    tier1Groups,
-    tier1Bonus,
-    tier2Bracket,
-    tier2Bonus,
-    total: tier1Groups + tier1Bonus + tier2Bracket + tier2Bonus,
-  };
+  logger.info({ participantId: participant.id, tier1Groups, tier1Bonus, tier2Bracket, tier2Bonus, total }, "points calculated");
+  return { tier1Groups, tier1Bonus, tier2Bracket, tier2Bonus, total };
 }
 
 export function calculateAllPoints(participants: Participant[]): (Participant & { calculatedPoints: Points })[] {
+  logger.info({ count: participants.length }, "scoring all participants");
   return participants.map(p => ({
     ...p,
     calculatedPoints: calculatePoints(p),

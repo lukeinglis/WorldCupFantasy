@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTeamStats, isApiConfigured } from "@/lib/football-api";
+import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,13 @@ export async function GET() {
 
   const stats = await getTeamStats();
   if (!stats) {
+    logger.info("no group stage stats available yet");
     return NextResponse.json(
       { error: "No group stage stats available yet", stats: null },
       { status: 200 }
     );
   }
+  logger.info({ teams: stats.length }, "team stats fetched");
 
   // Sort by goals scored descending for "most goals" queries
   const sortedByGoals = [...stats].sort((a, b) => b.goalsScored - a.goalsScored);

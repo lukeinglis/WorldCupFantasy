@@ -20,6 +20,7 @@ import {
   type TeamStats,
   type TransformedMatch,
 } from "./football-api";
+import logger from "./logger";
 
 // ── Types ──
 
@@ -52,8 +53,12 @@ export interface LiveTournamentStatus {
 export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
   if (!isApiConfigured()) return null;
 
+  logger.info("fetching live group results");
   const standings = await getStandings();
-  if (!standings || standings.length === 0) return null;
+  if (!standings || standings.length === 0) {
+    logger.warn("no standings data available");
+    return null;
+  }
 
   const groups: Record<string, [string, string, string, string]> = {};
   let isComplete = true;
@@ -87,6 +92,7 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
 export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
   if (!isApiConfigured()) return null;
 
+  logger.info("fetching live bonus results");
   const [scorers, stats] = await Promise.all([getScorers(), getTeamStats()]);
 
   let goldenBoot: string | null = null;
@@ -122,8 +128,12 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
 export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | null> {
   if (!isApiConfigured()) return null;
 
+  logger.info("fetching live tournament status");
   const matches = await getMatches();
-  if (!matches) return null;
+  if (!matches) {
+    logger.warn("no match data available");
+    return null;
+  }
 
   const playedMatches = matches.filter((m) => m.status === "FINISHED");
   const liveMatches = matches.filter((m) => m.isLive);

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getUser, createUser, type UserRecord } from "@/lib/storage";
 import { generateId } from "@/lib/auth";
+import logger from "@/lib/logger";
+import { withRateLimit } from "@/lib/rate-limit";
 
-export async function POST(request: Request) {
+export const POST = withRateLimit(async function POST(request: Request) {
   try {
     const body = await request.json();
     const { name, email } = body as {
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
       // Name exists. Check if email matches (case-insensitive).
       const existingEmail = (existing.emailLower ?? existing.email ?? "").toLowerCase();
       if (existingEmail === trimmedEmail) {
-        // Match: log them in
+        logger.info({ userId: existing.id }, "returning user login");
         return NextResponse.json({
           success: true,
           returning: true,
@@ -90,7 +92,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Something went wrong";
-    console.error("Join error:", message);
+    logger.error({ err }, "join error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamsByGroup, groupLabels, type Team } from "@/data/teams";
 import { getStandings, isApiConfigured } from "@/lib/football-api";
+import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
 import type { TransformedGroupStandings } from "@/lib/football-api-types";
 
 export const metadata: Metadata = {
@@ -101,10 +103,14 @@ export default async function GroupsPage() {
                                     <td className="px-5 py-3">
                                       <div className="flex items-center gap-2">
                                         {entry.team.crest ? (
-                                          <img
+                                          <Image
                                             src={entry.team.crest}
                                             alt={entry.team.name}
+                                            width={20}
+                                            height={20}
                                             className="w-5 h-5 object-contain"
+                                            placeholder="blur"
+                                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                                           />
                                         ) : (
                                           <span className="text-lg">

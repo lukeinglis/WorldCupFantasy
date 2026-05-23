@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import logger from "@/lib/logger";
 
 // Tournament start: picks are hidden until the first match kicks off
 const TOURNAMENT_START = new Date("2026-06-11T19:00:00Z");
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
     const tier2Revealed = now >= KNOCKOUT_START;
 
     const data = await getAllUsersWithPicks();
+    logger.info({ count: data.length }, "fetched participants");
 
     const participants = data.map(({ user, picks }) => {
       // Before tournament start, only show a user's own picks
@@ -48,7 +50,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ participants, kvConfigured: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch participants";
-    console.error("Get participants error:", message);
+    logger.error({ err }, "get participants error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

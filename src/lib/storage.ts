@@ -9,6 +9,7 @@
  */
 
 import { kv } from "@vercel/kv";
+import logger from "./logger";
 
 // ---- Key schema ----
 // user:<name_lower>          -> UserRecord
@@ -58,20 +59,21 @@ function requireKv(): void {
 
 export async function getUser(name: string): Promise<UserRecord | null> {
   requireKv();
-  return kv.get<UserRecord>(`user:${name.toLowerCase()}`);
+  const user = await kv.get<UserRecord>(`user:${name.toLowerCase()}`);
+  logger.debug({ name, found: !!user }, "getUser lookup");
+  return user;
 }
 
 export async function createUser(user: UserRecord): Promise<void> {
   requireKv();
   await kv.set(`user:${user.nameLower}`, user);
-  // Add to participants list
   const participants = await kv.get<string[]>("participants") ?? [];
   if (!participants.includes(user.id)) {
     participants.push(user.id);
     await kv.set("participants", participants);
   }
-  // Also store an id-to-name mapping for reverse lookups
   await kv.set(`userid:${user.id}`, user.nameLower);
+  logger.info({ userId: user.id, name: user.name }, "user created");
 }
 
 export async function updateUser(user: UserRecord): Promise<void> {
@@ -89,13 +91,16 @@ export async function getPicks(participantId: string): Promise<PicksRecord | nul
 export async function savePicks(picks: PicksRecord): Promise<void> {
   requireKv();
   await kv.set(`picks:${picks.participantId}`, picks);
+  logger.info({ participantId: picks.participantId }, "picks saved");
 }
 
 // ---- List operations ----
 
 export async function getAllParticipantIds(): Promise<string[]> {
   requireKv();
-  return (await kv.get<string[]>("participants")) ?? [];
+  const ids = (await kv.get<string[]>("participants")) ?? [];
+  logger.debug({ count: ids.length }, "fetched participant IDs");
+  return ids;
 }
 
 export async function getUserById(id: string): Promise<UserRecord | null> {
