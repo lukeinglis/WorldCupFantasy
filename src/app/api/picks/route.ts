@@ -68,19 +68,15 @@ export async function POST(request: Request) {
     }
 
     const now = new Date();
-    const hasTier1 = Array.isArray(picks?.groupPredictions) && picks.groupPredictions.length > 0;
-    const hasTier2 = Array.isArray(picks?.knockoutPicks) && picks.knockoutPicks.length > 0;
+    const tier1Locked = now >= TOURNAMENT_START;
+    const tier2Locked = now >= KNOCKOUT_START;
 
-    if (hasTier1 && now >= TOURNAMENT_START) {
-      return NextResponse.json(
-        { error: "Tier 1 picks deadline has passed. Picks can no longer be submitted." },
-        { status: 403 }
-      );
-    }
+    const hasTier1 = !tier1Locked && Array.isArray(picks?.groupPredictions) && picks.groupPredictions.length > 0;
+    const hasTier2 = !tier2Locked && Array.isArray(picks?.knockoutPicks) && picks.knockoutPicks.length > 0;
 
-    if (hasTier2 && now >= KNOCKOUT_START) {
+    if (!hasTier1 && !hasTier2) {
       return NextResponse.json(
-        { error: "Tier 2 picks deadline has passed. Picks can no longer be submitted." },
+        { error: "All pick deadlines have passed. Picks can no longer be submitted." },
         { status: 403 }
       );
     }
@@ -92,24 +88,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate required picks fields
-    if (typeof picks.goldenBoot !== "string") {
-      return NextResponse.json(
-        { error: "goldenBoot must be a string." },
-        { status: 400 }
-      );
-    }
-    if (typeof picks.mostGoalsTeam !== "string") {
-      return NextResponse.json(
-        { error: "mostGoalsTeam must be a string." },
-        { status: 400 }
-      );
-    }
-    if (typeof picks.fewestConcededTeam !== "string") {
-      return NextResponse.json(
-        { error: "fewestConcededTeam must be a string." },
-        { status: 400 }
-      );
+    if (hasTier1) {
+      if (typeof picks.goldenBoot !== "string") {
+        return NextResponse.json(
+          { error: "goldenBoot must be a string." },
+          { status: 400 }
+        );
+      }
+      if (typeof picks.mostGoalsTeam !== "string") {
+        return NextResponse.json(
+          { error: "mostGoalsTeam must be a string." },
+          { status: 400 }
+        );
+      }
+      if (typeof picks.fewestConcededTeam !== "string") {
+        return NextResponse.json(
+          { error: "fewestConcededTeam must be a string." },
+          { status: 400 }
+        );
+      }
     }
 
     // Verify user exists
@@ -121,41 +118,47 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate group predictions: must be an array of exactly 12
-    if (!Array.isArray(picks.groupPredictions) || picks.groupPredictions.length !== 12) {
-      return NextResponse.json(
-        { error: "All 12 group predictions are required." },
-        { status: 400 }
-      );
-    }
-
-    // Validate each group prediction has exactly 4 string elements
-    for (const gp of picks.groupPredictions) {
-      if (
-        !gp ||
-        typeof gp.group !== "string" ||
-        !Array.isArray(gp.order) ||
-        gp.order.length !== 4 ||
-        gp.order.some((code: unknown) => typeof code !== "string" || code === "")
-      ) {
+    if (hasTier1) {
+      if (!Array.isArray(picks.groupPredictions) || picks.groupPredictions.length !== 12) {
         return NextResponse.json(
-          { error: `Invalid prediction for group ${gp?.group ?? "unknown"}. Each group must have exactly 4 team codes.` },
+          { error: "All 12 group predictions are required." },
           { status: 400 }
         );
       }
+
+      for (const gp of picks.groupPredictions) {
+        if (
+          !gp ||
+          typeof gp.group !== "string" ||
+          !Array.isArray(gp.order) ||
+          gp.order.length !== 4 ||
+          gp.order.some((code: unknown) => typeof code !== "string" || code === "")
+        ) {
+          return NextResponse.json(
+            { error: `Invalid prediction for group ${gp?.group ?? "unknown"}. Each group must have exactly 4 team codes.` },
+            { status: 400 }
+          );
+        }
+      }
     }
+
+    const existing = await getPicks(userId);
 
     const record: PicksRecord = {
       participantId: user.id,
-      groupPredictions: picks.groupPredictions,
-      goldenBoot: picks.goldenBoot || "",
-      mostGoalsTeam: picks.mostGoalsTeam || "",
-      fewestConcededTeam: picks.fewestConcededTeam || "",
-      goldenBall: picks.goldenBall || "",
-      tiebreaker: picks.tiebreaker || { homeScore: 0, awayScore: 0 },
+      groupPredictions: hasTier1
+        ? picks.groupPredictions!
+        : existing?.groupPredictions ?? [],
+      goldenBoot: picks.goldenBoot || existing?.goldenBoot || "",
+      mostGoalsTeam: picks.mostGoalsTeam || existing?.mostGoalsTeam || "",
+      fewestConcededTeam: picks.fewestConcededTeam || existing?.fewestConcededTeam || "",
+      goldenBall: picks.goldenBall || existing?.goldenBall || "",
+      tiebreaker: picks.tiebreaker || existing?.tiebreaker || { homeScore: 0, awayScore: 0 },
       submittedAt: new Date().toISOString(),
-      tier2Submitted: false,
-      knockoutPicks: [],
+      tier2Submitted: hasTier2 ? true : existing?.tier2Submitted ?? false,
+      knockoutPicks: hasTier2
+        ? picks.knockoutPicks!
+        : existing?.knockoutPicks ?? [],
     };
 
     await savePicks(record);

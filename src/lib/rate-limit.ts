@@ -1,8 +1,10 @@
 interface RateLimitEntry {
   count: number;
   windowStart: number;
+  windowMs: number;
 }
 
+// In-memory store; resets on cold starts and is per-instance. Fine for ~20 user friends league.
 const store = new Map<string, RateLimitEntry>();
 
 const MAX_ENTRIES = 1000;
@@ -24,7 +26,7 @@ export function rateLimit({ key, limit, windowMs }: RateLimitParams): RateLimitR
 
   if (store.size > MAX_ENTRIES) {
     for (const [k, entry] of store) {
-      if (now - entry.windowStart > windowMs) {
+      if (now - entry.windowStart > entry.windowMs) {
         store.delete(k);
       }
     }
@@ -36,7 +38,7 @@ export function rateLimit({ key, limit, windowMs }: RateLimitParams): RateLimitR
   const entry = store.get(key);
 
   if (!entry || now - entry.windowStart >= windowMs) {
-    store.set(key, { count: 1, windowStart: now });
+    store.set(key, { count: 1, windowStart: now, windowMs });
     return { success: true, remaining: limit - 1, retryAfterMs: 0 };
   }
 

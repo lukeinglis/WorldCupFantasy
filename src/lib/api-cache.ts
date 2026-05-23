@@ -15,6 +15,7 @@ interface CacheEntry<T> {
 }
 
 const cache = new Map<string, CacheEntry<unknown>>();
+const MAX_CACHE_SIZE = 200;
 
 /** TTL presets in milliseconds */
 export const CacheTTL = {
@@ -56,6 +57,16 @@ export function setCache<T>(key: string, data: T, ttlMs: number): void {
     data,
     expiresAt: Date.now() + ttlMs,
   });
+
+  if (cache.size > MAX_CACHE_SIZE) {
+    let oldest: { key: string; expiresAt: number } | null = null;
+    for (const [k, entry] of cache) {
+      if (!oldest || entry.expiresAt < oldest.expiresAt) {
+        oldest = { key: k, expiresAt: entry.expiresAt };
+      }
+    }
+    if (oldest) cache.delete(oldest.key);
+  }
 }
 
 /**
