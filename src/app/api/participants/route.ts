@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { TOURNAMENT_START, KNOCKOUT_START } from "@/lib/tournament-dates";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import logger from "@/lib/logger";
 
 // GET /api/participants - Get all participants with their picks (for leaderboard/picks display)
 export async function GET(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
+  const log = logger.child({ requestId, route: "GET /api/participants" });
   const ip = getClientIp(request);
   const rl = rateLimit({ key: `participants:${ip}`, limit: 30, windowMs: 60_000 });
   if (!rl.success) {
@@ -14,6 +17,7 @@ export async function GET(request: Request) {
     );
   }
 
+  log.info("request start");
   try {
     if (!isKvConfigured()) {
       return NextResponse.json({ participants: [], kvConfigured: false });
@@ -55,7 +59,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ participants, kvConfigured: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch participants";
-    console.error("Get participants error:", message);
+    log.error({ err }, "failed to fetch participants");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

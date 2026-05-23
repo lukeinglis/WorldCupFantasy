@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getUser, createUser, type UserRecord } from "@/lib/storage";
 import { generateId } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import logger from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
+  const log = logger.child({ requestId, route: "POST /api/auth/join" });
   const ip = getClientIp(request);
   const rl = rateLimit({ key: `join:${ip}`, limit: 5, windowMs: 60_000 });
   if (!rl.success) {
@@ -13,6 +16,7 @@ export async function POST(request: Request) {
     );
   }
 
+  log.info("request start");
   try {
     const body = await request.json();
     const { name, email } = body as {
@@ -100,7 +104,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Something went wrong";
-    console.error("Join error:", message);
+    log.error({ err }, "join failed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { getPicks, savePicks, getUserById, type PicksRecord } from "@/lib/storage";
 import { TOURNAMENT_START, KNOCKOUT_START } from "@/lib/tournament-dates";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import logger from "@/lib/logger";
 
 // GET /api/picks?userId=xxx
 export async function GET(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
+  const log = logger.child({ requestId, route: "GET /api/picks" });
   const ip = getClientIp(request);
   const rl = rateLimit({ key: `picks-get:${ip}`, limit: 30, windowMs: 60_000 });
   if (!rl.success) {
@@ -14,6 +17,7 @@ export async function GET(request: Request) {
     );
   }
 
+  log.info("request start");
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -29,13 +33,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ picks });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch picks";
-    console.error("Get picks error:", message);
+    log.error({ err }, "failed to fetch picks");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // POST /api/picks  - Save picks for a participant
 export async function POST(request: Request) {
+  const postRequestId = request.headers.get("x-request-id") ?? "unknown";
+  const postLog = logger.child({ requestId: postRequestId, route: "POST /api/picks" });
+  postLog.info("request start");
   try {
     const body = await request.json();
 
@@ -186,7 +193,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, submittedAt: record.submittedAt });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to save picks";
-    console.error("Save picks error:", message);
+    postLog.error({ err }, "failed to save picks");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
