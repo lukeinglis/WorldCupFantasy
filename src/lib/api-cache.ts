@@ -14,6 +14,7 @@ import logger from "./logger";
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
+  stale?: boolean;
 }
 
 const cache = new Map<string, CacheEntry<unknown>>();
@@ -39,11 +40,18 @@ export function getCached<T>(key: string): T | null {
     return null;
   }
   if (Date.now() > entry.expiresAt) {
-    cache.delete(key);
-    logger.debug({ key }, "cache miss (expired)");
+    entry.stale = true;
+    logger.debug({ key }, "cache miss (expired, retained as stale)");
     return null;
   }
   logger.debug({ key }, "cache hit");
+  return entry.data;
+}
+
+export function getStaleCached<T>(key: string): T | null {
+  const entry = cache.get(key) as CacheEntry<T> | undefined;
+  if (!entry?.stale) return null;
+  logger.warn({ key }, "serving stale cache fallback");
   return entry.data;
 }
 

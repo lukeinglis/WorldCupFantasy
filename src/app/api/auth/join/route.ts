@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getUser, createUser, type UserRecord } from "@/lib/storage";
 import { generateId } from "@/lib/auth";
 import logger from "@/lib/logger";
+import { withRateLimit } from "@/lib/rate-limit";
 
-export async function POST(request: Request) {
+export const POST = withRateLimit(async function POST(request: Request) {
   try {
     const body = await request.json();
     const { name, email } = body as {
@@ -94,4 +95,4 @@ export async function POST(request: Request) {
     logger.error({ err }, "join error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});

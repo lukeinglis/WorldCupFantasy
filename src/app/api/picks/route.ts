@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getPicks, savePicks, getUserById, type PicksRecord } from "@/lib/storage";
 import logger from "@/lib/logger";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
+import { withRateLimit } from "@/lib/rate-limit";
 
 // GET /api/picks?userId=xxx
-export async function GET(request: Request) {
+export const GET = withRateLimit(async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -22,11 +24,19 @@ export async function GET(request: Request) {
     logger.error({ err }, "get picks error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});
 
 // POST /api/picks  - Save picks for a participant
-export async function POST(request: Request) {
+export const POST = withRateLimit(async function POST(request: Request) {
   try {
+    if (Date.now() >= TOURNAMENT_START.getTime()) {
+      logger.warn("picks submission rejected: past Tier 1 deadline");
+      return NextResponse.json(
+        { error: "The deadline for Tier 1 picks has passed. Submissions are closed." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     // Basic type checking on the request body
@@ -139,4 +149,4 @@ export async function POST(request: Request) {
     logger.error({ err }, "save picks error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});
