@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Container from "@/components/Container";
@@ -103,9 +104,11 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                         <CardBody>
                           <div className="flex items-start gap-3">
                             {liveTeam?.team.crest ? (
-                              <img
+                              <Image
                                 src={liveTeam.team.crest}
                                 alt={team.name}
+                                width={40}
+                                height={40}
                                 className="w-10 h-10 object-contain"
                               />
                             ) : (
@@ -249,9 +252,11 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                                 <td className="px-4 py-2">
                                   <span className="flex items-center gap-1.5 text-sm">
                                     {entry.team.crest ? (
-                                      <img
+                                      <Image
                                         src={entry.team.crest}
                                         alt={entry.team.name}
+                                        width={16}
+                                        height={16}
                                         className="w-4 h-4 object-contain"
                                       />
                                     ) : (
@@ -413,9 +418,11 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                               <div className="flex items-center justify-between gap-2">
                                 <span className="flex items-center gap-1.5 text-sm text-white">
                                   {match.homeTeam.crest ? (
-                                    <img
+                                    <Image
                                       src={match.homeTeam.crest}
                                       alt={match.homeTeam.shortName}
+                                      width={16}
+                                      height={16}
                                       className="w-4 h-4 object-contain"
                                     />
                                   ) : null}
@@ -438,9 +445,11 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                                 <span className="flex items-center gap-1.5 text-sm text-white">
                                   {match.awayTeam.tla}
                                   {match.awayTeam.crest ? (
-                                    <img
+                                    <Image
                                       src={match.awayTeam.crest}
                                       alt={match.awayTeam.shortName}
+                                      width={16}
+                                      height={16}
                                       className="w-4 h-4 object-contain"
                                     />
                                   ) : null}

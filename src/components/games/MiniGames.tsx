@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Container from "@/components/Container";
 import { Card, CardBody } from "@/components/Card";
@@ -28,15 +28,9 @@ function safeGetScore(key: string): number {
 export default function MiniGames() {
   const { user } = useAuth();
   const [activeGame, setActiveGame] = useState<ActiveGame>(null);
-  const [penaltyBest, setPenaltyBest] = useState(0);
-  const [flagBest, setFlagBest] = useState(0);
+  const [penaltyBest, setPenaltyBest] = useState(() => safeGetScore(PK_LS_KEY));
+  const [flagBest, setFlagBest] = useState(() => safeGetScore(FLAG_LS_KEY));
   const [leaderboardRefreshKey, setLeaderboardRefreshKey] = useState(0);
-
-  // Read high scores on mount
-  useEffect(() => {
-    setPenaltyBest(safeGetScore(PK_LS_KEY));
-    setFlagBest(safeGetScore(FLAG_LS_KEY));
-  }, []);
 
   // Refresh high scores when game closes
   const handleClose = () => {

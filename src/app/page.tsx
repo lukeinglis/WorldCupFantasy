@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Container from "@/components/Container";
 import CountdownTimer from "@/components/CountdownTimer";
@@ -243,9 +244,11 @@ export default async function Home() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-1">
                         {match.homeTeam.crest && (
-                          <img
+                          <Image
                             src={match.homeTeam.crest}
                             alt={match.homeTeam.shortName}
+                            width={32}
+                            height={32}
                             className="w-8 h-8 object-contain"
                           />
                         )}
@@ -261,9 +264,11 @@ export default async function Home() {
                           {match.awayTeam.shortName}
                         </span>
                         {match.awayTeam.crest && (
-                          <img
+                          <Image
                             src={match.awayTeam.crest}
                             alt={match.awayTeam.shortName}
+                            width={32}
+                            height={32}
                             className="w-8 h-8 object-contain"
                           />
                         )}
@@ -315,9 +320,11 @@ export default async function Home() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-1">
                         {match.homeTeam.crest && (
-                          <img
+                          <Image
                             src={match.homeTeam.crest}
                             alt={match.homeTeam.shortName}
+                            width={24}
+                            height={24}
                             className="w-6 h-6 object-contain"
                           />
                         )}
@@ -333,9 +340,11 @@ export default async function Home() {
                           {match.awayTeam.shortName}
                         </span>
                         {match.awayTeam.crest && (
-                          <img
+                          <Image
                             src={match.awayTeam.crest}
                             alt={match.awayTeam.shortName}
+                            width={24}
+                            height={24}
                             className="w-6 h-6 object-contain"
                           />
                         )}
@@ -362,9 +371,11 @@ export default async function Home() {
                   <CardBody className="py-4">
                     <div className="flex items-center justify-center gap-2 mb-2">
                       {scorer.teamCrest && (
-                        <img
+                        <Image
                           src={scorer.teamCrest}
                           alt={scorer.teamTla}
+                          width={20}
+                          height={20}
                           className="w-5 h-5 object-contain"
                         />
                       )}
