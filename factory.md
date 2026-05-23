@@ -18,14 +18,14 @@ World Cup 2026 Fantasy contest app: a friends league with two-tier scoring (grou
 - eval/**/*
 - public/**/*
 - factory.md
+- next.config.ts
+- package.json
 
 ### Read-only
 
 - CLAUDE.md
 - AGENTS.md
-- package.json
 - tsconfig.json
-- next.config.ts
 - tailwind.config.ts
 - postcss.config.mjs
 
