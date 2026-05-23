@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
+import logger from "@/lib/logger";
 
 // --- Types ---
 
@@ -156,8 +157,10 @@ export async function POST(request: NextRequest) {
 
     await kv.set(key, trimmed);
 
+    logger.info({ game, userId, score }, "game score saved");
     return NextResponse.json({ saved: true, scores: trimmed });
-  } catch {
+  } catch (err) {
+    logger.error({ err, game }, "failed to save game score");
     return NextResponse.json(
       { error: "Failed to save score." },
       { status: 500 }

@@ -9,6 +9,8 @@
  *   scorers:       15 minutes
  */
 
+import logger from "./logger";
+
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
@@ -32,11 +34,16 @@ export const CacheTTL = {
  */
 export function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    cache.delete(key);
+  if (!entry) {
+    logger.debug({ key }, "cache miss (no entry)");
     return null;
   }
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    logger.debug({ key }, "cache miss (expired)");
+    return null;
+  }
+  logger.debug({ key }, "cache hit");
   return entry.data;
 }
 
@@ -48,6 +55,7 @@ export function setCache<T>(key: string, data: T, ttlMs: number): void {
     data,
     expiresAt: Date.now() + ttlMs,
   });
+  logger.debug({ key, ttlMs }, "cache set");
 }
 
 /**

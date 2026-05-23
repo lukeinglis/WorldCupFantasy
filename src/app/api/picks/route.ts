@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPicks, savePicks, getUserById, type PicksRecord } from "@/lib/storage";
+import logger from "@/lib/logger";
 
 // GET /api/picks?userId=xxx
 export async function GET(request: Request) {
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ picks });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch picks";
-    console.error("Get picks error:", message);
+    logger.error({ err }, "get picks error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -122,6 +123,7 @@ export async function POST(request: Request) {
     };
 
     await savePicks(record);
+    logger.info({ userId, submittedAt: record.submittedAt }, "picks submitted");
 
     // Update payment confirmation on user record
     if (!user.paymentConfirmed) {
@@ -134,7 +136,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, submittedAt: record.submittedAt });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to save picks";
-    console.error("Save picks error:", message);
+    logger.error({ err }, "save picks error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
