@@ -36,6 +36,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const stored = localStorage.getItem("wcf_user");
       if (stored) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- reading from localStorage (external system), not derivable during render
         setUser(JSON.parse(stored));
       }
     } catch {

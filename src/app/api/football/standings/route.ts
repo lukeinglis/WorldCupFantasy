@@ -25,6 +25,6 @@ export async function GET(request: Request) {
     );
   }
 
-  log.info("request complete");
+  log.info({ groups: standings.length }, "request complete");
   return NextResponse.json({ standings });
 }

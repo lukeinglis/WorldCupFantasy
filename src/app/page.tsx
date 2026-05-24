@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Container from "@/components/Container";
 import CountdownTimer from "@/components/CountdownTimer";
@@ -14,6 +15,7 @@ import {
 } from "@/data/participants";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
+import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
 import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
 
 export const dynamic = "force-dynamic";
@@ -243,10 +245,14 @@ export default async function Home() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-1">
                         {match.homeTeam.crest && (
-                          <img
+                          <Image
                             src={match.homeTeam.crest}
                             alt={match.homeTeam.shortName}
+                            width={32}
+                            height={32}
                             className="w-8 h-8 object-contain"
+                            placeholder="blur"
+                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                           />
                         )}
                         <span className="font-heading font-bold text-white">
@@ -261,10 +267,14 @@ export default async function Home() {
                           {match.awayTeam.shortName}
                         </span>
                         {match.awayTeam.crest && (
-                          <img
+                          <Image
                             src={match.awayTeam.crest}
                             alt={match.awayTeam.shortName}
+                            width={32}
+                            height={32}
                             className="w-8 h-8 object-contain"
+                            placeholder="blur"
+                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                           />
                         )}
                       </div>
@@ -315,10 +325,14 @@ export default async function Home() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-1">
                         {match.homeTeam.crest && (
-                          <img
+                          <Image
                             src={match.homeTeam.crest}
                             alt={match.homeTeam.shortName}
+                            width={24}
+                            height={24}
                             className="w-6 h-6 object-contain"
+                            placeholder="blur"
+                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                           />
                         )}
                         <span className="text-sm font-medium text-white">
@@ -333,10 +347,14 @@ export default async function Home() {
                           {match.awayTeam.shortName}
                         </span>
                         {match.awayTeam.crest && (
-                          <img
+                          <Image
                             src={match.awayTeam.crest}
                             alt={match.awayTeam.shortName}
+                            width={24}
+                            height={24}
                             className="w-6 h-6 object-contain"
+                            placeholder="blur"
+                            blurDataURL={CREST_BLUR_PLACEHOLDER}
                           />
                         )}
                       </div>
@@ -362,10 +380,14 @@ export default async function Home() {
                   <CardBody className="py-4">
                     <div className="flex items-center justify-center gap-2 mb-2">
                       {scorer.teamCrest && (
-                        <img
+                        <Image
                           src={scorer.teamCrest}
                           alt={scorer.teamTla}
+                          width={20}
+                          height={20}
                           className="w-5 h-5 object-contain"
+                          placeholder="blur"
+                          blurDataURL={CREST_BLUR_PLACEHOLDER}
                         />
                       )}
                       <span className="text-xs text-gray-500">{scorer.teamTla}</span>

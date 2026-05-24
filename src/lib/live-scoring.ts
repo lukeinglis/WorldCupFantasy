@@ -55,6 +55,7 @@ export interface LiveTournamentStatus {
 export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
   if (!isApiConfigured()) return null;
 
+  log.info("fetching live group results");
   const standings = await getStandings();
   if (!standings || standings.length === 0) {
     log.warn("no standings data available");
@@ -91,6 +92,7 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
 export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
   if (!isApiConfigured()) return null;
 
+  log.info("fetching live bonus results");
   const [scorers, stats] = await Promise.all([getScorers(), getTeamStats()]);
 
   let goldenBoot: string | null = null;
@@ -125,6 +127,7 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
 export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | null> {
   if (!isApiConfigured()) return null;
 
+  log.info("fetching live tournament status");
   const matches = await getMatches();
   if (!matches) {
     log.warn("no match data for tournament status");

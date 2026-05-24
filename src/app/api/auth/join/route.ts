@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       // Name exists. Check if email matches (case-insensitive).
       const existingEmail = (existing.emailLower ?? existing.email ?? "").toLowerCase();
       if (existingEmail === trimmedEmail) {
-        // Match: log them in
+        log.info({ userId: existing.id }, "returning user login");
         return NextResponse.json({
           success: true,
           returning: true,

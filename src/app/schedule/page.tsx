@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
 import { schedule, venues, stageLabels, parseLocalDate } from "@/data/schedule";
 import { getTeamByCode } from "@/data/teams";
 import { getMatches, isApiConfigured } from "@/lib/football-api";
+import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
 import type { TransformedMatch } from "@/lib/football-api-types";
 import ScheduleClient from "./ScheduleClient";
 
@@ -191,10 +193,14 @@ function renderLiveSchedule(matches: TransformedMatch[]) {
                         {match.homeTeam.shortName}
                       </span>
                       {match.homeTeam.crest ? (
-                        <img
+                        <Image
                           src={match.homeTeam.crest}
                           alt={match.homeTeam.shortName}
+                          width={24}
+                          height={24}
                           className="w-6 h-6 object-contain"
+                          placeholder="blur"
+                          blurDataURL={CREST_BLUR_PLACEHOLDER}
                         />
                       ) : null}
                     </div>
@@ -219,10 +225,14 @@ function renderLiveSchedule(matches: TransformedMatch[]) {
 
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {match.awayTeam.crest ? (
-                        <img
+                        <Image
                           src={match.awayTeam.crest}
                           alt={match.awayTeam.shortName}
+                          width={24}
+                          height={24}
                           className="w-6 h-6 object-contain"
+                          placeholder="blur"
+                          blurDataURL={CREST_BLUR_PLACEHOLDER}
                         />
                       ) : null}
                       <span className="text-sm font-medium text-white truncate">

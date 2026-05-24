@@ -16,6 +16,7 @@ const log = logger.child({ module: "api-cache" });
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
+  stale?: boolean;
 }
 
 const cache = new Map<string, CacheEntry<unknown>>();
@@ -42,7 +43,8 @@ export function getCached<T>(key: string): T | null {
     return null;
   }
   if (Date.now() > entry.expiresAt) {
-    log.debug({ key }, "cache miss (expired)");
+    entry.stale = true;
+    log.debug({ key }, "cache miss (expired, retained as stale)");
     return null;
   }
   log.debug({ key }, "cache hit");
@@ -70,6 +72,7 @@ export function setCache<T>(key: string, data: T, ttlMs: number): void {
     data,
     expiresAt: Date.now() + ttlMs,
   });
+  log.debug({ key, ttlMs }, "cache set");
 
   if (cache.size > MAX_CACHE_SIZE) {
     let oldest: { key: string; expiresAt: number } | null = null;

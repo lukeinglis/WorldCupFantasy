@@ -29,6 +29,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  log.info({ count: matches.length }, "request complete");
+  log.info({ count: matches.length, status }, "request complete");
   return NextResponse.json({ matches });
 }

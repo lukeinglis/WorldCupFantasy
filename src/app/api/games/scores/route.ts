@@ -166,10 +166,10 @@ export async function POST(request: NextRequest) {
 
     await kv.set(key, trimmed);
 
-    postLog.info({ game, userId }, "score saved");
+    postLog.info({ game, userId, score }, "score saved");
     return NextResponse.json({ saved: true, scores: trimmed });
   } catch (err) {
-    postLog.error({ err }, "failed to save score");
+    postLog.error({ err, game }, "failed to save score");
     return NextResponse.json(
       { error: "Failed to save score." },
       { status: 500 }

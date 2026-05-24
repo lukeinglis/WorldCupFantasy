@@ -31,6 +31,7 @@ export default function SiteNav() {
   const { user, logout } = useAuth();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting UI state on route change (external navigation event)
     setMobileOpen(false);
   }, [pathname]);
 

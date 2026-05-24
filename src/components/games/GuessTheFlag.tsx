@@ -68,17 +68,13 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
   const [rounds, setRounds] = useState<Round[]>([]);
   const [currentRound, setCurrentRound] = useState(0);
   const [score, setScore] = useState(0);
-  const [highScore, setHighScoreState] = useState(0);
+  const [highScore, setHighScoreState] = useState(() => getHighScore());
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isNewHighScore, setIsNewHighScore] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    setHighScoreState(getHighScore());
-  }, []);
 
   useEffect(() => {
     return () => {

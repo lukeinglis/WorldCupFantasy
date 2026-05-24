@@ -31,6 +31,7 @@ export async function GET(request: Request) {
     const tier2Revealed = now >= KNOCKOUT_START;
 
     const data = await getAllUsersWithPicks();
+    log.info({ count: data.length }, "fetched participants");
 
     const participants = data.map(({ user, picks }) => {
       // Before tournament start, only show a user's own picks

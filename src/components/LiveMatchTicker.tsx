@@ -61,6 +61,7 @@ export default function LiveMatchTicker({
   }, [fetchAll]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- polling external API, setState is inside async callback
     fetchMatches();
 
     const interval = setInterval(fetchMatches, pollInterval);

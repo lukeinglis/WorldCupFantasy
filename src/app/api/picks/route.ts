@@ -44,6 +44,14 @@ export async function POST(request: Request) {
   const postLog = logger.child({ requestId: postRequestId, route: "POST /api/picks" });
   postLog.info("request start");
   try {
+    if (Date.now() >= TOURNAMENT_START.getTime()) {
+      postLog.warn("picks submission rejected: past Tier 1 deadline");
+      return NextResponse.json(
+        { error: "The deadline for Tier 1 picks has passed. Submissions are closed." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     // Basic type checking on the request body
@@ -181,6 +189,7 @@ export async function POST(request: Request) {
     };
 
     await savePicks(record);
+    postLog.info({ userId, submittedAt: record.submittedAt }, "picks submitted");
 
     // Update payment confirmation on user record
     if (!user.paymentConfirmed) {

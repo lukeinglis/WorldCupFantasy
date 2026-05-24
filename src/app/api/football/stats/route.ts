@@ -18,11 +18,13 @@ export async function GET(request: Request) {
 
   const stats = await getTeamStats();
   if (!stats) {
+    logger.info("no group stage stats available yet");
     return NextResponse.json(
       { error: "No group stage stats available yet", stats: null },
       { status: 200 }
     );
   }
+  logger.info({ teams: stats.length }, "team stats fetched");
 
   const sortedByGoals = [...stats].sort((a, b) => b.goalsScored - a.goalsScored);
 
