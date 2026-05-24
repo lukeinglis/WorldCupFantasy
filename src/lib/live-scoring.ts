@@ -22,6 +22,8 @@ import {
 } from "./football-api";
 import logger from "./logger";
 
+const log = logger.child({ module: "live-scoring" });
+
 // ── Types ──
 
 export interface LiveGroupResults {
@@ -53,10 +55,10 @@ export interface LiveTournamentStatus {
 export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
   if (!isApiConfigured()) return null;
 
-  logger.info("fetching live group results");
+  log.info("fetching live group results");
   const standings = await getStandings();
   if (!standings || standings.length === 0) {
-    logger.warn("no standings data available");
+    log.warn("no standings data available");
     return null;
   }
 
@@ -65,16 +67,13 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
 
   for (const group of standings) {
     if (group.standings.length < 4) {
-      // Not enough teams in standings yet
       isComplete = false;
       continue;
     }
 
-    // Check if all matches are played (each team plays 3 group matches)
     const allPlayed = group.standings.every((s) => s.played >= 3);
     if (!allPlayed) isComplete = false;
 
-    // Standings are already sorted by position from the API
     const sorted = [...group.standings].sort((a, b) => a.position - b.position);
     groups[group.group] = [
       sorted[0]?.team.tla ?? "",
@@ -84,6 +83,7 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
     ];
   }
 
+  log.info({ groupCount: Object.keys(groups).length, isComplete }, "getLiveGroupResults");
   return { groups, isComplete };
 }
 
@@ -92,7 +92,7 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
 export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
   if (!isApiConfigured()) return null;
 
-  logger.info("fetching live bonus results");
+  log.info("fetching live bonus results");
   const [scorers, stats] = await Promise.all([getScorers(), getTeamStats()]);
 
   let goldenBoot: string | null = null;
@@ -106,13 +106,11 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
   if (stats && stats.length > 0) {
     const withMatches = stats.filter((t) => t.matchesPlayed > 0);
     if (withMatches.length > 0) {
-      // Most goals scored in group stage
       const byGoals = [...withMatches].sort(
         (a, b) => b.goalsScored - a.goalsScored
       );
       mostGoalsTeam = byGoals[0].teamTla;
 
-      // Fewest conceded in group stage
       const byConceded = [...withMatches].sort(
         (a, b) => a.goalsConceded - b.goalsConceded
       );
@@ -120,6 +118,7 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
     }
   }
 
+  log.info({ goldenBoot, mostGoalsTeam, fewestConcededTeam }, "getLiveBonusResults");
   return { goldenBoot, mostGoalsTeam, fewestConcededTeam };
 }
 
@@ -128,10 +127,10 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
 export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | null> {
   if (!isApiConfigured()) return null;
 
-  logger.info("fetching live tournament status");
+  log.info("fetching live tournament status");
   const matches = await getMatches();
   if (!matches) {
-    logger.warn("no match data available");
+    log.warn("no match data for tournament status");
     return null;
   }
 
@@ -165,7 +164,7 @@ export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | 
 
   const groupStageComplete = completedStages.includes("group");
 
-  return {
+  const status = {
     currentMatchday: isFinite(currentMatchday ?? NaN) ? currentMatchday : null,
     totalMatches: matches.length,
     playedMatches: playedMatches.length,
@@ -173,6 +172,9 @@ export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | 
     completedStages,
     groupStageComplete,
   };
+
+  log.info({ playedMatches: status.playedMatches, liveMatches: status.liveMatches, groupStageComplete }, "getLiveTournamentStatus");
+  return status;
 }
 
 // ── Re-exports for convenience ──

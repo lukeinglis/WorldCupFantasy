@@ -4,7 +4,11 @@ import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
+  const log = logger.child({ requestId, route: "GET /api/football/stats" });
+  log.info("request start");
+
   if (!isApiConfigured()) {
     return NextResponse.json(
       { error: "API not configured", stats: null },
@@ -22,15 +26,14 @@ export async function GET() {
   }
   logger.info({ teams: stats.length }, "team stats fetched");
 
-  // Sort by goals scored descending for "most goals" queries
   const sortedByGoals = [...stats].sort((a, b) => b.goalsScored - a.goalsScored);
 
-  // Find team with fewest goals conceded (among teams that have played)
   const withMatches = stats.filter((t) => t.matchesPlayed > 0);
   const sortedByConceded = [...withMatches].sort(
     (a, b) => a.goalsConceded - b.goalsConceded
   );
 
+  log.info({ teamCount: stats.length }, "request complete");
   return NextResponse.json({
     stats,
     mostGoals: sortedByGoals[0] ?? null,

@@ -1,48 +1,60 @@
-import { NextResponse } from "next/server";
-import logger from "./logger";
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+  windowMs: number;
+}
 
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 10;
+// In-memory store; resets on cold starts and is per-instance. Fine for ~20 user friends league.
+const store = new Map<string, RateLimitEntry>();
 
-const windows = new Map<string, number[]>();
+const MAX_ENTRIES = 1000;
 
-function isRateLimited(key: string): boolean {
+interface RateLimitParams {
+  key: string;
+  limit: number;
+  windowMs: number;
+}
+
+interface RateLimitResult {
+  success: boolean;
+  remaining: number;
+  retryAfterMs: number;
+}
+
+export function rateLimit({ key, limit, windowMs }: RateLimitParams): RateLimitResult {
   const now = Date.now();
-  const timestamps = windows.get(key) ?? [];
-  const valid = timestamps.filter((t) => now - t < WINDOW_MS);
 
-  if (valid.length >= MAX_REQUESTS) {
-    windows.set(key, valid);
-    return true;
+  if (store.size > MAX_ENTRIES) {
+    for (const [k, entry] of store) {
+      if (now - entry.windowStart > entry.windowMs) {
+        store.delete(k);
+      }
+    }
+    if (store.size > MAX_ENTRIES) {
+      store.clear();
+    }
   }
 
-  valid.push(now);
-  windows.set(key, valid);
-  return false;
+  const entry = store.get(key);
+
+  if (!entry || now - entry.windowStart >= windowMs) {
+    store.set(key, { count: 1, windowStart: now, windowMs });
+    return { success: true, remaining: limit - 1, retryAfterMs: 0 };
+  }
+
+  if (entry.count >= limit) {
+    const retryAfterMs = windowMs - (now - entry.windowStart);
+    return { success: false, remaining: 0, retryAfterMs };
+  }
+
+  entry.count += 1;
+  return { success: true, remaining: limit - entry.count, retryAfterMs: 0 };
 }
 
-function getClientIp(request: Request): string {
+export function getClientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
   return "unknown";
-}
-
-export function withRateLimit(
-  handler: (request: Request, ...args: unknown[]) => Promise<Response>
-) {
-  return async (request: Request, ...args: unknown[]): Promise<Response> => {
-    const ip = getClientIp(request);
-    const route = new URL(request.url).pathname;
-    const key = `${ip}:${route}`;
-
-    if (isRateLimited(key)) {
-      logger.warn({ ip, route }, "rate limit exceeded");
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        { status: 429 }
-      );
-    }
-
-    return handler(request, ...args);
-  };
 }

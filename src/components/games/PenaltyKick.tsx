@@ -114,7 +114,14 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
   const [hoveredZone, setHoveredZone] = useState<Zone | null>(null);
 
   const streakRef = useRef(streak);
-  useEffect(() => { streakRef.current = streak; }, [streak]);
+  useEffect(() => {
+    streakRef.current = streak;
+  }, [streak]);
+
+  useEffect(() => {
+    const saved = getHighScore();
+    if (saved !== 0) setHighScore(saved);
+  }, []);
 
   const shoot = useCallback((zone: Zone) => {
     if (gameState !== "ready") return;

@@ -6,6 +6,10 @@ import logger from "@/lib/logger";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
+  const log = logger.child({ requestId, route: "GET /api/football/matches" });
+  log.info("request start");
+
   if (!isApiConfigured()) {
     return NextResponse.json(
       { error: "API not configured", matches: null },
@@ -18,13 +22,13 @@ export async function GET(request: NextRequest) {
 
   const matches = await getMatches(status);
   if (!matches) {
-    logger.error("failed to fetch matches from football API");
+    log.warn("upstream returned no matches");
     return NextResponse.json(
       { error: "Failed to fetch matches", matches: null },
       { status: 502 }
     );
   }
 
-  logger.info({ count: matches.length, status }, "matches fetched");
+  log.info({ count: matches.length, status }, "request complete");
   return NextResponse.json({ matches });
 }

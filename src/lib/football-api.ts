@@ -30,6 +30,8 @@ import {
 import { getCached, getStaleCached, setCache, CacheTTL } from "./api-cache";
 import logger from "./logger";
 
+const log = logger.child({ module: "football-api" });
+
 // ── Config ──
 
 const API_BASE = "https://api.football-data.org/v4";
@@ -56,19 +58,19 @@ async function apiFetch<T>(path: string): Promise<T | null> {
     });
 
     if (res.status === 429) {
-      logger.warn({ path }, "football-api rate limited");
+      log.warn({ path, status: 429 }, "rate limited, returning cached data or null");
       return null;
     }
 
     if (!res.ok) {
-      logger.warn({ path, status: res.status }, "football-api request failed");
+      log.warn({ path, status: res.status, statusText: res.statusText }, "API error");
       return null;
     }
 
     const data: T = await res.json();
     return data;
   } catch (err) {
-    logger.error({ err, path }, "football-api network error");
+    log.error({ path, err }, "network error");
     return null;
   }
 }

@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import { getUser, createUser, type UserRecord } from "@/lib/storage";
 import { generateId } from "@/lib/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import logger from "@/lib/logger";
-import { withRateLimit } from "@/lib/rate-limit";
 
-export const POST = withRateLimit(async function POST(request: Request) {
+export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
+  const log = logger.child({ requestId, route: "POST /api/auth/join" });
+  const ip = getClientIp(request);
+  const rl = rateLimit({ key: `join:${ip}`, limit: 5, windowMs: 60_000 });
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
+    );
+  }
+
+  log.info("request start");
   try {
     const body = await request.json();
     const { name, email } = body as {
@@ -44,7 +56,7 @@ export const POST = withRateLimit(async function POST(request: Request) {
       // Name exists. Check if email matches (case-insensitive).
       const existingEmail = (existing.emailLower ?? existing.email ?? "").toLowerCase();
       if (existingEmail === trimmedEmail) {
-        logger.info({ userId: existing.id }, "returning user login");
+        log.info({ userId: existing.id }, "returning user login");
         return NextResponse.json({
           success: true,
           returning: true,
@@ -92,7 +104,7 @@ export const POST = withRateLimit(async function POST(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Something went wrong";
-    logger.error({ err }, "join error");
+    log.error({ err }, "join failed");
     return NextResponse.json({ error: message }, { status: 500 });
   }
-});
+}

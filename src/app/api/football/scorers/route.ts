@@ -4,7 +4,11 @@ import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
+  const log = logger.child({ requestId, route: "GET /api/football/scorers" });
+  log.info("request start");
+
   if (!isApiConfigured()) {
     return NextResponse.json(
       { error: "API not configured", scorers: null },
@@ -14,13 +18,13 @@ export async function GET() {
 
   const scorers = await getScorers();
   if (!scorers) {
-    logger.error("failed to fetch scorers from football API");
+    log.warn("upstream returned no scorers");
     return NextResponse.json(
       { error: "Failed to fetch scorers", scorers: null },
       { status: 502 }
     );
   }
 
-  logger.info({ count: scorers.length }, "scorers fetched");
+  log.info({ count: scorers.length }, "request complete");
   return NextResponse.json({ scorers });
 }

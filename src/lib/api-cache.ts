@@ -11,6 +11,8 @@
 
 import logger from "./logger";
 
+const log = logger.child({ module: "api-cache" });
+
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
@@ -18,6 +20,7 @@ interface CacheEntry<T> {
 }
 
 const cache = new Map<string, CacheEntry<unknown>>();
+const MAX_CACHE_SIZE = 200;
 
 /** TTL presets in milliseconds */
 export const CacheTTL = {
@@ -36,22 +39,28 @@ export const CacheTTL = {
 export function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
   if (!entry) {
-    logger.debug({ key }, "cache miss (no entry)");
+    log.debug({ key }, "cache miss (no entry)");
     return null;
   }
   if (Date.now() > entry.expiresAt) {
     entry.stale = true;
-    logger.debug({ key }, "cache miss (expired, retained as stale)");
+    log.debug({ key }, "cache miss (expired, retained as stale)");
     return null;
   }
-  logger.debug({ key }, "cache hit");
+  log.debug({ key }, "cache hit");
   return entry.data;
 }
 
+/**
+ * Get a stale (expired) cached value as a fallback when upstream fails.
+ */
 export function getStaleCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
-  if (!entry?.stale) return null;
-  logger.warn({ key }, "serving stale cache fallback");
+  if (!entry) {
+    log.debug({ key }, "stale cache miss");
+    return null;
+  }
+  log.info({ key }, "serving stale cache fallback");
   return entry.data;
 }
 
@@ -63,7 +72,20 @@ export function setCache<T>(key: string, data: T, ttlMs: number): void {
     data,
     expiresAt: Date.now() + ttlMs,
   });
-  logger.debug({ key, ttlMs }, "cache set");
+  log.debug({ key, ttlMs }, "cache set");
+
+  if (cache.size > MAX_CACHE_SIZE) {
+    let oldest: { key: string; expiresAt: number } | null = null;
+    for (const [k, entry] of cache) {
+      if (!oldest || entry.expiresAt < oldest.expiresAt) {
+        oldest = { key: k, expiresAt: entry.expiresAt };
+      }
+    }
+    if (oldest) {
+      log.info({ evictedKey: oldest.key, cacheSize: cache.size }, "cache eviction (max size)");
+      cache.delete(oldest.key);
+    }
+  }
 }
 
 /**

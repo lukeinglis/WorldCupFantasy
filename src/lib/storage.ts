@@ -11,6 +11,8 @@
 import { kv } from "@vercel/kv";
 import logger from "./logger";
 
+const log = logger.child({ module: "storage" });
+
 // ---- Key schema ----
 // user:<name_lower>          -> UserRecord
 // picks:<participantId>      -> PicksRecord
@@ -59,13 +61,16 @@ function requireKv(): void {
 
 export async function getUser(name: string): Promise<UserRecord | null> {
   requireKv();
-  const user = await kv.get<UserRecord>(`user:${name.toLowerCase()}`);
-  logger.debug({ name, found: !!user }, "getUser lookup");
+  const key = `user:${name.toLowerCase()}`;
+  const start = Date.now();
+  const user = await kv.get<UserRecord>(key);
+  log.info({ key, found: !!user, durationMs: Date.now() - start }, "getUser");
   return user;
 }
 
 export async function createUser(user: UserRecord): Promise<void> {
   requireKv();
+  const start = Date.now();
   await kv.set(`user:${user.nameLower}`, user);
   const participants = await kv.get<string[]>("participants") ?? [];
   if (!participants.includes(user.id)) {
@@ -73,47 +78,63 @@ export async function createUser(user: UserRecord): Promise<void> {
     await kv.set("participants", participants);
   }
   await kv.set(`userid:${user.id}`, user.nameLower);
-  logger.info({ userId: user.id, name: user.name }, "user created");
+  log.info({ userId: user.id, name: user.nameLower, durationMs: Date.now() - start }, "createUser");
 }
 
 export async function updateUser(user: UserRecord): Promise<void> {
   requireKv();
+  const start = Date.now();
   await kv.set(`user:${user.nameLower}`, user);
+  log.info({ userId: user.id, key: `user:${user.nameLower}`, durationMs: Date.now() - start }, "updateUser");
 }
 
 // ---- Picks operations ----
 
 export async function getPicks(participantId: string): Promise<PicksRecord | null> {
   requireKv();
-  return kv.get<PicksRecord>(`picks:${participantId}`);
+  const key = `picks:${participantId}`;
+  const start = Date.now();
+  const picks = await kv.get<PicksRecord>(key);
+  log.info({ key, found: !!picks, durationMs: Date.now() - start }, "getPicks");
+  return picks;
 }
 
 export async function savePicks(picks: PicksRecord): Promise<void> {
   requireKv();
-  await kv.set(`picks:${picks.participantId}`, picks);
-  logger.info({ participantId: picks.participantId }, "picks saved");
+  const key = `picks:${picks.participantId}`;
+  const start = Date.now();
+  await kv.set(key, picks);
+  log.info({ key, participantId: picks.participantId, durationMs: Date.now() - start }, "savePicks");
 }
 
 // ---- List operations ----
 
 export async function getAllParticipantIds(): Promise<string[]> {
   requireKv();
+  const start = Date.now();
   const ids = (await kv.get<string[]>("participants")) ?? [];
-  logger.debug({ count: ids.length }, "fetched participant IDs");
+  log.info({ count: ids.length, durationMs: Date.now() - start }, "getAllParticipantIds");
   return ids;
 }
 
 export async function getUserById(id: string): Promise<UserRecord | null> {
   requireKv();
+  const start = Date.now();
   const nameLower = await kv.get<string>(`userid:${id}`);
-  if (!nameLower) return null;
-  return kv.get<UserRecord>(`user:${nameLower}`);
+  if (!nameLower) {
+    log.info({ userId: id, found: false, durationMs: Date.now() - start }, "getUserById");
+    return null;
+  }
+  const user = await kv.get<UserRecord>(`user:${nameLower}`);
+  log.info({ userId: id, found: !!user, durationMs: Date.now() - start }, "getUserById");
+  return user;
 }
 
 export async function getAllUsersWithPicks(): Promise<
   { user: UserRecord; picks: PicksRecord | null }[]
 > {
   requireKv();
+  const start = Date.now();
   const ids = await getAllParticipantIds();
   const results: { user: UserRecord; picks: PicksRecord | null }[] = [];
 
@@ -124,6 +145,7 @@ export async function getAllUsersWithPicks(): Promise<
     results.push({ user, picks });
   }
 
+  log.info({ participantCount: ids.length, returnedCount: results.length, durationMs: Date.now() - start }, "getAllUsersWithPicks");
   return results;
 }
 
