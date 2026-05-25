@@ -64,7 +64,6 @@ export async function POST(request: Request) {
             id: existing.id,
             name: existing.name,
             email: existing.email,
-            paymentConfirmed: existing.paymentConfirmed,
           },
         });
       } else {
@@ -86,7 +85,6 @@ export async function POST(request: Request) {
       nameLower: trimmedName.toLowerCase(),
       email: trimmedEmail,
       emailLower: trimmedEmail,
-      paymentConfirmed: false,
       createdAt: new Date().toISOString(),
     };
 
@@ -99,7 +97,6 @@ export async function POST(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
-        paymentConfirmed: user.paymentConfirmed,
       },
     });
   } catch (err) {

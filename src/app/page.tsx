@@ -494,34 +494,20 @@ export default async function Home() {
       {/* Mini Games */}
       <MiniGames />
 
-      {/* Buy-In */}
+      {/* CTA */}
       <section className="py-12 sm:py-16 border-t border-white/10">
         <Container>
           <div className="max-w-3xl mx-auto">
-            <Card className="border-gold/20 bg-gold/5">
+            <Card className="border-accent/20 bg-accent/5">
               <CardBody className="py-8">
                 <div className="text-center mb-6">
-                  <span className="text-4xl block mb-3" aria-hidden>💰</span>
+                  <span className="text-4xl block mb-3" aria-hidden>⚽</span>
                   <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
-                    $10 Buy-In
+                    Free to Play
                   </h2>
                   <p className="mt-2 text-gray-400">
-                    Pot goes to the winner. Pay before the tournament starts.
+                    Join the fun. Predict the World Cup. Bragging rights are everything.
                   </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg mx-auto mb-6">
-                  <div className="rounded-lg bg-navy-lighter/50 px-4 py-3 border border-white/5 text-center">
-                    <p className="text-sm text-white font-medium">📱 Venmo</p>
-                    <p className="text-xs text-gray-500">@Luke-Inglis</p>
-                  </div>
-                  <div className="rounded-lg bg-navy-lighter/50 px-4 py-3 border border-white/5 text-center">
-                    <p className="text-sm text-white font-medium">💳 PayPal</p>
-                    <p className="text-xs text-gray-500">Send to Luke</p>
-                  </div>
-                  <div className="rounded-lg bg-navy-lighter/50 px-4 py-3 border border-white/5 text-center">
-                    <p className="text-sm text-white font-medium">💵 Cash</p>
-                    <p className="text-xs text-gray-500">Arrange with Luke</p>
-                  </div>
                 </div>
                 <div className="text-center">
                   <Link

@@ -191,14 +191,6 @@ export async function POST(request: Request) {
     await savePicks(record);
     postLog.info({ userId, submittedAt: record.submittedAt }, "picks submitted");
 
-    // Update payment confirmation on user record
-    if (!user.paymentConfirmed) {
-      user.paymentConfirmed = true;
-      // Import updateUser dynamically to avoid circular issues
-      const { updateUser } = await import("@/lib/storage");
-      await updateUser(user);
-    }
-
     return NextResponse.json({ success: true, submittedAt: record.submittedAt });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to save picks";

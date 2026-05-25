@@ -8,7 +8,7 @@
 - Two-tier scoring system: Tier 1 (group predictions) + Tier 2 (knockout bracket)
 - Participant data stored in Vercel KV (Redis); requires KV_REST_API_URL and KV_REST_API_TOKEN env vars
 - Simple name + email authentication (no passwords, friends league)
-- $10 buy-in with honor-system payment confirmation
+- Free to play, just for fun among friends
 
 ## Commands
 - `npm run dev` to start dev server
@@ -42,7 +42,7 @@
 - `src/app/` - All display pages (home, leaderboard, picks, rules, groups, schedule, how-to-play)
 
 ## Data Model
-- `UserRecord` in KV: id, name, email, emailLower, paymentConfirmed, createdAt
+- `UserRecord` in KV: id, name, email, emailLower, createdAt
 - `PicksRecord` in KV: participantId, groupPredictions, bonus picks, tiebreaker, knockout picks
 - Scoring: Group exact position = 3 pts, right bucket = 1 pt. Bonuses = 10 pts each. Knockout: R32=2, R16=4, QF=6, SF=8, F=10 pts.
 - Max points: Tier 1 = 174 (144 groups + 30 bonus), Tier 2 = 124 (114 bracket + 10 Golden Ball), Overall = 298
