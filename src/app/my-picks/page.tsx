@@ -21,7 +21,6 @@ interface FormData {
   mostGoalsTeam: string;
   fewestConcededTeam: string;
   tiebreakerGoals: string;
-  paymentConfirmed: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -291,7 +290,6 @@ export default function MyPicksPage() {
     mostGoalsTeam: "",
     fewestConcededTeam: "",
     tiebreakerGoals: "",
-    paymentConfirmed: false,
   });
 
   // Load existing picks
@@ -317,7 +315,6 @@ export default function MyPicksPage() {
             mostGoalsTeam: data.picks.mostGoalsTeam ?? "",
             fewestConcededTeam: data.picks.fewestConcededTeam ?? "",
             tiebreakerGoals: totalGoals > 0 ? String(totalGoals) : "",
-            paymentConfirmed: true,
           } as FormData,
         };
       }
@@ -367,8 +364,7 @@ export default function MyPicksPage() {
     formData.mostGoalsTeam !== "" &&
     formData.fewestConcededTeam !== "" &&
     formData.tiebreakerGoals.trim() !== "";
-  const paymentDone = formData.paymentConfirmed;
-  const canSubmit = allGroupsDone && bonusComplete && paymentDone;
+  const canSubmit = allGroupsDone && bonusComplete;
 
   // Build list of what's missing
   const missing: string[] = [];
@@ -377,7 +373,6 @@ export default function MyPicksPage() {
   if (!formData.mostGoalsTeam) missing.push("Pick Most Goals team");
   if (!formData.fewestConcededTeam) missing.push("Pick Fewest Goals Conceded team");
   if (!formData.tiebreakerGoals.trim()) missing.push("Enter your tiebreaker prediction");
-  if (!paymentDone) missing.push("Confirm payment");
 
   async function handleSubmit() {
     if (!user || !canSubmit) return;
@@ -587,8 +582,7 @@ export default function MyPicksPage() {
                         (formData.goldenBoot.trim() ? 10 : 0) +
                         (formData.mostGoalsTeam ? 10 : 0) +
                         (formData.fewestConcededTeam ? 10 : 0) +
-                        (formData.tiebreakerGoals.trim() ? 5 : 0) +
-                        (formData.paymentConfirmed ? 5 : 0))
+                        (formData.tiebreakerGoals.trim() ? 10 : 0))
                     )}%`,
                   }}
                 />
@@ -697,33 +691,11 @@ export default function MyPicksPage() {
               </div>
             </div>
 
-            {/* SECTION 3: Payment + Submit */}
+            {/* SECTION 3: Submit */}
             <div ref={submitRef} className="max-w-2xl">
               <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white mb-4">
-                Entry Fee + Submit
+                Submit Picks
               </h2>
-
-              <Card className="border-gold/20 mb-6">
-                <CardBody>
-                  <p className="text-sm text-gray-300 mb-4">
-                    <span className="font-semibold text-gold">$10 entry fee.</span>{" "}
-                    Pay via Venmo (@Luke-Inglis), PayPal, or arrange with Luke.
-                    The pot goes to the winner!
-                  </p>
-
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.paymentConfirmed}
-                      onChange={(e) => setFormData({ ...formData, paymentConfirmed: e.target.checked })}
-                      className="mt-1 h-5 w-5 rounded border-white/20 bg-navy-lighter text-accent focus:ring-accent focus:ring-offset-0"
-                    />
-                    <span className="text-sm text-gray-300">
-                      I have paid or will pay the $10 entry fee before the tournament starts.
-                    </span>
-                  </label>
-                </CardBody>
-              </Card>
 
               {/* What's missing */}
               {missing.length > 0 && (
