@@ -28,6 +28,8 @@ def score_lint():
     errors = len(re.findall(r"^\s*\d+:\d+\s+error\s+", output, re.MULTILINE))
     if errors == 0 and r.returncode == 0:
         return 1.0, f"0 errors"
+    if r.returncode != 0 and errors == 0:
+        return 0.0, "lint failed to run"
     return max(0.0, 1.0 - errors * 0.02), f"{errors} error(s)"
 
 
@@ -51,6 +53,8 @@ def score_type_check():
     if r.returncode == 0:
         return 1.0, "clean"
     errors = len(re.findall(r"error TS\d+", r.stdout + r.stderr))
+    if r.returncode != 0 and errors == 0:
+        return 0.0, "type check failed to run"
     return max(0.0, 1.0 - errors * 0.05), f"{errors} type error(s)"
 
 

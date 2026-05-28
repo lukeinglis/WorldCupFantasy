@@ -87,10 +87,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
   const [hoveredZone, setHoveredZone] = useState<Zone | null>(null);
 
   const streakRef = useRef(streak);
-
-  useEffect(() => {
-    streakRef.current = streak;
-  }, [streak]);
+  streakRef.current = streak;
 
   const [confettiPieces, setConfettiPieces] = useState<Array<{
     left: number; top: number; size: number; dx: number; dy: number; dr: number; duration: number; delay: number;
