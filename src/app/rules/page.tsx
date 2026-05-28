@@ -85,8 +85,7 @@ export default function RulesPage() {
               <CardBody>
                 <div className="space-y-3">
                   {[
-                    { date: "June 1, 2026", event: "Tier 1 Picks Deadline", detail: "All group predictions and Tier 1 bonus picks must be submitted. No changes after this date.", highlight: true },
-                    { date: "June 11, 2026", event: "Tournament Begins", detail: "Opening match kicks off the World Cup." },
+                    { date: "June 11, 2026", event: "Tier 1 Picks Deadline (Kickoff)", detail: "All group predictions and Tier 1 bonus picks must be submitted before the opening match. No changes after kickoff.", highlight: true },
                     { date: "June 27, 2026", event: "Group Stage Ends", detail: "Knockout bracket is finalized. Tier 2 predictions open." },
                     { date: "June 28, 2026", event: "Tier 2 Picks Deadline", detail: "Knockout bracket predictions must be submitted before the Round of 32 begins.", highlight: true },
                     { date: "July 19, 2026", event: "Final", detail: "All picks are resolved. Final standings determined." },
@@ -121,7 +120,7 @@ export default function RulesPage() {
                       Tier 1: Group Stage Predictions
                     </h2>
                     <p className="text-xs text-gray-500">
-                      Submitted before June 1, 2026 · Maximum {TIER1_MAX} points
+                      Submitted before June 11, 2026 · Maximum {TIER1_MAX} points
                     </p>
                   </div>
                 </div>

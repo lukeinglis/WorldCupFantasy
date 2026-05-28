@@ -465,7 +465,7 @@ export default function MyPicksPage() {
                     Picks Submitted!
                   </h2>
                   <p className="text-gray-400 mb-4">
-                    Good luck! You can update your picks until June 1, 2026.
+                    Good luck! You can update your picks until June 11, 2026.
                   </p>
                   <button
                     type="button"
@@ -556,7 +556,7 @@ export default function MyPicksPage() {
     <>
       <PageHeader
         title="Make Your Picks"
-        subtitle="Picks lock on June 1, 2026. Have fun with it!"
+        subtitle="Picks lock on June 11, 2026. Have fun with it!"
         icon="📋"
       />
 

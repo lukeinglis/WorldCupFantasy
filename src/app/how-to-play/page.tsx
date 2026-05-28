@@ -46,7 +46,7 @@ export default function HowToPlayPage() {
                 },
                 {
                   step: 3,
-                  title: "Submit Tier 1 Picks (Before June 1)",
+                  title: "Submit Tier 1 Picks (Before June 11)",
                   desc: "Predict the 1st through 4th finishing order for all 12 groups. Also pick your Golden Boot (top scorer), Most Goals Team (group stage), and Fewest Goals Conceded Team (group stage). Lock it in before the deadline.",
                   icon: "📊",
                 },
