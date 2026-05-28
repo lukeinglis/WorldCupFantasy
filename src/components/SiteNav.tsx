@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
+import { isAdmin } from "@/lib/auth";
 
 interface NavItem {
   href: string;
@@ -29,6 +30,7 @@ export default function SiteNav() {
   const pathname = usePathname() ?? "/";
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
+  const showAdmin = isAdmin(user?.email);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -80,6 +82,18 @@ export default function SiteNav() {
               >
                 My Picks
               </Link>
+              {showAdmin && (
+                <Link
+                  href="/admin"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive(pathname, "/admin")
+                      ? "bg-pitch text-white"
+                      : "text-gold hover:bg-gold/10"
+                  }`}
+                >
+                  Admin
+                </Link>
+              )}
               <span className="text-xs text-gray-500 px-1">{user.name}</span>
               <button
                 type="button"
@@ -177,6 +191,18 @@ export default function SiteNav() {
                   >
                     My Picks
                   </Link>
+                  {showAdmin && (
+                    <Link
+                      href="/admin"
+                      className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(pathname, "/admin")
+                          ? "bg-pitch text-white"
+                          : "text-gold hover:bg-gold/10"
+                      }`}
+                    >
+                      Admin
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={logout}
