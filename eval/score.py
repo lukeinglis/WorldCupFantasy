@@ -28,7 +28,7 @@ def score_lint():
     errors = len(re.findall(r"^\s*\d+:\d+\s+error\s+", output, re.MULTILINE))
     if errors == 0 and r.returncode == 0:
         return 1.0, f"0 errors"
-    return max(0.0, 1.0 - errors * 0.1), f"{errors} error(s)"
+    return max(0.0, 1.0 - errors * 0.02), f"{errors} error(s)"
 
 
 def score_tests():
