@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getUser, createUser, type UserRecord } from "@/lib/storage";
 import { generateId } from "@/lib/auth";
+import { getLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/auth/join").child({ requestId });
+  log.info("POST /api/auth/join");
   try {
     const body = await request.json();
     const { name, email } = body as {
@@ -87,7 +91,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Something went wrong";
-    console.error("Join error:", message);
+    log.error({ err: message }, "Join error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

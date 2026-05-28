@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getPicks, savePicks, getUserById, type PicksRecord } from "@/lib/storage";
+import { getLogger } from "@/lib/logger";
 
 // GET /api/picks?userId=xxx
 export async function GET(request: Request) {
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/picks").child({ requestId });
+  log.info("GET /api/picks");
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
@@ -18,13 +22,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ picks });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch picks";
-    console.error("Get picks error:", message);
+    log.error({ err: message }, "Get picks error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // POST /api/picks  - Save picks for a participant
 export async function POST(request: Request) {
+  const postRequestId = request.headers.get("x-request-id") || "unknown";
+  const postLog = getLogger("api/picks").child({ requestId: postRequestId });
+  postLog.info("POST /api/picks");
   try {
     const body = await request.json();
 
@@ -126,7 +133,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, submittedAt: record.submittedAt });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to save picks";
-    console.error("Save picks error:", message);
+    postLog.error({ err: message }, "Save picks error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

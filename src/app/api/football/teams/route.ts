@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { getTeams, isApiConfigured } from "@/lib/football-api";
+import { getLogger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/football/teams").child({ requestId });
+  log.info("GET /api/football/teams");
   if (!isApiConfigured()) {
     return NextResponse.json(
       { error: "API not configured", teams: null },

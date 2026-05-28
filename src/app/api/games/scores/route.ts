@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
+import { getLogger } from "@/lib/logger";
 
 // --- Types ---
 
@@ -39,6 +40,9 @@ function isFinitePositiveInt(val: unknown): val is number {
 // --- GET: Fetch leaderboard ---
 
 export async function GET(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/games/scores").child({ requestId });
+  log.info("GET /api/games/scores");
   const { searchParams } = new URL(request.url);
   const game = searchParams.get("game");
 
@@ -67,6 +71,9 @@ export async function GET(request: NextRequest) {
 // --- POST: Save a game score ---
 
 export async function POST(request: NextRequest) {
+  const postRequestId = request.headers.get("x-request-id") || "unknown";
+  const postLog = getLogger("api/games/scores").child({ requestId: postRequestId });
+  postLog.info("POST /api/games/scores");
   let body: Record<string, unknown>;
   try {
     body = await request.json();

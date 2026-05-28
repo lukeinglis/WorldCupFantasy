@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { getAllUsersWithPicks, getUserById, isKvConfigured } from "@/lib/storage";
 import { isAdmin } from "@/lib/auth";
+import { getLogger } from "@/lib/logger";
 
 // GET /api/admin - Returns all participants with full picks data (admin only, no date gates)
 export async function GET(request: Request) {
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/admin").child({ requestId });
+  log.info("GET /api/admin");
   try {
     if (!isKvConfigured()) {
       return NextResponse.json({ error: "KV not configured" }, { status: 503 });
@@ -56,7 +60,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ participants, summary });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch admin data";
-    console.error("Admin API error:", message);
+    log.error({ err: message }, "Admin API error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

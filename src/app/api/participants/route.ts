@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { getLogger } from "@/lib/logger";
 
 // Tournament start: picks are hidden until the first match kicks off
 const TOURNAMENT_START = new Date("2026-06-11T19:00:00Z");
@@ -7,6 +8,9 @@ const KNOCKOUT_START = new Date("2026-06-28T19:00:00Z");
 
 // GET /api/participants - Get all participants with their picks (for leaderboard/picks display)
 export async function GET(request: Request) {
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/participants").child({ requestId });
+  log.info("GET /api/participants");
   try {
     if (!isKvConfigured()) {
       return NextResponse.json({ participants: [], kvConfigured: false });
@@ -47,7 +51,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ participants, kvConfigured: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch participants";
-    console.error("Get participants error:", message);
+    log.error({ err: message }, "Get participants error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
