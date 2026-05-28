@@ -1,22 +1,12 @@
 import { NextResponse } from "next/server";
-import { getUser, createUser, type UserRecord } from "@/lib/storage";
-import { generateId } from "@/lib/auth";
-import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import logger from "@/lib/logger";
+import { getUser, getUserByEmail, createUser, type UserRecord } from "@/lib/storage";
+import { generateId, isAdmin } from "@/lib/auth";
+import { getLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
-  const requestId = request.headers.get("x-request-id") ?? "unknown";
-  const log = logger.child({ requestId, route: "POST /api/auth/join" });
-  const ip = getClientIp(request);
-  const rl = rateLimit({ key: `join:${ip}`, limit: 5, windowMs: 60_000 });
-  if (!rl.success) {
-    return NextResponse.json(
-      { error: "Too many requests. Please try again later." },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
-    );
-  }
-
-  log.info("request start");
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/auth/join").child({ requestId });
+  log.info("POST /api/auth/join");
   try {
     const body = await request.json();
     const { name, email } = body as {
@@ -56,7 +46,7 @@ export async function POST(request: Request) {
       // Name exists. Check if email matches (case-insensitive).
       const existingEmail = (existing.emailLower ?? existing.email ?? "").toLowerCase();
       if (existingEmail === trimmedEmail) {
-        log.info({ userId: existing.id }, "returning user login");
+        // Match: log them in
         return NextResponse.json({
           success: true,
           returning: true,
@@ -64,6 +54,7 @@ export async function POST(request: Request) {
             id: existing.id,
             name: existing.name,
             email: existing.email,
+            isAdmin: isAdmin(existing.email),
           },
         });
       } else {
@@ -76,6 +67,18 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+    }
+
+    // Check if email is already registered under a different name
+    const existingByEmail = await getUserByEmail(trimmedEmail);
+    if (existingByEmail) {
+      return NextResponse.json(
+        {
+          error:
+            "That email is already registered. Use the name you originally signed up with.",
+        },
+        { status: 409 }
+      );
     }
 
     // New user: create account
@@ -97,11 +100,12 @@ export async function POST(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
+        isAdmin: isAdmin(user.email),
       },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Something went wrong";
-    log.error({ err }, "join failed");
+    log.error({ err: message }, "Join error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

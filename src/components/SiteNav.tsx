@@ -29,6 +29,7 @@ export default function SiteNav() {
   const pathname = usePathname() ?? "/";
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
+  const showAdmin = user?.isAdmin ?? false;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting UI state on route change (external navigation event)
@@ -81,6 +82,18 @@ export default function SiteNav() {
               >
                 My Picks
               </Link>
+              {showAdmin && (
+                <Link
+                  href="/admin"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive(pathname, "/admin")
+                      ? "bg-pitch text-white"
+                      : "text-gold hover:bg-gold/10"
+                  }`}
+                >
+                  Admin
+                </Link>
+              )}
               <span className="text-xs text-gray-500 px-1">{user.name}</span>
               <button
                 type="button"
@@ -178,6 +191,18 @@ export default function SiteNav() {
                   >
                     My Picks
                   </Link>
+                  {showAdmin && (
+                    <Link
+                      href="/admin"
+                      className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(pathname, "/admin")
+                          ? "bg-pitch text-white"
+                          : "text-gold hover:bg-gold/10"
+                      }`}
+                    >
+                      Admin
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={logout}

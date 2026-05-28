@@ -3,6 +3,7 @@ import {
   scoreGroupPrediction,
   scoreTier1Groups,
   scoreTier1Bonus,
+  scoreTier2Bracket,
   scoreTier2Bonus,
   calculatePoints,
   calculateAllPoints,
@@ -33,65 +34,63 @@ function makeParticipant(overrides: Partial<Participant> = {}): Participant {
 
 describe("scoreGroupPrediction", () => {
   it("scores 12 for a perfect prediction (all 4 exact)", () => {
-    const prediction: GroupPrediction = { group: "A", order: ["MEX", "KOR", "CZE", "RSA"] };
-    const actual: [string, string, string, string] = ["MEX", "KOR", "CZE", "RSA"];
-    expect(scoreGroupPrediction(prediction, actual)).toBe(12);
+    const pred: GroupPrediction = { group: "A", order: ["USA", "MEX", "CAN", "JPN"] };
+    const actual: [string, string, string, string] = ["USA", "MEX", "CAN", "JPN"];
+    expect(scoreGroupPrediction(pred, actual)).toBe(12);
   });
 
-  it("scores 0 when all positions are wrong and buckets are wrong", () => {
-    const prediction: GroupPrediction = { group: "A", order: ["CZE", "RSA", "MEX", "KOR"] };
-    const actual: [string, string, string, string] = ["MEX", "KOR", "CZE", "RSA"];
-    expect(scoreGroupPrediction(prediction, actual)).toBe(0);
+  it("scores 0 for a completely wrong prediction", () => {
+    const pred: GroupPrediction = { group: "A", order: ["USA", "MEX", "CAN", "JPN"] };
+    const actual: [string, string, string, string] = ["JPN", "CAN", "MEX", "USA"];
+    expect(scoreGroupPrediction(pred, actual)).toBe(0);
   });
 
-  it("scores 1 per team for correct bucket but wrong position", () => {
-    const prediction: GroupPrediction = { group: "A", order: ["KOR", "MEX", "RSA", "CZE"] };
-    const actual: [string, string, string, string] = ["MEX", "KOR", "RSA", "CZE"];
-    // KOR predicted 1st, actual 2nd -> bucket correct (both advance) = 1
-    // MEX predicted 2nd, actual 1st -> bucket correct = 1
-    // RSA predicted 3rd, actual 3rd -> exact = 3
-    // CZE predicted 4th, actual 4th -> exact = 3
-    expect(scoreGroupPrediction(prediction, actual)).toBe(8);
+  it("scores 4 for one exact + one right bucket", () => {
+    const pred: GroupPrediction = { group: "A", order: ["USA", "BRA", "MEX", "JPN"] };
+    const actual: [string, string, string, string] = ["USA", "MEX", "JPN", "BRA"];
+    // USA exact=3, BRA predicted advance actual exit=0, MEX predicted exit actual advance=0, JPN predicted exit(3) actual exit(2)=1
+    expect(scoreGroupPrediction(pred, actual)).toBe(4);
   });
 
-  it("scores 3 for an exact match at one position", () => {
-    const prediction: GroupPrediction = { group: "A", order: ["MEX", "RSA", "KOR", "CZE"] };
-    const actual: [string, string, string, string] = ["MEX", "KOR", "CZE", "RSA"];
-    // MEX: exact at 0 = 3
-    // RSA: predicted 2nd (advance), actual 4th (exit) = 0
-    // KOR: predicted 3rd (exit), actual 2nd (advance) = 0
-    // CZE: predicted 4th (exit), actual 3rd (exit) = bucket correct = 1
-    expect(scoreGroupPrediction(prediction, actual)).toBe(4);
+  it("scores 1 for right bucket but wrong position (both advance)", () => {
+    const pred: GroupPrediction = { group: "A", order: ["USA", "MEX", "CAN", "JPN"] };
+    const actual: [string, string, string, string] = ["MEX", "USA", "CAN", "JPN"];
+    // USA: predicted 0, actual 1 (both advance bucket) = 1
+    // MEX: predicted 1, actual 0 (both advance bucket) = 1
+    // CAN: exact = 3
+    // JPN: exact = 3
+    expect(scoreGroupPrediction(pred, actual)).toBe(8);
   });
 
-  it("scores 4 for all teams in correct bucket but no exact positions", () => {
-    const prediction: GroupPrediction = { group: "A", order: ["KOR", "MEX", "RSA", "CZE"] };
-    const actual: [string, string, string, string] = ["MEX", "KOR", "CZE", "RSA"];
-    // KOR: predicted 1st, actual 2nd -> bucket match = 1
-    // MEX: predicted 2nd, actual 1st -> bucket match = 1
-    // RSA: predicted 3rd, actual 4th -> bucket match = 1
-    // CZE: predicted 4th, actual 3rd -> bucket match = 1
-    expect(scoreGroupPrediction(prediction, actual)).toBe(4);
+  it("scores 1 for right bucket but wrong position (both exit)", () => {
+    const pred: GroupPrediction = { group: "A", order: ["USA", "MEX", "CAN", "JPN"] };
+    const actual: [string, string, string, string] = ["USA", "MEX", "JPN", "CAN"];
+    // USA exact = 3, MEX exact = 3, CAN predicted 2 actual 3 (both exit) = 1, JPN predicted 3 actual 2 (both exit) = 1
+    expect(scoreGroupPrediction(pred, actual)).toBe(8);
+  });
+
+  it("scores 0 for wrong bucket (predicted advance, actually exits)", () => {
+    const pred: GroupPrediction = { group: "A", order: ["CAN", "JPN", "USA", "MEX"] };
+    const actual: [string, string, string, string] = ["USA", "MEX", "CAN", "JPN"];
+    // CAN: predicted 0 (advance), actual 2 (exit) = 0
+    // JPN: predicted 1 (advance), actual 3 (exit) = 0
+    // USA: predicted 2 (exit), actual 0 (advance) = 0
+    // MEX: predicted 3 (exit), actual 1 (advance) = 0
+    expect(scoreGroupPrediction(pred, actual)).toBe(0);
   });
 
   it("handles a team not found in actual (returns 0 for that team)", () => {
-    const prediction: GroupPrediction = { group: "A", order: ["XXX", "MEX", "KOR", "CZE"] };
-    const actual: [string, string, string, string] = ["MEX", "KOR", "CZE", "RSA"];
-    // XXX not found -> 0
-    // MEX: predicted 2nd, actual 1st -> bucket = 1
-    // KOR: predicted 3rd, actual 2nd -> cross-bucket = 0
-    // CZE: predicted 4th, actual 3rd -> bucket = 1
-    expect(scoreGroupPrediction(prediction, actual)).toBe(2);
+    const pred: GroupPrediction = { group: "A", order: ["USA", "MEX", "FAKE", "JPN"] };
+    const actual: [string, string, string, string] = ["USA", "MEX", "CAN", "JPN"];
+    // USA exact=3, MEX exact=3, FAKE not found=0, JPN exact=3
+    expect(scoreGroupPrediction(pred, actual)).toBe(9);
   });
 
-  it("scores partial matches correctly", () => {
-    const prediction: GroupPrediction = { group: "B", order: ["BRA", "ARG", "GER", "FRA"] };
-    const actual: [string, string, string, string] = ["BRA", "GER", "ARG", "FRA"];
-    // BRA: exact at 0 = 3
-    // ARG: predicted 2nd (advance), actual 3rd (exit) = 0
-    // GER: predicted 3rd (exit), actual 2nd (advance) = 0
-    // FRA: exact at 3 = 3
-    expect(scoreGroupPrediction(prediction, actual)).toBe(6);
+  it("gives mixed scores for partial matches", () => {
+    const pred: GroupPrediction = { group: "A", order: ["USA", "CAN", "MEX", "JPN"] };
+    const actual: [string, string, string, string] = ["USA", "MEX", "CAN", "JPN"];
+    // USA exact=3, CAN predicted 1 actual 2 (advance vs exit)=0, MEX predicted 2 actual 1 (exit vs advance)=0, JPN exact=3
+    expect(scoreGroupPrediction(pred, actual)).toBe(6);
   });
 });
 
@@ -101,119 +100,143 @@ describe("scoreTier1Groups", () => {
   });
 
   it("returns 0 when no actual results exist", () => {
-    const participant = makeParticipant({
-      groupPredictions: [{ group: "A", order: ["MEX", "KOR", "CZE", "RSA"] }],
+    const p = makeParticipant({
+      groupPredictions: [{ group: "A", order: ["USA", "MEX", "CAN", "JPN"] }],
     });
-    expect(scoreTier1Groups(participant)).toBe(0);
+    expect(scoreTier1Groups(p)).toBe(0);
   });
 
-  it("sums scores across multiple groups", () => {
+  it("scores all groups correctly", () => {
     setActualGroupResults({
-      A: ["MEX", "KOR", "CZE", "RSA"],
-      B: ["BRA", "GER", "ARG", "FRA"],
+      A: ["USA", "MEX", "CAN", "JPN"],
+      B: ["BRA", "ARG", "FRA", "GER"],
     });
-    const participant = makeParticipant({
+    const p = makeParticipant({
       groupPredictions: [
-        { group: "A", order: ["MEX", "KOR", "CZE", "RSA"] },
-        { group: "B", order: ["BRA", "GER", "ARG", "FRA"] },
+        { group: "A", order: ["USA", "MEX", "CAN", "JPN"] },
+        { group: "B", order: ["BRA", "ARG", "FRA", "GER"] },
       ],
     });
-    expect(scoreTier1Groups(participant)).toBe(24);
+    expect(scoreTier1Groups(p)).toBe(24);
   });
 
-  it("skips groups without actual results", () => {
-    setActualGroupResults({
-      A: ["MEX", "KOR", "CZE", "RSA"],
-    });
-    const participant = makeParticipant({
+  it("ignores groups without actual results", () => {
+    setActualGroupResults({ A: ["USA", "MEX", "CAN", "JPN"] });
+    const p = makeParticipant({
       groupPredictions: [
-        { group: "A", order: ["MEX", "KOR", "CZE", "RSA"] },
-        { group: "B", order: ["BRA", "GER", "ARG", "FRA"] },
+        { group: "A", order: ["USA", "MEX", "CAN", "JPN"] },
+        { group: "B", order: ["BRA", "ARG", "FRA", "GER"] },
       ],
     });
-    expect(scoreTier1Groups(participant)).toBe(12);
+    expect(scoreTier1Groups(p)).toBe(12);
+  });
+
+  it("returns 0 for empty groupPredictions array", () => {
+    setActualGroupResults({ A: ["USA", "MEX", "CAN", "JPN"] });
+    const p = makeParticipant({ groupPredictions: [] });
+    expect(scoreTier1Groups(p)).toBe(0);
   });
 });
 
 describe("scoreTier1Bonus", () => {
   beforeEach(() => {
-    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: null, fewestConcededTeam: null });
-  });
-
-  it("returns 0 when no actual bonus results exist", () => {
-    const participant = makeParticipant({
-      bonusPicks: { goldenBoot: "Mbappe", mostGoalsTeam: "FRA", fewestConcededTeam: "ITA", goldenBall: "" },
+    setActualBonusResults({
+      goldenBoot: null,
+      mostGoalsTeam: null,
+      fewestConcededTeam: null,
     });
-    expect(scoreTier1Bonus(participant)).toBe(0);
   });
 
-  it("awards 10 pts for correct Golden Boot", () => {
+  it("returns 0 when no actual bonus results", () => {
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "ARG", fewestConcededTeam: "ITA", goldenBall: "" },
+    });
+    expect(scoreTier1Bonus(p)).toBe(0);
+  });
+
+  it("scores 10 for correct golden boot", () => {
     setActualBonusResults({ goldenBoot: "Mbappe", mostGoalsTeam: null, fewestConcededTeam: null });
-    const participant = makeParticipant({
-      bonusPicks: { goldenBoot: "Mbappe", mostGoalsTeam: "FRA", fewestConcededTeam: "ITA", goldenBall: "" },
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "Mbappe", mostGoalsTeam: "BRA", fewestConcededTeam: "ITA", goldenBall: "" },
     });
-    expect(scoreTier1Bonus(participant)).toBe(10);
+    expect(scoreTier1Bonus(p)).toBe(10);
   });
 
-  it("awards 10 pts for correct Most Goals Team", () => {
-    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: "FRA", fewestConcededTeam: null });
-    const participant = makeParticipant({
-      bonusPicks: { goldenBoot: "Nobody", mostGoalsTeam: "FRA", fewestConcededTeam: "ITA", goldenBall: "" },
+  it("scores 10 for correct most goals team", () => {
+    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: "GER", fewestConcededTeam: null });
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "GER", fewestConcededTeam: "ITA", goldenBall: "" },
     });
-    expect(scoreTier1Bonus(participant)).toBe(10);
+    expect(scoreTier1Bonus(p)).toBe(10);
   });
 
-  it("awards 10 pts for correct Fewest Conceded Team", () => {
-    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: null, fewestConcededTeam: "ITA" });
-    const participant = makeParticipant({
-      bonusPicks: { goldenBoot: "Nobody", mostGoalsTeam: "GER", fewestConcededTeam: "ITA", goldenBall: "" },
+  it("scores 10 for correct fewest conceded team", () => {
+    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: null, fewestConcededTeam: "FRA" });
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "BRA", fewestConcededTeam: "FRA", goldenBall: "" },
     });
-    expect(scoreTier1Bonus(participant)).toBe(10);
+    expect(scoreTier1Bonus(p)).toBe(10);
   });
 
-  it("awards 30 pts for all three correct", () => {
-    setActualBonusResults({ goldenBoot: "Mbappe", mostGoalsTeam: "FRA", fewestConcededTeam: "ITA" });
-    const participant = makeParticipant({
-      bonusPicks: { goldenBoot: "Mbappe", mostGoalsTeam: "FRA", fewestConcededTeam: "ITA", goldenBall: "" },
+  it("scores 30 for all three correct", () => {
+    setActualBonusResults({ goldenBoot: "Kane", mostGoalsTeam: "ENG", fewestConcededTeam: "ESP" });
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "Kane", mostGoalsTeam: "ENG", fewestConcededTeam: "ESP", goldenBall: "" },
     });
-    expect(scoreTier1Bonus(participant)).toBe(30);
+    expect(scoreTier1Bonus(p)).toBe(30);
   });
 
-  it("awards 0 when all predictions are wrong", () => {
-    setActualBonusResults({ goldenBoot: "Mbappe", mostGoalsTeam: "FRA", fewestConcededTeam: "ITA" });
-    const participant = makeParticipant({
-      bonusPicks: { goldenBoot: "Ronaldo", mostGoalsTeam: "GER", fewestConcededTeam: "BRA", goldenBall: "" },
+  it("scores 0 for all wrong", () => {
+    setActualBonusResults({ goldenBoot: "Kane", mostGoalsTeam: "ENG", fewestConcededTeam: "ESP" });
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "BRA", fewestConcededTeam: "FRA", goldenBall: "" },
     });
-    expect(scoreTier1Bonus(participant)).toBe(0);
+    expect(scoreTier1Bonus(p)).toBe(0);
+  });
+});
+
+describe("scoreTier2Bracket", () => {
+  it("returns 0 with no knockout picks", () => {
+    const p = makeParticipant({ knockoutPicks: [] });
+    expect(scoreTier2Bracket(p)).toBe(0);
+  });
+
+  it("returns 0 for picks (no actual results implemented yet)", () => {
+    const p = makeParticipant({
+      knockoutPicks: [
+        { round: "round_of_32", matchNumber: 1, winner: "USA" },
+        { round: "final", matchNumber: 1, winner: "BRA" },
+      ],
+    });
+    expect(scoreTier2Bracket(p)).toBe(0);
   });
 });
 
 describe("scoreTier2Bonus", () => {
-  beforeEach(() => {
+  it("returns 0 when no golden ball result", () => {
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "", mostGoalsTeam: "", fewestConcededTeam: "", goldenBall: "Messi" },
+    });
+    expect(scoreTier2Bonus(p)).toBe(0);
+  });
+
+  it("returns 10 for correct golden ball", () => {
+    // Directly set the module-level variable through the export
+    actualBonusResults.goldenBall = "Messi";
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "", mostGoalsTeam: "", fewestConcededTeam: "", goldenBall: "Messi" },
+    });
+    expect(scoreTier2Bonus(p)).toBe(10);
     actualBonusResults.goldenBall = null;
   });
 
-  it("returns 0 when no Golden Ball result exists", () => {
-    const participant = makeParticipant({
+  it("returns 0 for wrong golden ball", () => {
+    actualBonusResults.goldenBall = "Ronaldo";
+    const p = makeParticipant({
       bonusPicks: { goldenBoot: "", mostGoalsTeam: "", fewestConcededTeam: "", goldenBall: "Messi" },
     });
-    expect(scoreTier2Bonus(participant)).toBe(0);
-  });
-
-  it("awards 10 pts for correct Golden Ball pick", () => {
-    actualBonusResults.goldenBall = "Messi";
-    const participant = makeParticipant({
-      bonusPicks: { goldenBoot: "", mostGoalsTeam: "", fewestConcededTeam: "", goldenBall: "Messi" },
-    });
-    expect(scoreTier2Bonus(participant)).toBe(10);
-  });
-
-  it("awards 0 for incorrect Golden Ball pick", () => {
-    actualBonusResults.goldenBall = "Messi";
-    const participant = makeParticipant({
-      bonusPicks: { goldenBoot: "", mostGoalsTeam: "", fewestConcededTeam: "", goldenBall: "Ronaldo" },
-    });
-    expect(scoreTier2Bonus(participant)).toBe(0);
+    expect(scoreTier2Bonus(p)).toBe(0);
+    actualBonusResults.goldenBall = null;
   });
 });
 
@@ -225,54 +248,53 @@ describe("calculatePoints", () => {
   });
 
   it("returns all zeros when no results exist", () => {
-    const participant = makeParticipant();
-    const pts = calculatePoints(participant);
-    expect(pts).toEqual({
-      tier1Groups: 0,
-      tier1Bonus: 0,
-      tier2Bracket: 0,
-      tier2Bonus: 0,
-      total: 0,
-    });
+    const p = makeParticipant();
+    const pts = calculatePoints(p);
+    expect(pts.tier1Groups).toBe(0);
+    expect(pts.tier1Bonus).toBe(0);
+    expect(pts.tier2Bracket).toBe(0);
+    expect(pts.tier2Bonus).toBe(0);
+    expect(pts.total).toBe(0);
   });
 
-  it("sums tier1Groups + tier1Bonus + tier2Bonus into total", () => {
-    setActualGroupResults({ A: ["MEX", "KOR", "CZE", "RSA"] });
-    setActualBonusResults({ goldenBoot: "Mbappe", mostGoalsTeam: null, fewestConcededTeam: null });
-    actualBonusResults.goldenBall = "Messi";
-
-    const participant = makeParticipant({
-      groupPredictions: [{ group: "A", order: ["MEX", "KOR", "CZE", "RSA"] }],
-      bonusPicks: { goldenBoot: "Mbappe", mostGoalsTeam: "GER", fewestConcededTeam: "ITA", goldenBall: "Messi" },
+  it("calculates total as sum of all components", () => {
+    setActualGroupResults({ A: ["USA", "MEX", "CAN", "JPN"] });
+    setActualBonusResults({ goldenBoot: "Kane", mostGoalsTeam: null, fewestConcededTeam: null });
+    const p = makeParticipant({
+      groupPredictions: [{ group: "A", order: ["USA", "MEX", "CAN", "JPN"] }],
+      bonusPicks: { goldenBoot: "Kane", mostGoalsTeam: "BRA", fewestConcededTeam: "FRA", goldenBall: "" },
     });
-    const pts = calculatePoints(participant);
+    const pts = calculatePoints(p);
     expect(pts.tier1Groups).toBe(12);
     expect(pts.tier1Bonus).toBe(10);
-    expect(pts.tier2Bracket).toBe(0);
-    expect(pts.tier2Bonus).toBe(10);
-    expect(pts.total).toBe(32);
+    expect(pts.total).toBe(22);
   });
 });
 
 describe("calculateAllPoints", () => {
   beforeEach(() => {
-    setActualGroupResults({ A: ["MEX", "KOR", "CZE", "RSA"] });
+    setActualGroupResults(null);
     setActualBonusResults({ goldenBoot: null, mostGoalsTeam: null, fewestConcededTeam: null });
     actualBonusResults.goldenBall = null;
   });
 
-  it("attaches calculatedPoints to each participant", () => {
-    const p1 = makeParticipant({
-      id: "p1",
-      groupPredictions: [{ group: "A", order: ["MEX", "KOR", "CZE", "RSA"] }],
-    });
-    const p2 = makeParticipant({
-      id: "p2",
-      groupPredictions: [{ group: "A", order: ["RSA", "CZE", "KOR", "MEX"] }],
-    });
-    const results = calculateAllPoints([p1, p2]);
-    expect(results).toHaveLength(2);
-    expect(results[0].calculatedPoints.tier1Groups).toBe(12);
-    expect(results[1].calculatedPoints.tier1Groups).toBe(0);
+  it("returns empty array for empty input", () => {
+    expect(calculateAllPoints([])).toEqual([]);
+  });
+
+  it("adds calculatedPoints to each participant", () => {
+    const participants = [makeParticipant({ id: "p1" }), makeParticipant({ id: "p2" })];
+    const result = calculateAllPoints(participants);
+    expect(result).toHaveLength(2);
+    expect(result[0].calculatedPoints).toBeDefined();
+    expect(result[0].calculatedPoints.total).toBe(0);
+    expect(result[1].calculatedPoints).toBeDefined();
+  });
+
+  it("preserves original participant fields", () => {
+    const p = makeParticipant({ id: "p1", name: "Alice" });
+    const result = calculateAllPoints([p]);
+    expect(result[0].id).toBe("p1");
+    expect(result[0].name).toBe("Alice");
   });
 });

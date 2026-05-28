@@ -20,9 +20,9 @@ import {
   type TeamStats,
   type TransformedMatch,
 } from "./football-api";
-import logger from "./logger";
+import { getLogger } from "./logger";
 
-const log = logger.child({ module: "live-scoring" });
+const log = getLogger("live-scoring");
 
 // ── Types ──
 
@@ -53,9 +53,11 @@ export interface LiveTournamentStatus {
 // ── Fetch live group results ──
 
 export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
-  if (!isApiConfigured()) return null;
+  if (!isApiConfigured()) {
+    log.warn("API not configured, skipping live group results");
+    return null;
+  }
 
-  log.info("fetching live group results");
   const standings = await getStandings();
   if (!standings || standings.length === 0) {
     log.warn("no standings data available");
@@ -67,13 +69,16 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
 
   for (const group of standings) {
     if (group.standings.length < 4) {
+      // Not enough teams in standings yet
       isComplete = false;
       continue;
     }
 
+    // Check if all matches are played (each team plays 3 group matches)
     const allPlayed = group.standings.every((s) => s.played >= 3);
     if (!allPlayed) isComplete = false;
 
+    // Standings are already sorted by position from the API
     const sorted = [...group.standings].sort((a, b) => a.position - b.position);
     groups[group.group] = [
       sorted[0]?.team.tla ?? "",
@@ -90,9 +95,11 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
 // ── Fetch live bonus results ──
 
 export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
-  if (!isApiConfigured()) return null;
+  if (!isApiConfigured()) {
+    log.warn("API not configured, skipping live bonus results");
+    return null;
+  }
 
-  log.info("fetching live bonus results");
   const [scorers, stats] = await Promise.all([getScorers(), getTeamStats()]);
 
   let goldenBoot: string | null = null;
@@ -106,11 +113,13 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
   if (stats && stats.length > 0) {
     const withMatches = stats.filter((t) => t.matchesPlayed > 0);
     if (withMatches.length > 0) {
+      // Most goals scored in group stage
       const byGoals = [...withMatches].sort(
         (a, b) => b.goalsScored - a.goalsScored
       );
       mostGoalsTeam = byGoals[0].teamTla;
 
+      // Fewest conceded in group stage
       const byConceded = [...withMatches].sort(
         (a, b) => a.goalsConceded - b.goalsConceded
       );
@@ -125,12 +134,14 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
 // ── Fetch tournament status ──
 
 export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | null> {
-  if (!isApiConfigured()) return null;
+  if (!isApiConfigured()) {
+    log.warn("API not configured, skipping live tournament status");
+    return null;
+  }
 
-  log.info("fetching live tournament status");
   const matches = await getMatches();
   if (!matches) {
-    log.warn("no match data for tournament status");
+    log.warn("no match data available");
     return null;
   }
 
@@ -173,7 +184,10 @@ export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | 
     groupStageComplete,
   };
 
-  log.info({ playedMatches: status.playedMatches, liveMatches: status.liveMatches, groupStageComplete }, "getLiveTournamentStatus");
+  log.info(
+    { totalMatches: status.totalMatches, playedMatches: status.playedMatches, liveMatches: status.liveMatches, groupStageComplete },
+    "getLiveTournamentStatus"
+  );
   return status;
 }
 

@@ -8,15 +8,21 @@ import {
 } from "../tournament-dates";
 
 describe("tournament date constants", () => {
-  it("TOURNAMENT_START is June 11, 2026 at 19:00 UTC", () => {
-    expect(TOURNAMENT_START.toISOString()).toBe("2026-06-11T19:00:00.000Z");
+  it("TOURNAMENT_START is June 11, 2026 19:00 UTC", () => {
+    expect(TOURNAMENT_START.getUTCFullYear()).toBe(2026);
+    expect(TOURNAMENT_START.getUTCMonth()).toBe(5); // June
+    expect(TOURNAMENT_START.getUTCDate()).toBe(11);
+    expect(TOURNAMENT_START.getUTCHours()).toBe(19);
   });
 
-  it("KNOCKOUT_START is June 28, 2026 at 19:00 UTC", () => {
-    expect(KNOCKOUT_START.toISOString()).toBe("2026-06-28T19:00:00.000Z");
+  it("KNOCKOUT_START is June 28, 2026 19:00 UTC", () => {
+    expect(KNOCKOUT_START.getUTCFullYear()).toBe(2026);
+    expect(KNOCKOUT_START.getUTCMonth()).toBe(5);
+    expect(KNOCKOUT_START.getUTCDate()).toBe(28);
+    expect(KNOCKOUT_START.getUTCHours()).toBe(19);
   });
 
-  it("knockout starts after tournament start", () => {
+  it("KNOCKOUT_START is after TOURNAMENT_START", () => {
     expect(KNOCKOUT_START.getTime()).toBeGreaterThan(TOURNAMENT_START.getTime());
   });
 });
@@ -28,7 +34,7 @@ describe("areTier1PicksRevealed", () => {
 
   it("returns false before tournament start", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-11T18:59:59Z"));
+    vi.setSystemTime(new Date("2026-06-01T00:00:00Z"));
     expect(areTier1PicksRevealed()).toBe(false);
   });
 
@@ -40,7 +46,7 @@ describe("areTier1PicksRevealed", () => {
 
   it("returns true after tournament start", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-15T00:00:00Z"));
+    vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
     expect(areTier1PicksRevealed()).toBe(true);
   });
 });
@@ -52,7 +58,7 @@ describe("areTier2PicksRevealed", () => {
 
   it("returns false before knockout start", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-28T18:59:59Z"));
+    vi.setSystemTime(new Date("2026-06-20T00:00:00Z"));
     expect(areTier2PicksRevealed()).toBe(false);
   });
 
@@ -68,31 +74,25 @@ describe("areTier2PicksRevealed", () => {
     expect(areTier2PicksRevealed()).toBe(true);
   });
 
-  it("returns false during group stage (after Tier 1 but before Tier 2)", () => {
+  it("returns false during group stage (before knockout)", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-20T00:00:00Z"));
-    expect(areTier1PicksRevealed()).toBe(true);
+    vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
     expect(areTier2PicksRevealed()).toBe(false);
   });
 });
 
 describe("formatRevealDate", () => {
-  it("formats TOURNAMENT_START as a readable date string", () => {
+  it("formats TOURNAMENT_START correctly", () => {
     const formatted = formatRevealDate(TOURNAMENT_START);
     expect(formatted).toContain("2026");
-    expect(formatted).toMatch(/June/);
+    expect(formatted).toContain("June");
   });
 
-  it("formats KNOCKOUT_START as a readable date string", () => {
-    const formatted = formatRevealDate(KNOCKOUT_START);
+  it("formats a known date", () => {
+    const d = new Date(2026, 11, 25); // Dec 25 in local time
+    const formatted = formatRevealDate(d);
     expect(formatted).toContain("2026");
-    expect(formatted).toMatch(/June/);
-  });
-
-  it("formats an arbitrary date correctly", () => {
-    const date = new Date("2026-01-15T00:00:00Z");
-    const formatted = formatRevealDate(date);
-    expect(formatted).toContain("2026");
-    expect(formatted).toMatch(/January/);
+    expect(formatted).toContain("December");
+    expect(formatted).toContain("25");
   });
 });

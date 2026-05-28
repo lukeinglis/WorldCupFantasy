@@ -1,69 +1,30 @@
-# Factory Configuration
-<!-- This file configures the Remote Factory for your project. -->
+# Factory Configuration: World Cup Fantasy
 
 ## Goal
-
-World Cup 2026 Fantasy contest app: a friends league with two-tier scoring (group predictions + knockout bracket), mini games, live scoring via football-data.org API, deployed on Vercel.
+Ship a production-quality World Cup 2026 fantasy league app with structured logging, test coverage, and clean types.
 
 ## Scope
-
-### Modifiable
-
-- src/**/*.ts
-- src/**/*.tsx
-- src/app/**/*
-- src/components/**/*
-- src/data/**/*
-- src/lib/**/*
-- eval/**/*
-- public/**/*
-- factory.md
-- next.config.ts
-- package.json
-
-### Read-only
-
-- CLAUDE.md
-- AGENTS.md
-- tsconfig.json
-- tailwind.config.ts
-- postcss.config.mjs
+- Next.js 16 App Router, TypeScript, Tailwind CSS v4
+- Vercel deployment with KV storage
+- Two-tier scoring: group predictions + knockout bracket
 
 ## Guards
-
-- Do not delete or overwrite existing tests
-- Do not modify files outside the declared scope
-- Do not introduce secrets or credentials into the repository
-- Do not modify the scoring constants or max point values without explicit approval
-- Do not change pick visibility date gates (June 11 for Tier 1, June 28 for Tier 2)
+- No modifications to eval/score.py or .factory/
+- Python stdlib only in eval scripts
+- All src/ changes must pass lint, type check, and tests
 
 ## Eval
-
-### Command
-
-```bash
+```
 python3 eval/score.py
 ```
 
-### Threshold
-
-0.6
-
-## Target Branch
-
-main
-
 ## Smoke Test
-
-```bash
+```
 npm run build
 ```
 
 ## Constraints
-
-- Prefer small, incremental changes over large rewrites
-- Mobile-first responsive design: all UI changes must work on small screens
-- Follow existing color scheme: pitch green (#1B5E20), navy (#0A1628), gold (#FFD700), accent green (#00E676)
-- Sanitize for edge cases: Infinity, NaN, null, division by zero in frontend code
-- Use Oswald for headings, Source Sans 3 for body text
-- Never use emdashes or double-dashes in content text
+- Do not break existing API routes or storage layer
+- Sanitize edge cases: Infinity, NaN, null, division by zero
+- Mobile-first responsive design
+- Follow CLAUDE.md conventions

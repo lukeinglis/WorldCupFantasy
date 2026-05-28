@@ -694,7 +694,7 @@ export default function MyPicksPage() {
             {/* SECTION 3: Submit */}
             <div ref={submitRef} className="max-w-2xl">
               <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white mb-4">
-                Submit Picks
+                Submit
               </h2>
 
               {/* What's missing */}

@@ -402,10 +402,6 @@ export default function RulesPage() {
                 <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-start gap-2">
                     <span className="text-accent mt-0.5">•</span>
-                    <span>Free to play. Bragging rights go to the winner.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-accent mt-0.5">•</span>
                     <span>No changing picks after each tier&apos;s deadline. Period.</span>
                   </li>
                   <li className="flex items-start gap-2">

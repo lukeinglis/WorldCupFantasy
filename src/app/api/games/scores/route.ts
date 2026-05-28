@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
-import logger from "@/lib/logger";
+import { getLogger } from "@/lib/logger";
 
 // --- Types ---
 
@@ -40,10 +40,9 @@ function isFinitePositiveInt(val: unknown): val is number {
 // --- GET: Fetch leaderboard ---
 
 export async function GET(request: NextRequest) {
-  const requestId = request.headers.get("x-request-id") ?? "unknown";
-  const log = logger.child({ requestId, route: "GET /api/games/scores" });
-  log.info("request start");
-
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/games/scores").child({ requestId });
+  log.info("GET /api/games/scores");
   const { searchParams } = new URL(request.url);
   const game = searchParams.get("game");
 
@@ -61,8 +60,7 @@ export async function GET(request: NextRequest) {
   try {
     const scores = (await kv.get<GameScoreEntry[]>(kvKey(game))) ?? [];
     return NextResponse.json({ scores });
-  } catch (err) {
-    log.error({ err }, "failed to fetch leaderboard");
+  } catch {
     return NextResponse.json(
       { error: "Failed to fetch leaderboard." },
       { status: 500 }
@@ -73,10 +71,9 @@ export async function GET(request: NextRequest) {
 // --- POST: Save a game score ---
 
 export async function POST(request: NextRequest) {
-  const postRequestId = request.headers.get("x-request-id") ?? "unknown";
-  const postLog = logger.child({ requestId: postRequestId, route: "POST /api/games/scores" });
-  postLog.info("request start");
-
+  const postRequestId = request.headers.get("x-request-id") || "unknown";
+  const postLog = getLogger("api/games/scores").child({ requestId: postRequestId });
+  postLog.info("POST /api/games/scores");
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -166,10 +163,8 @@ export async function POST(request: NextRequest) {
 
     await kv.set(key, trimmed);
 
-    postLog.info({ game, userId, score }, "score saved");
     return NextResponse.json({ saved: true, scores: trimmed });
-  } catch (err) {
-    postLog.error({ err, game }, "failed to save score");
+  } catch {
     return NextResponse.json(
       { error: "Failed to save score." },
       { status: 500 }

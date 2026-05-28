@@ -5,6 +5,7 @@ export function middleware(request: NextRequest) {
   const requestId =
     request.headers.get("x-request-id") || crypto.randomUUID();
 
+  // Clone request headers and inject x-request-id
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
 
@@ -12,10 +13,12 @@ export function middleware(request: NextRequest) {
     request: { headers: requestHeaders },
   });
 
+  // Echo the request ID on the response so callers can correlate
   response.headers.set("x-request-id", requestId);
+
   return response;
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

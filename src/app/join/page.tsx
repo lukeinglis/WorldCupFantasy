@@ -117,11 +117,6 @@ export default function JoinPage() {
               </CardBody>
             </Card>
 
-            <div className="mt-6 text-center">
-              <p className="text-xs text-gray-600">
-                Free to play. Just for fun and bragging rights!
-              </p>
-            </div>
           </div>
         </Container>
       </section>
