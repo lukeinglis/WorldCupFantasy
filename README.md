@@ -2,7 +2,7 @@
 
 A fantasy prediction contest for the FIFA World Cup 2026 (USA, Mexico, Canada).
 
-Deployed at [soccer.lukeinglis.me](https://soccer.lukeinglis.me)
+Deployed at [worldcup.lukeinglis.me](https://worldcup.lukeinglis.me)
 
 ## Features
 
