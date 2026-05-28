@@ -1,7 +1,6 @@
-/**
- * Auth helpers for simple name + email authentication.
- * No passwords needed for a casual friends league.
- */
+import logger from "./logger";
+
+const log = logger.child({ module: "auth" });
 
 const ADMIN_EMAILS = [
   "lukerichardinglis@gmail.com",
@@ -19,5 +18,6 @@ export function generateId(): string {
   for (let i = 0; i < 12; i++) {
     result += chars[Math.floor(Math.random() * chars.length)];
   }
+  log.info({ userId: result }, "generated user ID");
   return result;
 }

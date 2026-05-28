@@ -32,6 +32,7 @@ export default function SiteNav() {
   const showAdmin = user?.isAdmin ?? false;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting UI state on route change (external navigation event)
     setMobileOpen(false);
   }, [pathname]);
 

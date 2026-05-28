@@ -76,40 +76,51 @@ function KeeperSVG() {
   );
 }
 
+interface ConfettiPiece {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  dx: number;
+  dy: number;
+  dr: number;
+  duration: number;
+  delay: number;
+}
+
+function generateConfetti(): ConfettiPiece[] {
+  return Array.from({ length: 20 }, () => ({
+    left: 25 + Math.random() * 50,
+    top: 10 + Math.random() * 30,
+    width: 4 + Math.random() * 5,
+    height: 4 + Math.random() * 5,
+    dx: (Math.random() - 0.5) * 120,
+    dy: 30 + Math.random() * 80,
+    dr: Math.random() * 360,
+    duration: 0.5 + Math.random() * 0.5,
+    delay: Math.random() * 0.15,
+  }));
+}
+
 export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps) {
   const [gameState, setGameState] = useState<GameState>("ready");
   const [streak, setStreak] = useState(0);
-  const [highScore, setHighScore] = useState(0);
+  const [highScore, setHighScore] = useState(() => getHighScore());
   const [shotZone, setShotZone] = useState<Zone | null>(null);
   const [keeperZone, setKeeperZone] = useState<Zone | null>(null);
   const [isGoal, setIsGoal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [confettiPieces, setConfettiPieces] = useState<ConfettiPiece[]>([]);
   const [hoveredZone, setHoveredZone] = useState<Zone | null>(null);
 
   const streakRef = useRef(streak);
-  streakRef.current = streak;
-
-  const [confettiPieces, setConfettiPieces] = useState<Array<{
-    left: number; top: number; size: number; dx: number; dy: number; dr: number; duration: number; delay: number;
-  }>>([]);
+  useEffect(() => {
+    streakRef.current = streak;
+  }, [streak]);
 
   useEffect(() => {
-    if (showConfetti) {
-      setConfettiPieces(Array.from({ length: 20 }, () => ({
-        left: 25 + Math.random() * 50,
-        top: 10 + Math.random() * 30,
-        size: 4 + Math.random() * 5,
-        dx: (Math.random() - 0.5) * 120,
-        dy: 30 + Math.random() * 80,
-        dr: Math.random() * 360,
-        duration: 0.5 + Math.random() * 0.5,
-        delay: Math.random() * 0.15,
-      })));
-    }
-  }, [showConfetti]);
-
-  useEffect(() => {
-    setHighScore(getHighScore());
+    const saved = getHighScore();
+    if (saved !== 0) setHighScore(saved);
   }, []);
 
   const shoot = useCallback((zone: Zone) => {
@@ -127,6 +138,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
       setGameState("result");
 
       if (goal) {
+        setConfettiPieces(generateConfetti());
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 1800);
 
@@ -348,7 +360,7 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
         {showConfetti && confettiPieces.map((piece, i) => (
           <div key={i} className="absolute pointer-events-none" style={{
             left: `${piece.left}%`, top: `${piece.top}%`,
-            width: `${piece.size}px`, height: `${piece.size}px`,
+            width: `${piece.width}px`, height: `${piece.height}px`,
             borderRadius: i%3===0 ? "50%" : "1px",
             background: ["#00E676","#FFD700","#fff","#4CAF50","#FF5722","#2196F3"][i%6],
             ["--dx" as string]: `${piece.dx}px`,

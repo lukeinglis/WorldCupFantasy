@@ -50,6 +50,20 @@ export function getCached<T>(key: string): T | null {
 }
 
 /**
+ * Get a cached value even if expired (stale fallback).
+ * Returns null only if the key was never cached.
+ */
+export function getStaleCached<T>(key: string): T | null {
+  const entry = cache.get(key) as CacheEntry<T> | undefined;
+  if (!entry) {
+    log.debug({ key }, "stale cache miss");
+    return null;
+  }
+  log.info({ key }, "serving stale cache fallback");
+  return entry.data;
+}
+
+/**
  * Set a value in the cache with a given TTL (in ms).
  */
 export function setCache<T>(key: string, data: T, ttlMs: number): void {

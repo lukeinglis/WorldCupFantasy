@@ -1,3 +1,5 @@
+import logger from "@/lib/logger";
+
 // Two-Tier Fantasy Contest Data Model
 
 export interface GroupPrediction {
@@ -131,10 +133,14 @@ export function getCurrentPhase(): TournamentPhase {
   const knockoutStart = new Date("2026-06-28T19:00:00Z");
   const finalDate = new Date("2026-07-19T23:59:59Z");
 
-  if (now < tournamentStart) return "pre_tournament";
-  if (now < knockoutStart) return "group_stage";
-  if (now < finalDate) return "knockout";
-  return "complete";
+  let phase: TournamentPhase;
+  if (now < tournamentStart) phase = "pre_tournament";
+  else if (now < knockoutStart) phase = "group_stage";
+  else if (now < finalDate) phase = "knockout";
+  else phase = "complete";
+
+  logger.debug({ phase, now: now.toISOString() }, "phase detection");
+  return phase;
 }
 
 // Helper to get Golden Boot pick distribution
@@ -144,6 +150,7 @@ export function getGoldenBootDistribution(): Record<string, number> {
     const pick = p.bonusPicks.goldenBoot;
     counts[pick] = (counts[pick] ?? 0) + 1;
   }
+  logger.debug({ uniquePicks: Object.keys(counts).length, totalParticipants: participants.length }, "golden boot distribution");
   return counts;
 }
 
@@ -157,5 +164,6 @@ export function getGroupWinnerDistribution(group: string): Record<string, number
       counts[winner] = (counts[winner] ?? 0) + 1;
     }
   }
+  logger.debug({ group, uniqueWinners: Object.keys(counts).length }, "group winner distribution");
   return counts;
 }

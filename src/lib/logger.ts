@@ -50,3 +50,21 @@ function getRootLogger(): Logger {
 export function getLogger(name: string): Logger {
   return getRootLogger().child({ module: name });
 }
+
+/**
+ * Default export: the root logger instance.
+ * Supports `import logger from "./logger"` usage pattern.
+ * Use logger.child({ module: "name" }) for named children.
+ */
+const logger = {
+  get info() { return getRootLogger().info.bind(getRootLogger()); },
+  get warn() { return getRootLogger().warn.bind(getRootLogger()); },
+  get error() { return getRootLogger().error.bind(getRootLogger()); },
+  get debug() { return getRootLogger().debug.bind(getRootLogger()); },
+  get trace() { return getRootLogger().trace.bind(getRootLogger()); },
+  get fatal() { return getRootLogger().fatal.bind(getRootLogger()); },
+  child(bindings: Record<string, unknown>) { return getRootLogger().child(bindings); },
+  get level() { return getRootLogger().level; },
+} as unknown as Logger;
+
+export default logger;

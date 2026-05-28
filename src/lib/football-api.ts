@@ -27,7 +27,10 @@ import {
   LIVE_STATUSES,
 } from "./football-api-types";
 
-import { getCached, setCache, CacheTTL } from "./api-cache";
+import { getCached, getStaleCached, setCache, CacheTTL } from "./api-cache";
+import logger from "./logger";
+
+const log = logger.child({ module: "football-api" });
 
 // ── Config ──
 
@@ -55,19 +58,19 @@ async function apiFetch<T>(path: string): Promise<T | null> {
     });
 
     if (res.status === 429) {
-      console.warn("[football-api] Rate limited. Returning cached data or null.");
+      log.warn({ path, status: 429 }, "rate limited, returning cached data or null");
       return null;
     }
 
     if (!res.ok) {
-      console.warn(`[football-api] ${res.status} ${res.statusText} for ${path}`);
+      log.warn({ path, status: res.status, statusText: res.statusText }, "API error");
       return null;
     }
 
     const data: T = await res.json();
     return data;
   } catch (err) {
-    console.error(`[football-api] Network error for ${path}:`, err);
+    log.error({ path, err }, "network error");
     return null;
   }
 }
@@ -118,7 +121,7 @@ export async function getTeams(): Promise<TransformedTeam[] | null> {
   if (cached) return cached;
 
   const raw = await apiFetch<ApiTeamsResponse>(`/competitions/${COMPETITION}/teams`);
-  if (!raw?.teams) return null;
+  if (!raw?.teams) return getStaleCached<TransformedTeam[]>(cacheKey);
 
   // We need standings to map teams to groups
   const standings = await getStandings();
@@ -155,7 +158,7 @@ export async function getStandings(): Promise<TransformedGroupStandings[] | null
   if (cached) return cached;
 
   const raw = await apiFetch<ApiStandingsResponse>(`/competitions/${COMPETITION}/standings`);
-  if (!raw?.standings) return null;
+  if (!raw?.standings) return getStaleCached<TransformedGroupStandings[]>(cacheKey);
 
   const transformed: TransformedGroupStandings[] = raw.standings
     .filter((s) => s.type === "TOTAL")
@@ -210,7 +213,7 @@ export async function getMatches(
   }
 
   const raw = await apiFetch<ApiMatchesResponse>(path);
-  if (!raw?.matches) return null;
+  if (!raw?.matches) return getStaleCached<TransformedMatch[]>(cacheKey);
 
   let matches = raw.matches;
 
@@ -236,7 +239,7 @@ export async function getMatchDetail(matchId: number): Promise<ApiMatchDetail | 
   if (cached) return cached;
 
   const raw = await apiFetch<ApiMatchDetail>(`/matches/${matchId}`);
-  if (!raw) return null;
+  if (!raw) return getStaleCached<ApiMatchDetail>(cacheKey);
 
   setCache(cacheKey, raw, CacheTTL.MATCH_DETAIL);
   return raw;
@@ -251,7 +254,7 @@ export async function getScorers(): Promise<TransformedScorer[] | null> {
   if (cached) return cached;
 
   const raw = await apiFetch<ApiScorersResponse>(`/competitions/${COMPETITION}/scorers`);
-  if (!raw?.scorers) return null;
+  if (!raw?.scorers) return getStaleCached<TransformedScorer[]>(cacheKey);
 
   const transformed: TransformedScorer[] = raw.scorers.map((s) => ({
     playerName: safeStr(s.player?.name, "Unknown"),
@@ -281,7 +284,7 @@ export async function getTeamStats(): Promise<TeamStats[] | null> {
   const allMatches = await apiFetch<ApiMatchesResponse>(
     `/competitions/${COMPETITION}/matches`
   );
-  if (!allMatches?.matches) return null;
+  if (!allMatches?.matches) return getStaleCached<TeamStats[]>(cacheKey);
 
   const groupMatches = allMatches.matches.filter(
     (m) => m.stage === "GROUP_STAGE" && m.status === "FINISHED"
