@@ -20,6 +20,9 @@ import {
   type TeamStats,
   type TransformedMatch,
 } from "./football-api";
+import { getLogger } from "./logger";
+
+const log = getLogger("live-scoring");
 
 // ── Types ──
 
@@ -50,10 +53,16 @@ export interface LiveTournamentStatus {
 // ── Fetch live group results ──
 
 export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
-  if (!isApiConfigured()) return null;
+  if (!isApiConfigured()) {
+    log.warn("API not configured, skipping live group results");
+    return null;
+  }
 
   const standings = await getStandings();
-  if (!standings || standings.length === 0) return null;
+  if (!standings || standings.length === 0) {
+    log.warn("no standings data available");
+    return null;
+  }
 
   const groups: Record<string, [string, string, string, string]> = {};
   let isComplete = true;
@@ -79,13 +88,17 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
     ];
   }
 
+  log.info({ groupCount: Object.keys(groups).length, isComplete }, "getLiveGroupResults");
   return { groups, isComplete };
 }
 
 // ── Fetch live bonus results ──
 
 export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
-  if (!isApiConfigured()) return null;
+  if (!isApiConfigured()) {
+    log.warn("API not configured, skipping live bonus results");
+    return null;
+  }
 
   const [scorers, stats] = await Promise.all([getScorers(), getTeamStats()]);
 
@@ -114,16 +127,23 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
     }
   }
 
+  log.info({ goldenBoot, mostGoalsTeam, fewestConcededTeam }, "getLiveBonusResults");
   return { goldenBoot, mostGoalsTeam, fewestConcededTeam };
 }
 
 // ── Fetch tournament status ──
 
 export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | null> {
-  if (!isApiConfigured()) return null;
+  if (!isApiConfigured()) {
+    log.warn("API not configured, skipping live tournament status");
+    return null;
+  }
 
   const matches = await getMatches();
-  if (!matches) return null;
+  if (!matches) {
+    log.warn("no match data available");
+    return null;
+  }
 
   const playedMatches = matches.filter((m) => m.status === "FINISHED");
   const liveMatches = matches.filter((m) => m.isLive);
@@ -155,7 +175,7 @@ export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | 
 
   const groupStageComplete = completedStages.includes("group");
 
-  return {
+  const status = {
     currentMatchday: isFinite(currentMatchday ?? NaN) ? currentMatchday : null,
     totalMatches: matches.length,
     playedMatches: playedMatches.length,
@@ -163,6 +183,12 @@ export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | 
     completedStages,
     groupStageComplete,
   };
+
+  log.info(
+    { totalMatches: status.totalMatches, playedMatches: status.playedMatches, liveMatches: status.liveMatches, groupStageComplete },
+    "getLiveTournamentStatus"
+  );
+  return status;
 }
 
 // ── Re-exports for convenience ──

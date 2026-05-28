@@ -9,6 +9,9 @@
  */
 
 import { kv } from "@vercel/kv";
+import { getLogger } from "./logger";
+
+const log = getLogger("storage");
 
 // ---- Key schema ----
 // user:<name_lower>          -> UserRecord
@@ -57,7 +60,10 @@ function requireKv(): void {
 
 export async function getUser(name: string): Promise<UserRecord | null> {
   requireKv();
-  return kv.get<UserRecord>(`user:${name.toLowerCase()}`);
+  const key = `user:${name.toLowerCase()}`;
+  const user = await kv.get<UserRecord>(key);
+  log.info({ key, found: !!user }, "getUser");
+  return user;
 }
 
 export async function createUser(user: UserRecord): Promise<void> {
@@ -71,37 +77,50 @@ export async function createUser(user: UserRecord): Promise<void> {
   }
   // Also store an id-to-name mapping for reverse lookups
   await kv.set(`userid:${user.id}`, user.nameLower);
+  log.info({ userId: user.id, name: user.nameLower }, "createUser");
 }
 
 export async function updateUser(user: UserRecord): Promise<void> {
   requireKv();
   await kv.set(`user:${user.nameLower}`, user);
+  log.info({ userId: user.id, name: user.nameLower }, "updateUser");
 }
 
 // ---- Picks operations ----
 
 export async function getPicks(participantId: string): Promise<PicksRecord | null> {
   requireKv();
-  return kv.get<PicksRecord>(`picks:${participantId}`);
+  const key = `picks:${participantId}`;
+  const picks = await kv.get<PicksRecord>(key);
+  log.info({ key, found: !!picks }, "getPicks");
+  return picks;
 }
 
 export async function savePicks(picks: PicksRecord): Promise<void> {
   requireKv();
   await kv.set(`picks:${picks.participantId}`, picks);
+  log.info({ participantId: picks.participantId }, "savePicks");
 }
 
 // ---- List operations ----
 
 export async function getAllParticipantIds(): Promise<string[]> {
   requireKv();
-  return (await kv.get<string[]>("participants")) ?? [];
+  const ids = (await kv.get<string[]>("participants")) ?? [];
+  log.info({ count: ids.length }, "getAllParticipantIds");
+  return ids;
 }
 
 export async function getUserById(id: string): Promise<UserRecord | null> {
   requireKv();
   const nameLower = await kv.get<string>(`userid:${id}`);
-  if (!nameLower) return null;
-  return kv.get<UserRecord>(`user:${nameLower}`);
+  if (!nameLower) {
+    log.info({ userId: id, found: false }, "getUserById");
+    return null;
+  }
+  const user = await kv.get<UserRecord>(`user:${nameLower}`);
+  log.info({ userId: id, found: !!user }, "getUserById");
+  return user;
 }
 
 export async function getAllUsersWithPicks(): Promise<
@@ -118,6 +137,10 @@ export async function getAllUsersWithPicks(): Promise<
     results.push({ user, picks });
   }
 
+  log.info(
+    { participantCount: ids.length, withPicks: results.filter((r) => r.picks).length },
+    "getAllUsersWithPicks"
+  );
   return results;
 }
 

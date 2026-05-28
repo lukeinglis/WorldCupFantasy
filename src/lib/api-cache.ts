@@ -9,6 +9,10 @@
  *   scorers:       15 minutes
  */
 
+import { getLogger } from "./logger";
+
+const log = getLogger("api-cache");
+
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
@@ -32,11 +36,16 @@ export const CacheTTL = {
  */
 export function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    cache.delete(key);
+  if (!entry) {
+    log.info({ key, hit: false }, "cache miss");
     return null;
   }
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    log.info({ key, hit: false, reason: "expired" }, "cache miss");
+    return null;
+  }
+  log.info({ key, hit: true }, "cache hit");
   return entry.data;
 }
 
@@ -48,6 +57,7 @@ export function setCache<T>(key: string, data: T, ttlMs: number): void {
     data,
     expiresAt: Date.now() + ttlMs,
   });
+  log.info({ key, ttlMs }, "cache set");
 }
 
 /**
@@ -55,24 +65,30 @@ export function setCache<T>(key: string, data: T, ttlMs: number): void {
  */
 export function invalidateCache(key: string): void {
   cache.delete(key);
+  log.info({ key }, "cache invalidate");
 }
 
 /**
  * Invalidate all cache entries matching a prefix.
  */
 export function invalidateCachePrefix(prefix: string): void {
+  let count = 0;
   for (const key of cache.keys()) {
     if (key.startsWith(prefix)) {
       cache.delete(key);
+      count++;
     }
   }
+  log.info({ prefix, evicted: count }, "cache invalidate prefix");
 }
 
 /**
  * Clear the entire cache.
  */
 export function clearCache(): void {
+  const size = cache.size;
   cache.clear();
+  log.info({ evicted: size }, "cache clear");
 }
 
 /**
