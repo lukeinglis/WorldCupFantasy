@@ -408,7 +408,7 @@ export default async function Home() {
               maxPoints={TIER1_MAX}
               categories={tier1Categories}
               color="accent"
-              deadline="June 1, 2026"
+              deadline="June 11, 2026"
             />
             <TierCard
               tier={2}
@@ -512,8 +512,7 @@ export default async function Home() {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 max-w-6xl mx-auto">
             {[
-              { date: "June 1, 2026", event: "Tier 1 Picks Lock", icon: "🔒", highlight: true },
-              { date: "June 11, 2026", event: "Opening Match", icon: "🏟️", highlight: false },
+              { date: "June 11, 2026", event: "Tier 1 Picks Lock (Kickoff)", icon: "🔒", highlight: true },
               { date: "June 27, 2026", event: "Groups End", icon: "📊", highlight: false },
               { date: "June 28, 2026", event: "Tier 2 Picks Lock", icon: "🔒", highlight: true },
               { date: "July 19, 2026", event: "Final", icon: "🏆", highlight: true },
