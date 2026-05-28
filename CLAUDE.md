@@ -4,7 +4,7 @@
 
 ## Project
 - Next.js 16 App Router with TypeScript and Tailwind CSS v4
-- Deployed on Vercel at soccer.lukeinglis.me
+- Deployed on Vercel at worldcup.lukeinglis.me
 - Two-tier scoring system: Tier 1 (group predictions) + Tier 2 (knockout bracket)
 - Participant data stored in Vercel KV (Redis); requires KV_REST_API_URL and KV_REST_API_TOKEN env vars
 - Simple name + email authentication (no passwords, friends league)
