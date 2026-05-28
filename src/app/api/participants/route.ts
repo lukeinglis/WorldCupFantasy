@@ -29,7 +29,6 @@ export async function GET(request: Request) {
       return {
         id: user.id,
         name: user.name,
-        paymentConfirmed: user.paymentConfirmed,
         hasPicks: !!picks,
         picks: picks && showPicks
           ? {

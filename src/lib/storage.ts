@@ -21,7 +21,6 @@ export interface UserRecord {
   nameLower: string;    // lowercase for lookup
   email: string;
   emailLower: string;   // lowercase for matching
-  paymentConfirmed: boolean;
   createdAt: string;    // ISO timestamp
 }
 

@@ -117,11 +117,6 @@ export default function JoinPage() {
               </CardBody>
             </Card>
 
-            <div className="mt-6 text-center">
-              <p className="text-xs text-gray-600">
-                $10 buy-in to play. You will confirm payment when you submit your picks.
-              </p>
-            </div>
           </div>
         </Container>
       </section>

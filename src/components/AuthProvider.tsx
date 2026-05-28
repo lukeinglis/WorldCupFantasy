@@ -6,7 +6,6 @@ interface AuthUser {
   id: string;
   name: string;
   email: string;
-  paymentConfirmed: boolean;
 }
 
 interface AuthContextType {
