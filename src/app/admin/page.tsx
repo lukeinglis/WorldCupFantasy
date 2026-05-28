@@ -5,7 +5,6 @@ import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
 import { useAuth } from "@/components/AuthProvider";
-import { isAdmin } from "@/lib/auth";
 import { getTeamByCode } from "@/data/teams";
 
 interface AdminParticipant {
@@ -248,7 +247,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const userIsAdmin = isAdmin(user?.email);
+  const userIsAdmin = user?.isAdmin ?? false;
 
   const fetchData = useCallback(async () => {
     if (!user || !userIsAdmin) return;

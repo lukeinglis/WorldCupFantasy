@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getUser, createUser, type UserRecord } from "@/lib/storage";
-import { generateId } from "@/lib/auth";
+import { getUser, getUserByEmail, createUser, type UserRecord } from "@/lib/storage";
+import { generateId, isAdmin } from "@/lib/auth";
 import { getLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
@@ -54,6 +54,7 @@ export async function POST(request: Request) {
             id: existing.id,
             name: existing.name,
             email: existing.email,
+            isAdmin: isAdmin(existing.email),
           },
         });
       } else {
@@ -66,6 +67,18 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+    }
+
+    // Check if email is already registered under a different name
+    const existingByEmail = await getUserByEmail(trimmedEmail);
+    if (existingByEmail) {
+      return NextResponse.json(
+        {
+          error:
+            "That email is already registered. Use the name you originally signed up with.",
+        },
+        { status: 409 }
+      );
     }
 
     // New user: create account
@@ -87,6 +100,7 @@ export async function POST(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
+        isAdmin: isAdmin(user.email),
       },
     });
   } catch (err) {

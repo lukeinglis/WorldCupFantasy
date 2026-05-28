@@ -15,6 +15,7 @@ const log = getLogger("storage");
 
 // ---- Key schema ----
 // user:<name_lower>          -> UserRecord
+// email:<email_lower>        -> name_lower  (email uniqueness index)
 // picks:<participantId>      -> PicksRecord
 // participants               -> string[]  (list of participant IDs)
 
@@ -66,9 +67,24 @@ export async function getUser(name: string): Promise<UserRecord | null> {
   return user;
 }
 
+export async function getUserByEmail(email: string): Promise<UserRecord | null> {
+  requireKv();
+  const emailKey = `email:${email.toLowerCase().trim()}`;
+  const nameLower = await kv.get<string>(emailKey);
+  if (!nameLower) {
+    log.info({ emailKey, found: false }, "getUserByEmail");
+    return null;
+  }
+  const user = await kv.get<UserRecord>(`user:${nameLower}`);
+  log.info({ emailKey, found: !!user }, "getUserByEmail");
+  return user;
+}
+
 export async function createUser(user: UserRecord): Promise<void> {
   requireKv();
   await kv.set(`user:${user.nameLower}`, user);
+  // Store email index for uniqueness lookups
+  await kv.set(`email:${user.emailLower}`, user.nameLower);
   // Add to participants list
   const participants = await kv.get<string[]>("participants") ?? [];
   if (!participants.includes(user.id)) {

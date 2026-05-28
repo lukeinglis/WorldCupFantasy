@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
-import { isAdmin } from "@/lib/auth";
 
 interface NavItem {
   href: string;
@@ -30,7 +29,7 @@ export default function SiteNav() {
   const pathname = usePathname() ?? "/";
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
-  const showAdmin = isAdmin(user?.email);
+  const showAdmin = user?.isAdmin ?? false;
 
   useEffect(() => {
     setMobileOpen(false);

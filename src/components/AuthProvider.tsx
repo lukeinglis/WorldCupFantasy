@@ -6,6 +6,7 @@ interface AuthUser {
   id: string;
   name: string;
   email: string;
+  isAdmin: boolean;
 }
 
 interface AuthContextType {
@@ -57,8 +58,14 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || "Something went wrong" };
       }
 
-      setUser(data.user);
-      localStorage.setItem("wcf_user", JSON.stringify(data.user));
+      const authUser: AuthUser = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        isAdmin: !!data.user.isAdmin,
+      };
+      setUser(authUser);
+      localStorage.setItem("wcf_user", JSON.stringify(authUser));
       return { success: true };
     } catch {
       return { success: false, error: "Network error. Please try again." };
