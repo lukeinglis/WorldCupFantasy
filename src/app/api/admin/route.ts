@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllUsersWithPicks, getUserById, isKvConfigured } from "@/lib/storage";
+import { getAllUsersWithPicks, getUserById, removeParticipant, isKvConfigured } from "@/lib/storage";
 import { isAdmin } from "@/lib/auth";
 import { getLogger } from "@/lib/logger";
 
@@ -61,6 +61,43 @@ export async function GET(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch admin data";
     log.error({ err: message }, "Admin API error");
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// DELETE /api/admin - Remove a participant (admin only)
+export async function DELETE(request: Request) {
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/admin").child({ requestId });
+  log.info("DELETE /api/admin");
+  try {
+    if (!isKvConfigured()) {
+      return NextResponse.json({ error: "KV not configured" }, { status: 503 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+    const removeId = searchParams.get("removeId");
+
+    if (!userId || !removeId) {
+      return NextResponse.json({ error: "userId and removeId required" }, { status: 400 });
+    }
+
+    const requestingUser = await getUserById(userId);
+    if (!requestingUser || !isAdmin(requestingUser.email)) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    const removed = await removeParticipant(removeId);
+    if (!removed) {
+      return NextResponse.json({ error: "Participant not found" }, { status: 404 });
+    }
+
+    log.info({ removeId, removedBy: requestingUser.email }, "Participant removed by admin");
+    return NextResponse.json({ success: true, removedId: removeId });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to remove participant";
+    log.error({ err: message }, "Admin DELETE error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

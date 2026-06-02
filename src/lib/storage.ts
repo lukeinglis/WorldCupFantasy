@@ -160,4 +160,23 @@ export async function getAllUsersWithPicks(): Promise<
   return results;
 }
 
+export async function removeParticipant(id: string): Promise<boolean> {
+  requireKv();
+  const nameLower = await kv.get<string>(`userid:${id}`);
+  if (!nameLower) {
+    log.info({ userId: id, found: false }, "removeParticipant: user not found");
+    return false;
+  }
+
+  const ids = (await kv.get<string[]>("participants")) ?? [];
+  const filtered = ids.filter((pid) => pid !== id);
+  await kv.set("participants", filtered);
+  await kv.del(`user:${nameLower}`);
+  await kv.del(`userid:${id}`);
+  await kv.del(`picks:${id}`);
+
+  log.info({ userId: id, nameLower }, "removeParticipant: removed");
+  return true;
+}
+
 export { isKvConfigured };
