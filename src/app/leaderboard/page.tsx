@@ -211,7 +211,6 @@ export default async function LeaderboardPage() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
-                            <span className="text-xl">{p.avatar}</span>
                             <div>
                               <span className="font-medium text-white">{p.name}</span>
                               <p className="text-xs text-gray-600">
