@@ -3,7 +3,6 @@ import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardHeader } from "@/components/Card";
 import {
-  participants,
   TIER1_MAX,
   TIER2_MAX,
   OVERALL_MAX,
@@ -21,6 +20,8 @@ import {
   getLiveBonusResults,
   getLiveTournamentStatus,
 } from "@/lib/live-scoring";
+import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { buildParticipantsFromKv } from "@/lib/build-participants";
 import LivePoller from "@/components/LivePoller";
 
 export const metadata: Metadata = {
@@ -49,6 +50,13 @@ function getMedalColor(rank: number): string {
 }
 
 export default async function LeaderboardPage() {
+  // Fetch real participants from KV
+  let participants: import("@/data/participants").Participant[] = [];
+  if (isKvConfigured()) {
+    const kvData = await getAllUsersWithPicks();
+    participants = buildParticipantsFromKv(kvData);
+  }
+
   // Try to inject live results before scoring
   let hasLiveScoring = false;
   let hasLiveMatches = false;

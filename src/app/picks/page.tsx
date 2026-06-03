@@ -96,9 +96,9 @@ function ParticipantRoster({ participants }: { participants: ParticipantPicks[] 
   );
 }
 
-function GroupPredictionGrid({ group, participantsList }: { group: string; participantsList: ParticipantPicks[] }) {
+function GroupPredictionGrid({ group, participantsList, picksRevealed }: { group: string; participantsList: ParticipantPicks[]; picksRevealed: boolean }) {
   const withPicks = participantsList.filter(
-    (p) => p.picks?.groupPredictions?.find((g) => g.group === group)
+    (p) => p.hasPicks && (picksRevealed ? p.picks?.groupPredictions?.find((g) => g.group === group) : true)
   );
 
   return (
@@ -138,14 +138,13 @@ function GroupPredictionGrid({ group, participantsList }: { group: string; parti
               <tbody>
                 {withPicks.map((p) => {
                   const gp = p.picks?.groupPredictions?.find((g) => g.group === group);
-                  if (!gp) return null;
 
                   return (
                     <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                       <td className="px-3 py-2">
                         <span className="text-xs text-gray-400 truncate max-w-[80px]">{p.name}</span>
                       </td>
-                      {gp.order.map((code, i) => {
+                      {gp ? gp.order.map((code, i) => {
                         const team = getTeamByCode(code);
                         const isAdvancing = i <= 1;
                         return (
@@ -159,7 +158,11 @@ function GroupPredictionGrid({ group, participantsList }: { group: string; parti
                             </div>
                           </td>
                         );
-                      })}
+                      }) : (
+                        <td colSpan={4} className="px-2 py-2 text-center">
+                          <span className="text-xs text-gray-600">🔒 Hidden until kickoff</span>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -172,8 +175,8 @@ function GroupPredictionGrid({ group, participantsList }: { group: string; parti
   );
 }
 
-function BonusPicksSection({ participantsList }: { participantsList: ParticipantPicks[] }) {
-  const withPicks = participantsList.filter((p) => p.picks);
+function BonusPicksSection({ participantsList, picksRevealed }: { participantsList: ParticipantPicks[]; picksRevealed: boolean }) {
+  const withPicks = participantsList.filter((p) => picksRevealed ? p.picks : p.hasPicks);
 
   const bonusCategories = [
     {
@@ -281,7 +284,7 @@ function BonusPicksSection({ participantsList }: { participantsList: Participant
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-gray-500">{p.name}</p>
                         <p className="text-sm font-medium text-white truncate mt-0.5">
-                          {cat.getValue(p) || "Not set"}
+                          {p.picks ? (cat.getValue(p) || "Not set") : "🔒 Hidden"}
                         </p>
                       </div>
                     </div>
@@ -297,67 +300,77 @@ function BonusPicksSection({ participantsList }: { participantsList: Participant
 }
 
 function ParticipantDetail({ participant }: { participant: ParticipantPicks }) {
-  if (!participant.picks) return null;
+  if (!participant.hasPicks) return null;
 
   return (
     <Card hover>
       <CardHeader>
         <h3 className="font-heading text-base font-bold text-white">{participant.name}</h3>
-        <p className="text-xs text-gray-500">
-          Tiebreaker: {participant.picks.tiebreaker.homeScore} : {participant.picks.tiebreaker.awayScore}
-        </p>
+        {participant.picks ? (
+          <p className="text-xs text-gray-500">
+            Tiebreaker: {participant.picks.tiebreaker.homeScore} : {participant.picks.tiebreaker.awayScore}
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500">Picks submitted</p>
+        )}
       </CardHeader>
       <CardBody>
-        {/* Group Predictions Summary */}
-        <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
-            Group Winners
-          </p>
-          <div className="grid grid-cols-6 gap-1.5">
-            {groupLabels.map((group) => {
-              const gp = participant.picks?.groupPredictions?.find((g) => g.group === group);
-              const winnerCode = gp ? gp.order[0] : null;
-              const winner = winnerCode ? getTeamByCode(winnerCode) : null;
-              return (
-                <div key={group} className="text-center rounded bg-navy-lighter/50 px-1 py-1.5 border border-white/5">
-                  <p className="text-[10px] text-gray-600 mb-0.5">{group}</p>
-                  <span className="text-sm">{winner?.flag ?? "?"}</span>
+        {participant.picks ? (
+          <>
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                Group Winners
+              </p>
+              <div className="grid grid-cols-6 gap-1.5">
+                {groupLabels.map((group) => {
+                  const gp = participant.picks?.groupPredictions?.find((g) => g.group === group);
+                  const winnerCode = gp ? gp.order[0] : null;
+                  const winner = winnerCode ? getTeamByCode(winnerCode) : null;
+                  return (
+                    <div key={group} className="text-center rounded bg-navy-lighter/50 px-1 py-1.5 border border-white/5">
+                      <p className="text-[10px] text-gray-600 mb-0.5">{group}</p>
+                      <span className="text-sm">{winner?.flag ?? "?"}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                Bonus Picks
+              </p>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between text-gray-400">
+                  <span>👟 Golden Boot</span>
+                  <span className="text-white">{participant.picks.goldenBoot || "Not set"}</span>
                 </div>
-              );
-            })}
+                <div className="flex justify-between text-gray-400">
+                  <span>⚽ Most Goals</span>
+                  <span className="text-white">
+                    {(() => {
+                      const t = getTeamByCode(participant.picks?.mostGoalsTeam ?? "");
+                      return t ? `${t.flag} ${t.name}` : participant.picks?.mostGoalsTeam || "Not set";
+                    })()}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-400">
+                  <span>🛡️ Fewest Conceded</span>
+                  <span className="text-white">
+                    {(() => {
+                      const t = getTeamByCode(participant.picks?.fewestConcededTeam ?? "");
+                      return t ? `${t.flag} ${t.name}` : participant.picks?.fewestConcededTeam || "Not set";
+                    })()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-4">
+            <span className="text-2xl block mb-2" aria-hidden>🔒</span>
+            <p className="text-xs text-gray-500">Picks hidden until the tournament begins</p>
           </div>
-        </div>
-
-        {/* Bonus Picks */}
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
-            Bonus Picks
-          </p>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between text-gray-400">
-              <span>👟 Golden Boot</span>
-              <span className="text-white">{participant.picks.goldenBoot || "Not set"}</span>
-            </div>
-            <div className="flex justify-between text-gray-400">
-              <span>⚽ Most Goals</span>
-              <span className="text-white">
-                {(() => {
-                  const t = getTeamByCode(participant.picks?.mostGoalsTeam ?? "");
-                  return t ? `${t.flag} ${t.name}` : participant.picks?.mostGoalsTeam || "Not set";
-                })()}
-              </span>
-            </div>
-            <div className="flex justify-between text-gray-400">
-              <span>🛡️ Fewest Conceded</span>
-              <span className="text-white">
-                {(() => {
-                  const t = getTeamByCode(participant.picks?.fewestConcededTeam ?? "");
-                  return t ? `${t.flag} ${t.name}` : participant.picks?.fewestConcededTeam || "Not set";
-                })()}
-              </span>
-            </div>
-          </div>
-        </div>
+        )}
       </CardBody>
     </Card>
   );
@@ -387,11 +400,8 @@ export default function PicksPage() {
     fetchParticipants();
   }, [user]);
 
-  // Filter visible participants based on reveal dates
-  const visibleParticipants = tier1Revealed
-    ? participantsList.filter((p) => p.hasPicks)
-    : // Before reveal: only show the current user's own picks
-      participantsList.filter((p) => p.hasPicks && user && p.id === user.id);
+  // All participants with picks are visible (names always shown, pick details gated by reveal)
+  const visibleParticipants = participantsList.filter((p) => p.hasPicks);
 
   if (loading) {
     return (
@@ -442,34 +452,26 @@ export default function PicksPage() {
 
           <PicksTabs
             groupContent={
-              !tier1Revealed && !user ? (
-                <HiddenPicksBanner revealDate={TOURNAMENT_START} tier={1} />
-              ) : (
-                <div className="space-y-10">
-                  <div>
-                    <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white mb-4">
-                      Group Finishing Order Predictions
-                    </h2>
-                    <p className="text-sm text-gray-400 mb-6">
-                      {tier1Revealed
-                        ? "Each participant predicted the finishing order for all 12 groups. Green shading = predicted to advance (1st/2nd)."
-                        : "Only your own picks are shown until the tournament begins."}
-                    </p>
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                      {groupLabels.map((group) => (
-                        <GroupPredictionGrid key={group} group={group} participantsList={visibleParticipants} />
-                      ))}
-                    </div>
+              <div className="space-y-10">
+                <div>
+                  <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white mb-4">
+                    Group Finishing Order Predictions
+                  </h2>
+                  <p className="text-sm text-gray-400 mb-6">
+                    {tier1Revealed
+                      ? "Each participant predicted the finishing order for all 12 groups. Green shading = predicted to advance (1st/2nd)."
+                      : "Specific picks will be revealed when the tournament begins. You can see your own picks below."}
+                  </p>
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    {groupLabels.map((group) => (
+                      <GroupPredictionGrid key={group} group={group} participantsList={visibleParticipants} picksRevealed={tier1Revealed} />
+                    ))}
                   </div>
                 </div>
-              )
+              </div>
             }
             bonusContent={
-              !tier1Revealed && !user ? (
-                <HiddenPicksBanner revealDate={TOURNAMENT_START} tier={1} />
-              ) : (
-                <BonusPicksSection participantsList={visibleParticipants} />
-              )
+              <BonusPicksSection participantsList={visibleParticipants} picksRevealed={tier1Revealed} />
             }
             bracketContent={
               <Card className="border-gold/20 bg-gold/5">
@@ -486,16 +488,10 @@ export default function PicksPage() {
               </Card>
             }
             participantsContent={
-              !tier1Revealed && !user ? (
-                <HiddenPicksBanner revealDate={TOURNAMENT_START} tier={1} />
-              ) : visibleParticipants.length === 0 ? (
+              visibleParticipants.length === 0 ? (
                 <div className="text-center py-12">
                   <span className="text-4xl block mb-3" aria-hidden>👤</span>
-                  <p className="text-gray-400 text-sm">
-                    {tier1Revealed
-                      ? "No participants have submitted picks yet."
-                      : "Only your own picks are shown until the tournament begins. Other participants' picks will be revealed on " + formatRevealDate(TOURNAMENT_START) + "."}
-                  </p>
+                  <p className="text-gray-400 text-sm">No participants have submitted picks yet.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
