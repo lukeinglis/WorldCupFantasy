@@ -69,7 +69,10 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
 
   for (const group of standings) {
     if (group.standings.length < 4) {
-      // Not enough teams in standings yet
+      log.warn(
+        { group: group.group, teamCount: group.standings.length },
+        "group has fewer than 4 teams in standings, skipping"
+      );
       isComplete = false;
       continue;
     }
@@ -86,9 +89,17 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
       sorted[2]?.team.tla ?? "",
       sorted[3]?.team.tla ?? "",
     ];
+
+    log.debug(
+      { group: group.group, order: groups[group.group], allPlayed },
+      "group standings resolved"
+    );
   }
 
-  log.info({ groupCount: Object.keys(groups).length, isComplete }, "getLiveGroupResults");
+  log.info(
+    { groupCount: Object.keys(groups).length, totalGroups: standings.length, isComplete },
+    "getLiveGroupResults"
+  );
   return { groups, isComplete };
 }
 
