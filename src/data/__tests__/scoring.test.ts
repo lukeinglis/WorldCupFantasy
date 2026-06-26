@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   scoreGroupPrediction,
   scoreTier1Groups,
@@ -9,6 +9,7 @@ import {
   calculateAllPoints,
   setActualGroupResults,
   setActualBonusResults,
+  setActualKnockoutResults,
   actualBonusResults,
   fuzzyPlayerMatch,
 } from "../scoring";
@@ -352,5 +353,74 @@ describe("calculateAllPoints", () => {
     const result = calculateAllPoints([p]);
     expect(result[0].id).toBe("p1");
     expect(result[0].name).toBe("Alice");
+  });
+});
+
+describe("scoreTier2Bracket with knockout results", () => {
+  afterEach(() => {
+    setActualKnockoutResults(null);
+  });
+
+  it("returns 0 with no knockout results set", () => {
+    expect(scoreTier2Bracket(makeParticipant({ knockoutPicks: [
+      { round: "round_of_32", matchNumber: 1, winner: "GER" },
+    ]}))).toBe(0);
+  });
+
+  it("awards round_of_32 points (2) for correct prediction", () => {
+    setActualKnockoutResults({ "round_of_32_1": "GER" });
+    expect(scoreTier2Bracket(makeParticipant({ knockoutPicks: [
+      { round: "round_of_32", matchNumber: 1, winner: "GER" },
+    ]}))).toBe(2);
+  });
+
+  it("awards 0 for wrong prediction", () => {
+    setActualKnockoutResults({ "round_of_32_1": "FRA" });
+    expect(scoreTier2Bracket(makeParticipant({ knockoutPicks: [
+      { round: "round_of_32", matchNumber: 1, winner: "GER" },
+    ]}))).toBe(0);
+  });
+
+  it("awards points per round correctly", () => {
+    setActualKnockoutResults({
+      "round_of_32_1": "GER",
+      "round_of_16_1": "GER",
+      "quarter_1": "GER",
+      "semi_1": "GER",
+      "final_1": "GER",
+    });
+    expect(scoreTier2Bracket(makeParticipant({ knockoutPicks: [
+      { round: "round_of_32", matchNumber: 1, winner: "GER" },
+      { round: "round_of_16", matchNumber: 1, winner: "GER" },
+      { round: "quarter", matchNumber: 1, winner: "GER" },
+      { round: "semi", matchNumber: 1, winner: "GER" },
+      { round: "final", matchNumber: 1, winner: "GER" },
+    ]}))).toBe(2 + 4 + 6 + 8 + 10); // 30
+  });
+
+  it("ignores matches without actual results", () => {
+    setActualKnockoutResults({ "round_of_32_1": "GER" });
+    expect(scoreTier2Bracket(makeParticipant({ knockoutPicks: [
+      { round: "round_of_32", matchNumber: 1, winner: "GER" },
+      { round: "round_of_32", matchNumber: 2, winner: "FRA" }, // no actual result for match 2
+    ]}))).toBe(2);
+  });
+
+  it("returns 0 with empty knockout picks", () => {
+    setActualKnockoutResults({ "round_of_32_1": "GER" });
+    expect(scoreTier2Bracket(makeParticipant({ knockoutPicks: [] }))).toBe(0);
+  });
+
+  it("handles multiple correct and incorrect predictions", () => {
+    setActualKnockoutResults({
+      "round_of_32_1": "GER",
+      "round_of_32_2": "BRA",
+      "round_of_16_1": "FRA",
+    });
+    expect(scoreTier2Bracket(makeParticipant({ knockoutPicks: [
+      { round: "round_of_32", matchNumber: 1, winner: "GER" }, // correct: 2
+      { round: "round_of_32", matchNumber: 2, winner: "ARG" }, // wrong: 0
+      { round: "round_of_16", matchNumber: 1, winner: "FRA" }, // correct: 4
+    ]}))).toBe(6);
   });
 });

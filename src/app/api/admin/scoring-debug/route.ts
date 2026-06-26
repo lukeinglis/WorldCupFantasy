@@ -6,12 +6,14 @@ import { isApiConfigured } from "@/lib/football-api";
 import {
   getLiveGroupResults,
   getLiveBonusResults,
+  getLiveKnockoutResults,
   getLiveTournamentStatus,
 } from "@/lib/live-scoring";
 import {
   calculateAllPoints,
   setActualGroupResults,
   setActualBonusResults,
+  setActualKnockoutResults,
   fuzzyPlayerMatch,
 } from "@/data/scoring";
 import { getLogger } from "@/lib/logger";
@@ -40,12 +42,14 @@ export async function GET(request: Request) {
 
   let groupResults = null;
   let bonusResults = null;
+  let knockoutResults = null;
   let tournamentStatus = null;
 
   if (apiConfigured) {
-    [groupResults, bonusResults, tournamentStatus] = await Promise.all([
+    [groupResults, bonusResults, knockoutResults, tournamentStatus] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
+      getLiveKnockoutResults(),
       getLiveTournamentStatus(),
     ]);
   }
@@ -57,6 +61,7 @@ export async function GET(request: Request) {
 
     if (groupResults) setActualGroupResults(groupResults.groups);
     if (bonusResults) setActualBonusResults(bonusResults);
+    if (knockoutResults) setActualKnockoutResults(knockoutResults.results);
 
     const withPoints = calculateAllPoints(participants);
 
@@ -81,6 +86,7 @@ export async function GET(request: Request) {
     kvConfigured,
     groupResults,
     bonusResults,
+    knockoutResults,
     tournamentStatus,
     scoredParticipants,
   });
