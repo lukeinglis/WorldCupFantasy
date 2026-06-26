@@ -27,6 +27,8 @@ interface ParticipantPicks {
     goldenBall: string;
     tiebreaker: { homeScore: number; awayScore: number };
     submittedAt: string;
+    tier2Submitted?: boolean;
+    knockoutPicks?: { round: string; matchNumber: number; winner: string }[];
   } | null;
 }
 
@@ -585,6 +587,145 @@ function ParticipantDetail({ participant }: { participant: ParticipantPicks }) {
   );
 }
 
+const KNOCKOUT_ROUND_ORDER = ["round_of_32", "round_of_16", "quarter", "semi", "final"];
+const KNOCKOUT_ROUND_LABELS: Record<string, string> = {
+  round_of_32: "Round of 32",
+  round_of_16: "Round of 16",
+  quarter: "Quarterfinals",
+  semi: "Semifinals",
+  final: "Final",
+};
+
+function KnockoutBracketSection({
+  participantsList,
+  currentUserId,
+}: {
+  participantsList: ParticipantPicks[];
+  currentUserId?: string;
+}) {
+  const tier2Revealed = areTier2PicksRevealed();
+  const withTier2 = participantsList.filter(
+    (p) => p.picks?.tier2Submitted && (p.picks?.knockoutPicks?.length ?? 0) > 0
+  );
+
+  if (!tier2Revealed) {
+    return (
+      <Card className="border-gold/20 bg-gold/5">
+        <CardBody className="py-12 text-center">
+          <span className="text-5xl block mb-4" aria-hidden>🔒</span>
+          <h3 className="font-heading text-xl font-bold text-white mb-2">
+            Knockout Bracket Picks Hidden
+          </h3>
+          <p className="text-sm text-gray-400 max-w-md mx-auto">
+            Tier 2 picks will be revealed when the knockout stage begins on{" "}
+            <span className="text-gold font-medium">{formatRevealDate(KNOCKOUT_START)}</span>.
+          </p>
+          {withTier2.length > 0 && (
+            <p className="text-xs text-gray-500 mt-3">
+              {withTier2.length} participant{withTier2.length !== 1 ? "s have" : " has"} submitted knockout picks.
+            </p>
+          )}
+        </CardBody>
+      </Card>
+    );
+  }
+
+  if (withTier2.length === 0) {
+    return (
+      <Card className="border-gold/20 bg-gold/5">
+        <CardBody className="py-12 text-center">
+          <span className="text-4xl block mb-3" aria-hidden>🏆</span>
+          <p className="text-gray-400 text-sm">No knockout bracket picks have been submitted yet.</p>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <p className="text-sm text-gray-400">
+        Each participant picked the winner of every knockout match. Points increase each round.
+      </p>
+      {KNOCKOUT_ROUND_ORDER.map((round) => {
+        const roundPicks = withTier2.flatMap((p) =>
+          (p.picks?.knockoutPicks ?? [])
+            .filter((pick) => pick.round === round)
+            .map((pick) => ({ ...pick, participantName: p.name, participantId: p.id }))
+        );
+
+        if (roundPicks.length === 0) return null;
+
+        // Get unique match numbers in this round
+        const matchNumbers = [
+          ...new Set(roundPicks.map((p) => p.matchNumber)),
+        ].sort((a, b) => a - b);
+
+        return (
+          <div key={round}>
+            <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-gold mb-4">
+              {KNOCKOUT_ROUND_LABELS[round] ?? round}
+            </h3>
+            <div className="space-y-3">
+              {matchNumbers.map((matchNum) => {
+                const matchPicks = roundPicks.filter(
+                  (p) => p.matchNumber === matchNum
+                );
+                // Count how many picked each team
+                const counts: Record<string, { count: number; names: string[] }> = {};
+                for (const pick of matchPicks) {
+                  if (!counts[pick.winner]) counts[pick.winner] = { count: 0, names: [] };
+                  counts[pick.winner].count += 1;
+                  counts[pick.winner].names.push(pick.participantName);
+                }
+                const sortedTeams = Object.entries(counts).sort(
+                  (a, b) => b[1].count - a[1].count
+                );
+
+                return (
+                  <div
+                    key={`${round}-${matchNum}`}
+                    className="rounded-lg border border-gold/10 bg-navy-light/60 p-3"
+                  >
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wider font-medium mb-2">
+                      Match {matchNum}
+                    </p>
+                    <div className="space-y-1.5">
+                      {sortedTeams.map(([teamCode, data]) => {
+                        const team = getTeamByCode(teamCode);
+                        const isUserPick = matchPicks.some(
+                          (p) =>
+                            p.participantId === currentUserId &&
+                            p.winner === teamCode
+                        );
+                        return (
+                          <div
+                            key={teamCode}
+                            className={`flex items-center gap-2 rounded px-2 py-1.5 ${
+                              isUserPick ? "bg-gold/10 border border-gold/20" : ""
+                            }`}
+                          >
+                            <span className="text-base">{team?.flag ?? ""}</span>
+                            <span className="text-sm text-gray-300 font-medium">
+                              {team?.name ?? teamCode}
+                            </span>
+                            <span className="ml-auto text-xs text-gray-500">
+                              {data.count}/{withTier2.length}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface StandingsData {
   group: string;
   standings: GroupStanding[];
@@ -728,18 +869,10 @@ export default function PicksPage() {
               <BonusPicksSection participantsList={visibleParticipants} picksRevealed={tier1Revealed} />
             }
             bracketContent={
-              <Card className="border-gold/20 bg-gold/5">
-                <CardBody className="py-12 text-center">
-                  <span className="text-5xl block mb-4" aria-hidden>🔒</span>
-                  <h3 className="font-heading text-xl font-bold text-white mb-2">
-                    Knockout Bracket Not Yet Available
-                  </h3>
-                  <p className="text-sm text-gray-400 max-w-md mx-auto">
-                    The knockout bracket will be available after the group stage ends on June 27, 2026.
-                    Tier 2 picks must be submitted before the Round of 32 begins on June 28.
-                  </p>
-                </CardBody>
-              </Card>
+              <KnockoutBracketSection
+                participantsList={visibleParticipants}
+                currentUserId={user?.id}
+              />
             }
             participantsContent={
               visibleParticipants.length === 0 ? (
