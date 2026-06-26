@@ -106,11 +106,26 @@ function TeamButton({
   );
 }
 
+const LOCKED_STATUSES = new Set(["IN_PLAY", "FINISHED", "PAUSED"]);
+
 export default function BracketPicker({
   knockoutMatches,
   picks,
   onPicksChange,
 }: BracketPickerProps) {
+  // Compute which matches are locked (started or finished)
+  const lockedMatches = useMemo(() => {
+    const locked = new Set<string>();
+    const now = new Date();
+    for (const m of knockoutMatches) {
+      const key = `${m.round}_${m.matchNumber}`;
+      if (LOCKED_STATUSES.has(m.status) || (m.utcDate && new Date(m.utcDate) <= now)) {
+        locked.add(key);
+      }
+    }
+    return locked;
+  }, [knockoutMatches]);
+
   // Index picks for fast lookup
   const picksMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -296,12 +311,15 @@ export default function BracketPicker({
                   const homeTeam = derived?.home ?? null;
                   const awayTeam = derived?.away ?? null;
                   const selectedWinner = picksMap.get(matchKey) ?? null;
+                  const isLocked = lockedMatches.has(matchKey);
 
                   return (
                     <div
                       key={matchKey}
                       className={`rounded-xl border overflow-hidden transition-all duration-200 ${
-                        selectedWinner
+                        isLocked
+                          ? "border-white/5 bg-navy-light/40 opacity-60"
+                          : selectedWinner
                           ? "border-gold/30 bg-navy-light/80"
                           : "border-white/10 bg-navy-light/60"
                       }`}
@@ -310,18 +328,22 @@ export default function BracketPicker({
                         <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">
                           Match {matchNumber}
                         </span>
-                        {selectedWinner && (
+                        {isLocked ? (
+                          <span className="text-[10px] text-gray-600 font-medium">
+                            🔒 Locked
+                          </span>
+                        ) : selectedWinner ? (
                           <span className="text-[10px] text-gold font-medium">
                             Picked
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <div className="p-3 flex gap-2">
                         <TeamButton
                           teamCode={homeTeam}
                           isSelected={selectedWinner === homeTeam && !!homeTeam}
                           onClick={() => homeTeam && handlePick(round, matchNumber, homeTeam)}
-                          disabled={!homeTeam}
+                          disabled={!homeTeam || isLocked}
                         />
                         <div className="flex items-center px-1">
                           <span className="text-xs text-gray-700 font-bold">
@@ -332,7 +354,7 @@ export default function BracketPicker({
                           teamCode={awayTeam}
                           isSelected={selectedWinner === awayTeam && !!awayTeam}
                           onClick={() => awayTeam && handlePick(round, matchNumber, awayTeam)}
-                          disabled={!awayTeam}
+                          disabled={!awayTeam || isLocked}
                         />
                       </div>
                     </div>
