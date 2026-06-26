@@ -5,14 +5,15 @@ import { knockoutRoundMatchCounts } from "@/data/participants";
 
 export const dynamic = "force-dynamic";
 
-const KNOCKOUT_STAGES = ["round_of_32", "round_of_16", "quarter", "semi", "final"];
+const KNOCKOUT_STAGES = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
 
 const STAGE_ORDER: Record<string, number> = {
   round_of_32: 0,
   round_of_16: 1,
   quarter: 2,
   semi: 3,
-  final: 4,
+  third_place: 4,
+  final: 5,
 };
 
 export interface KnockoutMatchResponse {

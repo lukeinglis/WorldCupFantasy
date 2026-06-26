@@ -193,7 +193,7 @@ async function handleTier2Submission(body: any, userId: string, log: any) {
     );
   }
 
-  const validRounds = ["round_of_32", "round_of_16", "quarter", "semi", "final"];
+  const validRounds = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
   for (const pick of knockoutPicks) {
     if (
       !pick ||

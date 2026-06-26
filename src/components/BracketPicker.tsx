@@ -25,16 +25,18 @@ const ROUND_LABELS: Record<string, string> = {
   round_of_16: "Round of 16",
   quarter: "Quarterfinals",
   semi: "Semifinals",
+  third_place: "Third Place Playoff",
   final: "Final",
 };
 
-const ROUND_ORDER = ["round_of_32", "round_of_16", "quarter", "semi", "final"];
+const ROUND_ORDER = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
 
 const ROUND_POINTS: Record<string, number> = {
   round_of_32: 2,
   round_of_16: 4,
   quarter: 6,
   semi: 8,
+  third_place: 8,
   final: 10,
 };
 
@@ -141,6 +143,7 @@ export default function BracketPicker({
 
     // Propagate winners into next round slots
     for (const round of ROUND_ORDER) {
+      if (round === "third_place") continue;
       const matchCount = knockoutRoundMatchCounts[round] ?? 0;
       for (let m = 1; m <= matchCount; m++) {
         const winner = picksMap.get(`${round}_${m}`);
@@ -157,6 +160,24 @@ export default function BracketPicker({
         });
       }
     }
+
+    // Derive third-place match teams from semifinal losers
+    const thirdPlaceTeams: { home: string | null; away: string | null } =
+      derived.get("third_place_1") ?? { home: null, away: null };
+
+    for (let sfMatch = 1; sfMatch <= 2; sfMatch++) {
+      const sfKey = `semi_${sfMatch}`;
+      const sfWinner = picksMap.get(sfKey);
+      const sfTeams = derived.get(sfKey);
+      if (sfWinner && sfTeams) {
+        const loser = sfTeams.home === sfWinner ? sfTeams.away : sfTeams.home;
+        if (loser) {
+          if (sfMatch === 1) thirdPlaceTeams.home = loser;
+          else thirdPlaceTeams.away = loser;
+        }
+      }
+    }
+    derived.set("third_place_1", thirdPlaceTeams);
 
     return derived;
   }, [knockoutMatches, picksMap]);

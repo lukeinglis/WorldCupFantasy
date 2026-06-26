@@ -525,6 +525,7 @@ function Tier2SubmittedSummary({
     "round_of_16",
     "quarter",
     "semi",
+    "third_place",
     "final",
   ];
   const roundLabels: Record<string, string> = {
@@ -532,6 +533,7 @@ function Tier2SubmittedSummary({
     round_of_16: "R16",
     quarter: "QF",
     semi: "SF",
+    third_place: "3rd Place",
     final: "Final",
   };
 

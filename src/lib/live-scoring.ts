@@ -223,7 +223,7 @@ export async function getLiveKnockoutResults(): Promise<LiveKnockoutResults | nu
     return null;
   }
 
-  const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "final"];
+  const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
   const knockoutMatches = matches.filter(m => knockoutStages.includes(m.stage));
 
   const results: Record<string, string> = {};
