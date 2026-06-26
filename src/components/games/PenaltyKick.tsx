@@ -118,11 +118,6 @@ export default function PenaltyKick({ onClose, onScoreSubmit }: PenaltyKickProps
     streakRef.current = streak;
   }, [streak]);
 
-  useEffect(() => {
-    const saved = getHighScore();
-    if (saved !== 0) setHighScore(saved);
-  }, []);
-
   const shoot = useCallback((zone: Zone) => {
     if (gameState !== "ready") return;
 
