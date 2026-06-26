@@ -820,6 +820,29 @@ export default function MyPicksPage() {
         <section className="py-10 sm:py-14">
           <Container>
             <div className="max-w-4xl mx-auto">
+              {/* Tier 2 Section (shown first when tournament is underway) */}
+              {showTier2 && (
+                <div className="mb-12">
+                  <div className="flex items-center gap-3 mb-8">
+                    <span className="text-3xl" aria-hidden>🏆</span>
+                    <div>
+                      <h2 className="font-heading text-2xl font-bold text-gold">
+                        Tier 2: Knockout Bracket
+                      </h2>
+                      <p className="text-sm text-gray-400">
+                        Picks lock on June 28, 2026 when the Round of 32 begins.
+                      </p>
+                    </div>
+                  </div>
+                  <Tier2Section
+                    user={user!}
+                    existingKnockoutPicks={existingKnockoutPicks}
+                    existingGoldenBall={existingGoldenBall}
+                    tier2Submitted={existingTier2Submitted}
+                  />
+                </div>
+              )}
+
               {/* Tier 1 Success banner */}
               <Card className="border-accent/20 mb-8">
                 <CardBody className="py-8 text-center">
@@ -912,28 +935,6 @@ export default function MyPicksPage() {
                 </CardBody>
               </Card>
 
-              {/* Tier 2 Section */}
-              {showTier2 && (
-                <div className="border-t border-gold/20 pt-12">
-                  <div className="flex items-center gap-3 mb-8">
-                    <span className="text-3xl" aria-hidden>🏆</span>
-                    <div>
-                      <h2 className="font-heading text-2xl font-bold text-gold">
-                        Tier 2: Knockout Bracket
-                      </h2>
-                      <p className="text-sm text-gray-400">
-                        Picks lock on June 28, 2026 when the Round of 32 begins.
-                      </p>
-                    </div>
-                  </div>
-                  <Tier2Section
-                    user={user!}
-                    existingKnockoutPicks={existingKnockoutPicks}
-                    existingGoldenBall={existingGoldenBall}
-                    tier2Submitted={existingTier2Submitted}
-                  />
-                </div>
-              )}
             </div>
           </Container>
         </section>
