@@ -102,6 +102,54 @@ interface GroupStanding {
   played: number;
 }
 
+interface MatchResult {
+  group: string;
+  homeTeam: { tla: string; shortName: string; crest: string | null };
+  awayTeam: { tla: string; shortName: string; crest: string | null };
+  score: { fullTime: { home: number | null; away: number | null } };
+}
+
+function computeStandingsFromGroupMatches(matches: MatchResult[]): Record<string, GroupStanding[]> {
+  const stats = new Map<string, {
+    group: string; tla: string; shortName: string; crest: string | null;
+    played: number; won: number; draw: number; lost: number; gf: number; ga: number; pts: number;
+  }>();
+
+  for (const m of matches) {
+    const hKey = `${m.group}-${m.homeTeam.tla}`;
+    const aKey = `${m.group}-${m.awayTeam.tla}`;
+    if (!stats.has(hKey)) stats.set(hKey, { group: m.group, tla: m.homeTeam.tla, shortName: m.homeTeam.shortName, crest: m.homeTeam.crest, played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, pts: 0 });
+    if (!stats.has(aKey)) stats.set(aKey, { group: m.group, tla: m.awayTeam.tla, shortName: m.awayTeam.shortName, crest: m.awayTeam.crest, played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, pts: 0 });
+
+    const h = stats.get(hKey)!;
+    const a = stats.get(aKey)!;
+    const hg = m.score.fullTime.home ?? 0;
+    const ag = m.score.fullTime.away ?? 0;
+
+    h.played++; a.played++; h.gf += hg; h.ga += ag; a.gf += ag; a.ga += hg;
+    if (hg > ag) { h.won++; h.pts += 3; a.lost++; }
+    else if (hg < ag) { a.won++; a.pts += 3; h.lost++; }
+    else { h.draw++; a.draw++; h.pts++; a.pts++; }
+  }
+
+  const grouped = new Map<string, typeof stats extends Map<string, infer V> ? V[] : never>();
+  for (const s of stats.values()) {
+    if (!grouped.has(s.group)) grouped.set(s.group, []);
+    grouped.get(s.group)!.push(s);
+  }
+
+  const result: Record<string, GroupStanding[]> = {};
+  for (const [group, teams] of grouped) {
+    teams.sort((a, b) => (b.pts - a.pts) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
+    result[group] = teams.map((t, i) => ({
+      position: i + 1,
+      team: { tla: t.tla, shortName: t.shortName, crest: t.crest },
+      played: t.played,
+    }));
+  }
+  return result;
+}
+
 function GroupPredictionGrid({
   group,
   participantsList,
@@ -555,22 +603,41 @@ export default function PicksPage() {
     async function fetchData() {
       try {
         const url = user ? `/api/participants?userId=${user.id}` : "/api/participants";
-        const [participantsRes, standingsRes] = await Promise.all([
+        const [participantsRes, standingsRes, matchesRes] = await Promise.all([
           fetch(url),
           fetch("/api/football/standings"),
+          fetch("/api/football/matches"),
         ]);
 
         const participantsData = await participantsRes.json();
         setKvConfigured(participantsData.kvConfigured !== false);
         setParticipantsList(participantsData.participants ?? []);
 
+        // Try standings endpoint first
+        let gotStandings = false;
         if (standingsRes.ok) {
           const standingsData = await standingsRes.json();
           const map: Record<string, GroupStanding[]> = {};
           for (const g of (standingsData.standings ?? []) as StandingsData[]) {
             map[g.group] = g.standings;
           }
-          setStandingsMap(map);
+          if (Object.keys(map).length > 0) {
+            setStandingsMap(map);
+            gotStandings = true;
+          }
+        }
+
+        // Fallback: compute from match results
+        if (!gotStandings && matchesRes.ok) {
+          const matchesData = await matchesRes.json();
+          const matches = matchesData.matches ?? [];
+          const groupMatches = matches.filter(
+            (m: { stage: string; status: string; group: string | null }) =>
+              m.stage === "group" && m.status === "FINISHED" && m.group
+          );
+          if (groupMatches.length > 0) {
+            setStandingsMap(computeStandingsFromGroupMatches(groupMatches));
+          }
         }
       } catch {
         // Silently fail, show empty state
