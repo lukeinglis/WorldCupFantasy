@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardHeader } from "@/components/Card";
+import BonusPicksComparison from "@/components/leaderboard/BonusPicksComparison";
 import {
   TIER1_MAX,
   TIER2_MAX,
@@ -247,6 +249,13 @@ export default async function LeaderboardPage() {
               </div>
             )}
           </Card>
+
+          {/* Bonus Picks Comparison */}
+          <div className="mt-10">
+            <Suspense>
+              <BonusPicksComparison />
+            </Suspense>
+          </div>
 
           {/* Scoring Key */}
           <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -10,10 +10,19 @@ import {
   TIER2_MAX,
   OVERALL_MAX,
 } from "@/data/participants";
+import {
+  calculateAllPoints,
+  setActualGroupResults,
+  setActualBonusResults,
+} from "@/data/scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
+import {
+  getLiveGroupResults,
+  getLiveBonusResults,
+} from "@/lib/live-scoring";
 import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
 
 export const dynamic = "force-dynamic";
@@ -82,8 +91,16 @@ function TierCard({
   );
 }
 
+function getMedalEmoji(rank: number): string {
+  switch (rank) {
+    case 1: return "🥇";
+    case 2: return "🥈";
+    case 3: return "🥉";
+    default: return "";
+  }
+}
+
 export default async function Home() {
-  // Fetch live data and participants in parallel
   const apiReady = isApiConfigured();
   const kvReady = isKvConfigured();
 
@@ -95,7 +112,34 @@ export default async function Home() {
 
   const kvParticipants = kvData.length > 0 ? buildParticipantsFromKv(kvData) : [];
 
-  // Compute popular group winner picks from real participants
+  // Inject live scoring for leaderboard preview
+  if (apiReady) {
+    const [groupResults, bonusResults] = await Promise.all([
+      getLiveGroupResults(),
+      getLiveBonusResults(),
+    ]);
+    if (groupResults) setActualGroupResults(groupResults.groups);
+    if (bonusResults) setActualBonusResults(bonusResults);
+  }
+
+  const withPoints = calculateAllPoints(kvParticipants);
+  const sorted = [...withPoints].sort((a, b) => {
+    const totalDiff = b.calculatedPoints.total - a.calculatedPoints.total;
+    if (totalDiff !== 0) return totalDiff;
+    const tier1Diff =
+      b.calculatedPoints.tier1Groups + b.calculatedPoints.tier1Bonus -
+      (a.calculatedPoints.tier1Groups + a.calculatedPoints.tier1Bonus);
+    if (tier1Diff !== 0) return tier1Diff;
+    return a.name.localeCompare(b.name);
+  });
+  const ranked = sorted.map((p, i) => ({
+    ...p,
+    rank: i + 1,
+    total: p.calculatedPoints.total,
+  }));
+  const top5 = ranked.slice(0, 5);
+
+  // Popular group winner picks
   const popularPicks: { group: string; team: string; count: number }[] = [];
   for (const group of groupLabels) {
     const dist: Record<string, number> = {};
@@ -135,6 +179,8 @@ export default async function Home() {
   }
 
   const hasTournamentData = matchesPlayed > 0 || liveMatches.length > 0;
+  const isTournamentActive = hasTournamentData;
+  const isGroupStageOver = matchesPlayed >= 48;
 
   return (
     <>
@@ -174,31 +220,59 @@ export default async function Home() {
               <CountdownTimer />
             </div>
 
-            {/* CTA buttons */}
+            {/* Phase-aware CTA buttons */}
             <div className="mt-10 flex flex-wrap justify-center gap-3 animate-fade-in-up animate-delay-200">
-              <Link
-                href="/join"
-                className="font-heading rounded-lg bg-accent px-8 py-3 text-base font-bold uppercase tracking-wide text-navy shadow-lg shadow-accent/20 transition-all hover:bg-green-300 hover:shadow-accent/40"
-              >
-                Join the Contest
-              </Link>
-              <Link
-                href="/picks"
-                className="font-heading rounded-lg bg-pitch px-6 py-3 text-base font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
-              >
-                View Picks
-              </Link>
-              <Link
-                href="/leaderboard"
-                className="font-heading rounded-lg border border-accent/40 px-6 py-3 text-base font-bold uppercase tracking-wide text-accent transition-all hover:bg-accent/10"
-              >
-                Leaderboard
-              </Link>
+              {isTournamentActive ? (
+                <>
+                  <Link
+                    href="/leaderboard"
+                    className="font-heading rounded-lg bg-accent px-8 py-3 text-base font-bold uppercase tracking-wide text-navy shadow-lg shadow-accent/20 transition-all hover:bg-green-300 hover:shadow-accent/40"
+                  >
+                    Leaderboard
+                  </Link>
+                  {isGroupStageOver ? (
+                    <Link
+                      href="/my-picks"
+                      className="font-heading rounded-lg bg-gold px-6 py-3 text-base font-bold uppercase tracking-wide text-navy shadow-lg shadow-gold/20 transition-all hover:bg-yellow-300 hover:shadow-gold/40"
+                    >
+                      Submit Tier 2 Picks
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/groups?tab=picks"
+                      className="font-heading rounded-lg bg-pitch px-6 py-3 text-base font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
+                    >
+                      View Picks
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/join"
+                    className="font-heading rounded-lg bg-accent px-8 py-3 text-base font-bold uppercase tracking-wide text-navy shadow-lg shadow-accent/20 transition-all hover:bg-green-300 hover:shadow-accent/40"
+                  >
+                    Join the Contest
+                  </Link>
+                  <Link
+                    href="/groups?tab=picks"
+                    className="font-heading rounded-lg bg-pitch px-6 py-3 text-base font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
+                  >
+                    View Picks
+                  </Link>
+                  <Link
+                    href="/leaderboard"
+                    className="font-heading rounded-lg border border-accent/40 px-6 py-3 text-base font-bold uppercase tracking-wide text-accent transition-all hover:bg-accent/10"
+                  >
+                    Leaderboard
+                  </Link>
+                </>
+              )}
               <Link
                 href="/rules"
                 className="font-heading rounded-lg border border-white/20 px-6 py-3 text-base font-bold uppercase tracking-wide text-gray-300 transition-all hover:bg-white/5"
               >
-                Contest Rules
+                Rules
               </Link>
             </div>
           </div>
@@ -221,6 +295,47 @@ export default async function Home() {
           </div>
         </Container>
       </section>
+
+      {/* Leaderboard Preview */}
+      {top5.length > 0 && (
+        <section className="py-8 border-b border-white/10 bg-navy-light/20">
+          <Container>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white">
+                Leaderboard
+              </h2>
+              <Link
+                href="/leaderboard"
+                className="text-sm text-accent hover:text-green-300 transition-colors"
+              >
+                Full Standings →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+              {top5.map((p) => (
+                <Card key={p.id} hover className="text-center">
+                  <CardBody className="py-4">
+                    <div className="mb-1">
+                      {p.rank <= 3 ? (
+                        <span className="text-2xl">{getMedalEmoji(p.rank)}</span>
+                      ) : (
+                        <span className="font-heading text-lg font-bold text-gray-500">{p.rank}</span>
+                      )}
+                    </div>
+                    <p className="font-heading text-sm font-bold text-white truncate">
+                      {p.name}
+                    </p>
+                    <p className="font-heading text-2xl font-bold text-accent mt-1">
+                      {p.total}
+                    </p>
+                    <p className="text-xs text-gray-500">points</p>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          </Container>
+        </section>
+      )}
 
       {/* Live Matches (if any) */}
       {liveMatches.length > 0 && (
@@ -296,7 +411,7 @@ export default async function Home() {
                 Recent Results
               </h2>
               <Link
-                href="/schedule"
+                href="/groups?tab=schedule"
                 className="text-sm text-accent hover:text-green-300 transition-colors"
               >
                 Full Schedule →
@@ -399,8 +514,11 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Two-Tier System */}
-      <section className="py-12 sm:py-16">
+      {/* Mini Games */}
+      <MiniGames />
+
+      {/* Two-Tier System (moved to bottom) */}
+      <section className="py-12 sm:py-16 border-t border-white/10">
         <Container>
           <div className="text-center mb-10">
             <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
@@ -438,8 +556,38 @@ export default async function Home() {
         </Container>
       </section>
 
-      {/* Popular Group Winners */}
+      {/* How It Works (collapsible/bottom) */}
       <section className="py-12 sm:py-16 border-t border-white/10 bg-navy-light/20">
+        <Container>
+          <div className="text-center mb-10">
+            <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
+              How It Works
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
+            {[
+              { step: "1", title: "Predict Groups", desc: "Before the tournament, predict the finishing order for all 12 groups plus bonus picks.", icon: "📊" },
+              { step: "2", title: "Watch Groups", desc: "Follow the group stage and see how your predictions hold up in real time.", icon: "📺" },
+              { step: "3", title: "Fill Your Bracket", desc: "Once the knockout bracket is set, predict winners for every match from R32 to the Final.", icon: "🏆" },
+              { step: "4", title: "Claim Victory", desc: "Total points from both tiers determine the champion. Tiebreaker: predicted final score.", icon: "👑" },
+            ].map((item) => (
+              <Card key={item.step} hover>
+                <CardBody className="text-center py-8">
+                  <span className="text-3xl mb-3 block" aria-hidden>{item.icon}</span>
+                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-pitch/20 text-accent font-heading font-bold text-sm mb-3">
+                    {item.step}
+                  </div>
+                  <h3 className="font-heading text-lg font-bold text-white">{item.title}</h3>
+                  <p className="mt-2 text-sm text-gray-400">{item.desc}</p>
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* Popular Group Winners (bottom) */}
+      <section className="py-12 sm:py-16 border-t border-white/10">
         <Container>
           <div className="text-center mb-10">
             <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
@@ -479,40 +627,7 @@ export default async function Home() {
         </Container>
       </section>
 
-      {/* Mini Games */}
-      <MiniGames />
-
-      {/* How It Works */}
-      <section className="py-12 sm:py-16 border-t border-white/10">
-        <Container>
-          <div className="text-center mb-10">
-            <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
-              How It Works
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
-            {[
-              { step: "1", title: "Predict Groups", desc: "Before the tournament, predict the finishing order for all 12 groups plus bonus picks.", icon: "📊" },
-              { step: "2", title: "Watch Groups", desc: "Follow the group stage and see how your predictions hold up in real time.", icon: "📺" },
-              { step: "3", title: "Fill Your Bracket", desc: "Once the knockout bracket is set, predict winners for every match from R32 to the Final.", icon: "🏆" },
-              { step: "4", title: "Claim Victory", desc: "Total points from both tiers determine the champion. Tiebreaker: predicted final score.", icon: "👑" },
-            ].map((item) => (
-              <Card key={item.step} hover>
-                <CardBody className="text-center py-8">
-                  <span className="text-3xl mb-3 block" aria-hidden>{item.icon}</span>
-                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-pitch/20 text-accent font-heading font-bold text-sm mb-3">
-                    {item.step}
-                  </div>
-                  <h3 className="font-heading text-lg font-bold text-white">{item.title}</h3>
-                  <p className="mt-2 text-sm text-gray-400">{item.desc}</p>
-                </CardBody>
-              </Card>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      {/* Key Dates */}
+      {/* Key Dates (bottom) */}
       <section className="py-12 sm:py-16 border-t border-white/10 bg-navy-light/20">
         <Container>
           <div className="text-center mb-10">
