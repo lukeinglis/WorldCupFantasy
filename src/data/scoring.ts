@@ -70,6 +70,17 @@ export function setActualGroupResults(
   actualGroupResults = results;
 }
 
+// Map knockout match results: key = "{round}_{matchNumber}", value = winning team TLA
+export let actualKnockoutResults: Record<string, string> | null = null;
+
+export function setActualKnockoutResults(
+  results: Record<string, string> | null
+): void {
+  const matchCount = results ? Object.keys(results).length : 0;
+  logger.info({ matchCount, hasResults: results !== null }, "knockout results updated");
+  actualKnockoutResults = results;
+}
+
 export function scoreGroupPrediction(
   prediction: GroupPrediction,
   actual: [string, string, string, string]
@@ -159,10 +170,19 @@ export function scoreTier1Bonus(participant: Participant): number {
 }
 
 export function scoreTier2Bracket(participant: Participant): number {
-  const points = 0;
+  if (!actualKnockoutResults) {
+    logger.debug({ participantId: participant.id }, "no knockout results available, returning 0");
+    return 0;
+  }
+
+  let points = 0;
   for (const pick of participant.knockoutPicks) {
-    const roundPts = knockoutRoundPoints[pick.round] ?? 0;
-    void roundPts;
+    const key = `${pick.round}_${pick.matchNumber}`;
+    const actualWinner = actualKnockoutResults[key];
+    if (actualWinner && pick.winner === actualWinner) {
+      const roundPts = knockoutRoundPoints[pick.round] ?? 0;
+      points += roundPts;
+    }
   }
   logger.debug({ participantId: participant.id, knockoutPicks: participant.knockoutPicks.length, tier2Bracket: points }, "tier 2 bracket scored");
   return points;
