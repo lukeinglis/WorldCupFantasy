@@ -7,6 +7,7 @@ import {
   scoreTier2Bonus,
   calculatePoints,
   calculateAllPoints,
+  calculatePotentialPoints,
   setActualGroupResults,
   setActualBonusResults,
   setActualKnockoutResults,
@@ -422,5 +423,149 @@ describe("scoreTier2Bracket with knockout results", () => {
       { round: "round_of_32", matchNumber: 2, winner: "ARG" }, // wrong: 0
       { round: "round_of_16", matchNumber: 1, winner: "FRA" }, // correct: 4
     ]}))).toBe(6);
+  });
+});
+
+describe("calculatePotentialPoints", () => {
+  afterEach(() => {
+    setActualGroupResults(null);
+    setActualKnockoutResults(null);
+    // Reset bonus results
+    setActualBonusResults({
+      goldenBoot: null,
+      mostGoalsTeam: null,
+      fewestConcededTeam: null,
+    });
+  });
+
+  it("returns full remaining when no results exist", () => {
+    const p = makeParticipant({
+      groupPredictions: [
+        { group: "A", order: ["USA", "MEX", "URU", "MAR"] },
+        { group: "B", order: ["ENG", "ESP", "CRO", "TUN"] },
+      ],
+      bonusPicks: {
+        goldenBoot: "Mbappe",
+        mostGoalsTeam: "GER",
+        fewestConcededTeam: "FRA",
+        goldenBall: "Messi",
+      },
+      knockoutPicks: [
+        { round: "round_of_32", matchNumber: 1, winner: "GER" },
+        { round: "final", matchNumber: 1, winner: "GER" },
+      ],
+    });
+    const result = calculatePotentialPoints(p);
+    // 2 groups x 12 = 24, 3 bonuses x 10 = 30, R32(2) + Final(10) = 12, Golden Ball = 10
+    expect(result.earned).toBe(0);
+    expect(result.remaining).toBe(24 + 30 + 12 + 10);
+    expect(result.maximum).toBe(76);
+  });
+
+  it("reduces remaining as group results come in", () => {
+    setActualGroupResults({
+      A: ["USA", "MEX", "URU", "MAR"],
+    });
+    const p = makeParticipant({
+      groupPredictions: [
+        { group: "A", order: ["USA", "MEX", "URU", "MAR"] },
+        { group: "B", order: ["ENG", "ESP", "CRO", "TUN"] },
+      ],
+    });
+    const result = calculatePotentialPoints(p);
+    // Group A decided (earned 12 exact), Group B undecided (12 remaining)
+    expect(result.earned).toBe(12);
+    expect(result.remaining).toBe(12);
+  });
+
+  it("reduces remaining as bonus results come in", () => {
+    setActualBonusResults({
+      goldenBoot: "Kane",
+      mostGoalsTeam: null,
+      fewestConcededTeam: null,
+    });
+    const p = makeParticipant({
+      bonusPicks: {
+        goldenBoot: "Mbappe", // wrong, but decided
+        mostGoalsTeam: "GER",
+        fewestConcededTeam: "FRA",
+        goldenBall: "",
+      },
+    });
+    const result = calculatePotentialPoints(p);
+    // goldenBoot decided (wrong, 0 earned, 0 remaining)
+    // mostGoalsTeam undecided (10 remaining)
+    // fewestConcededTeam undecided (10 remaining)
+    // goldenBall empty pick (0 remaining)
+    expect(result.remaining).toBe(20);
+  });
+
+  it("reduces remaining as knockout results come in", () => {
+    setActualKnockoutResults({
+      "round_of_32_1": "GER",
+    });
+    const p = makeParticipant({
+      knockoutPicks: [
+        { round: "round_of_32", matchNumber: 1, winner: "GER" }, // decided, correct
+        { round: "round_of_32", matchNumber: 2, winner: "BRA" }, // undecided
+        { round: "quarter", matchNumber: 1, winner: "FRA" },     // undecided
+      ],
+    });
+    const result = calculatePotentialPoints(p);
+    // R32_1 decided (2 earned, 0 remaining)
+    // R32_2 undecided (2 remaining)
+    // QF_1 undecided (6 remaining)
+    expect(result.earned).toBe(2);
+    expect(result.remaining).toBe(8);
+    expect(result.maximum).toBe(10);
+  });
+
+  it("returns 0 remaining when all results are in", () => {
+    setActualGroupResults({
+      A: ["USA", "MEX", "URU", "MAR"],
+    });
+    setActualBonusResults({
+      goldenBoot: "Mbappe",
+      mostGoalsTeam: "GER",
+      fewestConcededTeam: "FRA",
+    });
+    setActualKnockoutResults({
+      "round_of_32_1": "GER",
+    });
+    actualBonusResults.goldenBall = "Messi";
+
+    const p = makeParticipant({
+      groupPredictions: [
+        { group: "A", order: ["USA", "MEX", "URU", "MAR"] },
+      ],
+      bonusPicks: {
+        goldenBoot: "Mbappe",
+        mostGoalsTeam: "GER",
+        fewestConcededTeam: "FRA",
+        goldenBall: "Messi",
+      },
+      knockoutPicks: [
+        { round: "round_of_32", matchNumber: 1, winner: "GER" },
+      ],
+    });
+    const result = calculatePotentialPoints(p);
+    expect(result.remaining).toBe(0);
+    expect(result.earned).toBe(result.maximum);
+
+    actualBonusResults.goldenBall = null;
+  });
+
+  it("does not count remaining for empty bonus picks", () => {
+    const p = makeParticipant({
+      bonusPicks: {
+        goldenBoot: "",
+        mostGoalsTeam: "",
+        fewestConcededTeam: "",
+        goldenBall: "",
+      },
+    });
+    const result = calculatePotentialPoints(p);
+    // No bonus picks made, so 0 bonus remaining
+    expect(result.remaining).toBe(0);
   });
 });

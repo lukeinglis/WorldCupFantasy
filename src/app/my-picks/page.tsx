@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { Card, CardBody } from "@/components/Card";
 import { useAuth } from "@/components/AuthProvider";
 import { getTeamsByGroup, teams, groupLabels } from "@/data/teams";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -364,7 +365,8 @@ export default function MyPicksPage() {
     formData.mostGoalsTeam !== "" &&
     formData.fewestConcededTeam !== "" &&
     formData.tiebreakerGoals.trim() !== "";
-  const canSubmit = allGroupsDone && bonusComplete;
+  const tier1Locked = new Date() >= TOURNAMENT_START;
+  const canSubmit = allGroupsDone && bonusComplete && !tier1Locked;
 
   // Build list of what's missing
   const missing: string[] = [];
@@ -465,15 +467,19 @@ export default function MyPicksPage() {
                     Picks Submitted!
                   </h2>
                   <p className="text-gray-400 mb-4">
-                    Good luck! You can update your picks until June 11, 2026.
+                    {tier1Locked
+                      ? "Tier 1 picks are locked. The tournament is underway!"
+                      : "Good luck! You can update your picks until June 11, 2026."}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="font-heading rounded-lg bg-pitch px-8 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
-                  >
-                    Edit Picks
-                  </button>
+                  {!tier1Locked && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(true)}
+                      className="font-heading rounded-lg bg-pitch px-8 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
+                    >
+                      Edit Picks
+                    </button>
+                  )}
                 </CardBody>
               </Card>
 
@@ -548,6 +554,26 @@ export default function MyPicksPage() {
           </Container>
         </section>
       </>
+    );
+  }
+
+  // Tier 1 locked and user never submitted
+  if (tier1Locked && !existingPicks) {
+    return (
+      <section className="py-20">
+        <Container>
+          <div className="text-center max-w-lg mx-auto">
+            <span className="text-5xl block mb-4" aria-hidden>🔒</span>
+            <h2 className="font-heading text-2xl font-bold text-white mb-3">
+              Tier 1 Picks Are Locked
+            </h2>
+            <p className="text-gray-400">
+              The tournament has started and Tier 1 group predictions are no longer accepted.
+              Tier 2 knockout bracket picks will be available soon.
+            </p>
+          </div>
+        </Container>
+      </section>
     );
   }
 
