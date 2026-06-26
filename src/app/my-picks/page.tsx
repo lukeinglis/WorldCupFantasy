@@ -7,7 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { Card, CardBody } from "@/components/Card";
 import { useAuth } from "@/components/AuthProvider";
 import { getTeamsByGroup, teams, groupLabels, getTeamByCode } from "@/data/teams";
-import { TOURNAMENT_START, KNOCKOUT_START } from "@/lib/tournament-dates";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import { getCurrentPhase, knockoutRoundMatchCounts } from "@/data/participants";
 import BracketPicker from "@/components/BracketPicker";
 import type { KnockoutPick } from "@/data/participants";
@@ -299,8 +299,6 @@ function Tier2Section({
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
 
-  const tier2Locked = new Date() >= KNOCKOUT_START;
-
   useEffect(() => {
     async function fetchMatches() {
       try {
@@ -315,13 +313,32 @@ function Tier2Section({
     fetchMatches();
   }, []);
 
+  // Compute locked matches (started or finished)
+  const lockedMatchKeys = useMemo(() => {
+    const locked = new Set<string>();
+    const now = new Date();
+    const lockedStatuses = new Set(["IN_PLAY", "FINISHED", "PAUSED"]);
+    for (const m of knockoutMatches) {
+      const key = `${m.round}_${m.matchNumber}`;
+      if (lockedStatuses.has(m.status) || (m.utcDate && new Date(m.utcDate) <= now)) {
+        locked.add(key);
+      }
+    }
+    return locked;
+  }, [knockoutMatches]);
+
   const totalMatches = Object.values(knockoutRoundMatchCounts).reduce(
     (sum, c) => sum + c,
     0
   );
-  const allPicksMade = knockoutPicks.length === totalMatches;
+  const unlockedTotal = totalMatches - lockedMatchKeys.size;
+  const unlockedPicks = knockoutPicks.filter(
+    (p) => !lockedMatchKeys.has(`${p.round}_${p.matchNumber}`)
+  ).length;
+  const allUnlockedPicked = unlockedTotal > 0 ? unlockedPicks >= unlockedTotal : knockoutPicks.length === totalMatches;
+  const allMatchesLocked = lockedMatchKeys.size === totalMatches;
   const hasGoldenBall = goldenBall.trim() !== "";
-  const canSubmit = allPicksMade && hasGoldenBall && !tier2Locked;
+  const canSubmit = (allUnlockedPicked && hasGoldenBall) || (knockoutPicks.length > 0 && hasGoldenBall);
 
   async function handleTier2Submit() {
     if (!canSubmit) return;
@@ -358,7 +375,7 @@ function Tier2Section({
     }
   }
 
-  if (tier2Locked) {
+  if (allMatchesLocked) {
     if (submitted) {
       return (
         <Tier2SubmittedSummary
@@ -378,7 +395,7 @@ function Tier2Section({
             Tier 2 Picks Are Locked
           </h3>
           <p className="text-sm text-gray-400">
-            The knockout stage has started. Tier 2 picks are no longer accepted.
+            All knockout matches have started. Tier 2 picks are no longer accepted.
           </p>
         </CardBody>
       </Card>
@@ -458,17 +475,17 @@ function Tier2Section({
             Submit Tier 2
           </h2>
 
-          {!allPicksMade && (
+          {!allUnlockedPicked && (
             <div className="rounded-lg bg-white/[0.02] border border-white/5 px-4 py-3 mb-4">
               <p className="text-xs text-gray-500 mb-1.5 font-medium">
                 Still needed:
               </p>
               <ul className="space-y-0.5">
-                {!allPicksMade && (
+                {!allUnlockedPicked && (
                   <li className="text-xs text-gray-600 flex items-center gap-1.5">
                     <span className="text-gray-700">&#x2022;</span> Pick{" "}
-                    {totalMatches - knockoutPicks.length} more knockout match
-                    {totalMatches - knockoutPicks.length !== 1 ? "es" : ""}
+                    {unlockedTotal - unlockedPicks} more knockout match
+                    {unlockedTotal - unlockedPicks !== 1 ? "es" : ""}
                   </li>
                 )}
                 {!hasGoldenBall && (

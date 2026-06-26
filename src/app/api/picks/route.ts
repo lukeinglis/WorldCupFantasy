@@ -162,15 +162,6 @@ function handleTier1Submission(body: any, userId: string, log: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleTier2Submission(body: any, userId: string, log: any) {
-  // Enforce Tier 2 pick deadline
-  if (new Date() >= KNOCKOUT_START) {
-    log.warn({ userId }, "Tier 2 picks rejected: knockout stage has started");
-    return NextResponse.json(
-      { error: "Tier 2 picks are locked. The knockout stage has already started." },
-      { status: 403 }
-    );
-  }
-
   // Read existing picks (user must have Tier 1 picks already)
   const existing = await getPicks(userId);
   if (!existing) {
@@ -219,17 +210,87 @@ async function handleTier2Submission(body: any, userId: string, log: any) {
     );
   }
 
-  // Merge Tier 2 fields into existing picks
+  // Per-match locking: reject picks for matches already started or finished
+  const lockedMatches = await getLockedMatches(log);
+  const rejected: string[] = [];
+  const acceptedPicks = knockoutPicks.filter((pick) => {
+    const key = `${pick.round}_${pick.matchNumber}`;
+    if (lockedMatches.has(key)) {
+      rejected.push(key);
+      return false;
+    }
+    return true;
+  });
+
+  if (rejected.length > 0) {
+    log.info({ userId, rejected, accepted: acceptedPicks.length }, "some picks rejected (matches already started)");
+  }
+
+  // Merge: for locked matches, preserve existing picks; for unlocked, use new submissions
+  const preservedPicks = (existing.knockoutPicks ?? []).filter((p) =>
+    lockedMatches.has(`${p.round}_${p.matchNumber}`)
+  );
+  const finalPicks = [...preservedPicks, ...acceptedPicks];
+
   const merged: PicksRecord = {
     ...existing,
-    knockoutPicks,
+    knockoutPicks: finalPicks,
     goldenBall: goldenBall || "",
     tier2Submitted: true,
     submittedAt: new Date().toISOString(),
   };
 
   await savePicks(merged);
-  log.info({ userId, knockoutPicksCount: knockoutPicks.length }, "Tier 2 picks saved");
+  log.info({ userId, total: finalPicks.length, accepted: acceptedPicks.length, preserved: preservedPicks.length }, "Tier 2 picks saved");
 
-  return NextResponse.json({ success: true, submittedAt: merged.submittedAt });
+  return NextResponse.json({
+    success: true,
+    submittedAt: merged.submittedAt,
+    lockedMatches: rejected,
+  });
+}
+
+const KNOCKOUT_STAGES = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
+const STAGE_ORDER: Record<string, number> = {
+  round_of_32: 0, round_of_16: 1, quarter: 2, semi: 3, third_place: 4, final: 5,
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getLockedMatches(log: any): Promise<Set<string>> {
+  const locked = new Set<string>();
+
+  try {
+    const { getMatches, isApiConfigured } = await import("@/lib/football-api");
+    if (!isApiConfigured()) return locked;
+
+    const allMatches = await getMatches();
+    if (!allMatches) return locked;
+
+    const now = new Date();
+    const knockoutMatches = allMatches
+      .filter((m) => KNOCKOUT_STAGES.includes(m.stage))
+      .sort((a, b) => {
+        const sa = STAGE_ORDER[a.stage] ?? 99;
+        const sb = STAGE_ORDER[b.stage] ?? 99;
+        if (sa !== sb) return sa - sb;
+        return new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime();
+      });
+
+    const matchNumberByRound: Record<string, number> = {};
+    for (const m of knockoutMatches) {
+      if (!matchNumberByRound[m.stage]) matchNumberByRound[m.stage] = 1;
+      const matchNumber = matchNumberByRound[m.stage]++;
+      const matchDate = new Date(m.utcDate);
+
+      if (m.status === "IN_PLAY" || m.status === "FINISHED" || m.status === "PAUSED" || matchDate <= now) {
+        locked.add(`${m.stage}_${matchNumber}`);
+      }
+    }
+
+    log.info({ lockedCount: locked.size }, "computed locked matches");
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : String(err) }, "failed to compute locked matches, allowing all");
+  }
+
+  return locked;
 }
