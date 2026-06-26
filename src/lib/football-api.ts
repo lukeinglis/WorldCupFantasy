@@ -90,10 +90,10 @@ function safeStr(val: string | null | undefined, fallback = ""): string {
 
 // ── Group name extraction ──
 
-/** Convert "GROUP_A" to "A", "GROUP_L" to "L", etc. */
+/** Convert "GROUP_A", "Group A", "GROUP A" etc. to "A" */
 function extractGroupLetter(apiGroup: string | null): string {
   if (!apiGroup) return "";
-  return apiGroup.replace("GROUP_", "");
+  return apiGroup.replace(/^group[_ ]/i, "").trim();
 }
 
 /** Map API stage names to our internal stage names */
