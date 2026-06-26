@@ -205,6 +205,61 @@ export function calculatePoints(participant: Participant): Points {
   return { tier1Groups, tier1Bonus, tier2Bracket, tier2Bonus, total };
 }
 
+export interface PotentialPoints {
+  earned: number;
+  remaining: number;
+  maximum: number;
+}
+
+export function calculatePotentialPoints(participant: Participant): PotentialPoints {
+  const earned = calculatePoints(participant);
+
+  let remaining = 0;
+
+  // Groups: 12 pts max per group (4 teams x 3 pts exact position)
+  for (const gp of participant.groupPredictions) {
+    if (!actualGroupResults || !actualGroupResults[gp.group]) {
+      remaining += 12;
+    }
+  }
+
+  // Tier 1 bonuses: 10 pts each if undecided and participant made a pick
+  if (!actualBonusResults.goldenBoot && participant.bonusPicks.goldenBoot) {
+    remaining += 10;
+  }
+  if (!actualBonusResults.mostGoalsTeam && participant.bonusPicks.mostGoalsTeam) {
+    remaining += 10;
+  }
+  if (!actualBonusResults.fewestConcededTeam && participant.bonusPicks.fewestConcededTeam) {
+    remaining += 10;
+  }
+
+  // Knockout picks: round points if match not yet decided
+  for (const pick of participant.knockoutPicks) {
+    const key = `${pick.round}_${pick.matchNumber}`;
+    const actualWinner = actualKnockoutResults ? actualKnockoutResults[key] : undefined;
+    if (!actualWinner) {
+      remaining += knockoutRoundPoints[pick.round] ?? 0;
+    }
+  }
+
+  // Golden Ball: 10 pts if not yet decided and participant made a pick
+  if (!actualBonusResults.goldenBall && participant.bonusPicks.goldenBall) {
+    remaining += 10;
+  }
+
+  logger.debug(
+    { participantId: participant.id, earned: earned.total, remaining, maximum: earned.total + remaining },
+    "potential points calculated"
+  );
+
+  return {
+    earned: earned.total,
+    remaining,
+    maximum: earned.total + remaining,
+  };
+}
+
 export function calculateAllPoints(participants: Participant[]): (Participant & { calculatedPoints: Points })[] {
   logger.info({ count: participants.length }, "scoring all participants");
   return participants.map(p => ({
