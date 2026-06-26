@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPicks, savePicks, getUserById, type PicksRecord } from "@/lib/storage";
 import { getLogger } from "@/lib/logger";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
 
 // GET /api/picks?userId=xxx
 export async function GET(request: Request) {
@@ -79,6 +80,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "fewestConcededTeam must be a string." },
         { status: 400 }
+      );
+    }
+
+    // Enforce Tier 1 pick deadline
+    if (new Date() >= TOURNAMENT_START) {
+      postLog.warn({ userId }, "Tier 1 picks rejected: tournament has started");
+      return NextResponse.json(
+        { error: "Tier 1 picks are locked. The tournament has already started." },
+        { status: 403 }
       );
     }
 
