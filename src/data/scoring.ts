@@ -3,6 +3,45 @@ import { knockoutRoundPoints } from "./participants";
 import logger from "@/lib/logger";
 
 /**
+ * Normalize a player name for fuzzy comparison:
+ * lowercase, strip diacritics, collapse whitespace.
+ */
+function normalizeName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Fuzzy match for player names.
+ * Returns true if:
+ *   1. Normalized strings are equal, OR
+ *   2. One is a substring of the other (handles "Mbappe" vs "Kylian Mbappe"), OR
+ *   3. The last word of each string matches (handles "K. Mbappe" vs "Kylian Mbappe")
+ */
+export function fuzzyPlayerMatch(pick: string, actual: string): boolean {
+  if (!pick || !actual) return false;
+  const a = normalizeName(pick);
+  const b = normalizeName(actual);
+  if (!a || !b) return false;
+
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+
+  const aWords = a.split(" ");
+  const bWords = b.split(" ");
+  const aLast = aWords[aWords.length - 1];
+  const bLast = bWords[bWords.length - 1];
+  if (aLast.length >= 3 && aLast === bLast) return true;
+
+  return false;
+}
+
+/**
  * Tier 1 Group Scoring
  *
  * In the 2026 format (48 teams, 12 groups of 4):
@@ -106,7 +145,7 @@ export function setActualBonusResults(results: {
 
 export function scoreTier1Bonus(participant: Participant): number {
   let points = 0;
-  if (actualBonusResults.goldenBoot && participant.bonusPicks.goldenBoot === actualBonusResults.goldenBoot) {
+  if (actualBonusResults.goldenBoot && fuzzyPlayerMatch(participant.bonusPicks.goldenBoot, actualBonusResults.goldenBoot)) {
     points += 10;
   }
   if (actualBonusResults.mostGoalsTeam && participant.bonusPicks.mostGoalsTeam === actualBonusResults.mostGoalsTeam) {
@@ -130,7 +169,7 @@ export function scoreTier2Bracket(participant: Participant): number {
 }
 
 export function scoreTier2Bonus(participant: Participant): number {
-  const points = (actualBonusResults.goldenBall && participant.bonusPicks.goldenBall === actualBonusResults.goldenBall) ? 10 : 0;
+  const points = (actualBonusResults.goldenBall && fuzzyPlayerMatch(participant.bonusPicks.goldenBall, actualBonusResults.goldenBall)) ? 10 : 0;
   logger.debug({ participantId: participant.id, tier2Bonus: points }, "tier 2 bonus scored");
   return points;
 }

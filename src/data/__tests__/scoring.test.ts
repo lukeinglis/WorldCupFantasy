@@ -10,6 +10,7 @@ import {
   setActualGroupResults,
   setActualBonusResults,
   actualBonusResults,
+  fuzzyPlayerMatch,
 } from "../scoring";
 import type { Participant, GroupPrediction } from "../participants";
 
@@ -138,6 +139,45 @@ describe("scoreTier1Groups", () => {
   });
 });
 
+describe("fuzzyPlayerMatch", () => {
+  it("matches exact names", () => {
+    expect(fuzzyPlayerMatch("Lionel Messi", "Lionel Messi")).toBe(true);
+  });
+
+  it("matches case-insensitive", () => {
+    expect(fuzzyPlayerMatch("lionel messi", "Lionel Messi")).toBe(true);
+  });
+
+  it("matches with accents stripped", () => {
+    expect(fuzzyPlayerMatch("Kylian Mbappe", "Kylian Mbappé")).toBe(true);
+  });
+
+  it("matches last name only", () => {
+    expect(fuzzyPlayerMatch("Mbappe", "Kylian Mbappé")).toBe(true);
+  });
+
+  it("matches substring (first + last vs full)", () => {
+    expect(fuzzyPlayerMatch("Vinicius Junior", "Vinícius José Paixão de Oliveira Júnior")).toBe(true);
+  });
+
+  it("matches last word when >= 3 chars", () => {
+    expect(fuzzyPlayerMatch("K. Mbappe", "Kylian Mbappe")).toBe(true);
+  });
+
+  it("does not match completely different names", () => {
+    expect(fuzzyPlayerMatch("Messi", "Ronaldo")).toBe(false);
+  });
+
+  it("does not match empty strings", () => {
+    expect(fuzzyPlayerMatch("", "Messi")).toBe(false);
+    expect(fuzzyPlayerMatch("Messi", "")).toBe(false);
+  });
+
+  it("handles extra whitespace", () => {
+    expect(fuzzyPlayerMatch("  Lionel  Messi  ", "Lionel Messi")).toBe(true);
+  });
+});
+
 describe("scoreTier1Bonus", () => {
   beforeEach(() => {
     setActualBonusResults({
@@ -158,6 +198,22 @@ describe("scoreTier1Bonus", () => {
     setActualBonusResults({ goldenBoot: "Mbappe", mostGoalsTeam: null, fewestConcededTeam: null });
     const p = makeParticipant({
       bonusPicks: { goldenBoot: "Mbappe", mostGoalsTeam: "BRA", fewestConcededTeam: "ITA", goldenBall: "" },
+    });
+    expect(scoreTier1Bonus(p)).toBe(10);
+  });
+
+  it("scores 10 for golden boot with accent mismatch", () => {
+    setActualBonusResults({ goldenBoot: "Kylian Mbappé", mostGoalsTeam: null, fewestConcededTeam: null });
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "Kylian Mbappe", mostGoalsTeam: "BRA", fewestConcededTeam: "ITA", goldenBall: "" },
+    });
+    expect(scoreTier1Bonus(p)).toBe(10);
+  });
+
+  it("scores 10 for golden boot with last name only", () => {
+    setActualBonusResults({ goldenBoot: "Lionel Messi", mostGoalsTeam: null, fewestConcededTeam: null });
+    const p = makeParticipant({
+      bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "BRA", fewestConcededTeam: "ITA", goldenBall: "" },
     });
     expect(scoreTier1Bonus(p)).toBe(10);
   });

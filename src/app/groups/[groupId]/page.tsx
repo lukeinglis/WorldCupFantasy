@@ -6,9 +6,11 @@ import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamsByGroup, groupLabels, type Team, getTeamByCode } from "@/data/teams";
-import { participants, getGroupWinnerDistribution } from "@/data/participants";
+import type { Participant } from "@/data/participants";
 import { schedule, parseLocalDate } from "@/data/schedule";
 import { getStandings, getMatches, isApiConfigured } from "@/lib/football-api";
+import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { buildParticipantsFromKv } from "@/lib/build-participants";
 import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
 import type { TransformedGroupStandings, TransformedMatch } from "@/lib/football-api-types";
 
@@ -36,25 +38,32 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
     notFound();
   }
 
-  // Fetch live data
+  // Fetch live data and participants in parallel
   let liveStandings: TransformedGroupStandings | null = null;
   let liveMatches: TransformedMatch[] = [];
+  let kvParticipants: Participant[] = [];
 
-  if (isApiConfigured()) {
-    const [standings, matches] = await Promise.all([
-      getStandings(),
-      getMatches(),
-    ]);
+  const apiReady = isApiConfigured();
+  const kvReady = isKvConfigured();
 
-    if (standings) {
-      liveStandings = standings.find((s) => s.group === groupKey) ?? null;
-    }
+  const [standings, matches, kvData] = await Promise.all([
+    apiReady ? getStandings() : Promise.resolve(null),
+    apiReady ? getMatches() : Promise.resolve(null),
+    kvReady ? getAllUsersWithPicks() : Promise.resolve([]),
+  ]);
 
-    if (matches) {
-      liveMatches = matches.filter(
-        (m) => m.group === groupKey && m.stage === "group"
-      );
-    }
+  if (standings) {
+    liveStandings = standings.find((s) => s.group === groupKey) ?? null;
+  }
+
+  if (matches) {
+    liveMatches = matches.filter(
+      (m) => m.group === groupKey && m.stage === "group"
+    );
+  }
+
+  if (kvData.length > 0) {
+    kvParticipants = buildParticipantsFromKv(kvData);
   }
 
   // Get group matches from static schedule (fallback)
@@ -62,8 +71,14 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
     (m) => m.group === groupKey && m.stage === "group"
   );
 
-  // Winner distribution for this group
-  const winnerDist = getGroupWinnerDistribution(groupKey);
+  // Winner distribution for this group from real participants
+  const winnerDist: Record<string, number> = {};
+  for (const p of kvParticipants) {
+    const gp = p.groupPredictions.find((g) => g.group === groupKey);
+    if (gp && gp.order[0]) {
+      winnerDist[gp.order[0]] = (winnerDist[gp.order[0]] ?? 0) + 1;
+    }
+  }
   const winnerEntries = Object.entries(winnerDist).sort((a, b) => b[1] - a[1]);
 
   return (
@@ -147,7 +162,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                 </h2>
                 <Card>
                   <CardBody className="p-0">
-                    {participants.length === 0 ? (
+                    {kvParticipants.length === 0 ? (
                       <div className="px-4 py-8 text-center">
                         <span className="text-3xl block mb-2" aria-hidden>📋</span>
                         <p className="text-sm text-gray-400">No predictions submitted yet.</p>
@@ -175,7 +190,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                             </tr>
                           </thead>
                           <tbody>
-                            {participants.map((p) => {
+                            {kvParticipants.map((p) => {
                               const gp = p.groupPredictions.find(g => g.group === groupKey);
                               if (!gp) return null;
 
@@ -336,14 +351,14 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                   </h3>
                 </CardHeader>
                 <CardBody>
-                  {participants.length === 0 ? (
+                  {kvParticipants.length === 0 ? (
                     <p className="text-xs text-gray-500 text-center py-2">No picks submitted yet.</p>
                   ) : (
                     <div className="space-y-2">
                       {winnerEntries.map(([code, count]) => {
                         const team = getTeamByCode(code);
                         if (!team) return null;
-                        const pct = participants.length > 0 ? Math.round((count / participants.length) * 100) : 0;
+                        const pct = kvParticipants.length > 0 ? Math.round((count / kvParticipants.length) * 100) : 0;
                         return (
                           <div key={code} className="flex items-center gap-3">
                             <span className="text-lg">{team.flag}</span>
@@ -355,7 +370,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                                   style={{ width: `${pct}%` }}
                                 />
                               </div>
-                              <span className="text-xs text-gray-500 w-8 text-right">{count}/{participants.length}</span>
+                              <span className="text-xs text-gray-500 w-8 text-right">{count}/{kvParticipants.length}</span>
                             </div>
                           </div>
                         );

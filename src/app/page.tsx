@@ -4,16 +4,16 @@ import CountdownTimer from "@/components/CountdownTimer";
 import MiniGames from "@/components/games/MiniGames";
 import { Card, CardBody } from "@/components/Card";
 import {
-  participants,
   tier1Categories,
   tier2Categories,
   TIER1_MAX,
   TIER2_MAX,
   OVERALL_MAX,
-  getGroupWinnerDistribution,
 } from "@/data/participants";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
+import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { buildParticipantsFromKv } from "@/lib/build-participants";
 import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
 
 export const dynamic = "force-dynamic";
@@ -83,45 +83,55 @@ function TierCard({
 }
 
 export default async function Home() {
-  // Most popular group winners across all groups
+  // Fetch live data and participants in parallel
+  const apiReady = isApiConfigured();
+  const kvReady = isKvConfigured();
+
+  const [matches, scorers, kvData] = await Promise.all([
+    apiReady ? getMatches() : Promise.resolve(null),
+    apiReady ? getScorers() : Promise.resolve(null),
+    kvReady ? getAllUsersWithPicks() : Promise.resolve([]),
+  ]);
+
+  const kvParticipants = kvData.length > 0 ? buildParticipantsFromKv(kvData) : [];
+
+  // Compute popular group winner picks from real participants
   const popularPicks: { group: string; team: string; count: number }[] = [];
   for (const group of groupLabels) {
-    const dist = getGroupWinnerDistribution(group);
+    const dist: Record<string, number> = {};
+    for (const p of kvParticipants) {
+      const gp = p.groupPredictions.find((g) => g.group === group);
+      if (gp && gp.order[0]) {
+        dist[gp.order[0]] = (dist[gp.order[0]] ?? 0) + 1;
+      }
+    }
     const top = Object.entries(dist).sort((a, b) => b[1] - a[1])[0];
     if (top) {
       popularPicks.push({ group, team: top[0], count: top[1] });
     }
   }
 
-  // Fetch live data for tournament status
   let recentResults: TransformedMatch[] = [];
   let liveMatches: TransformedMatch[] = [];
   let topScorers: TransformedScorer[] = [];
   let matchesPlayed = 0;
   let totalMatches = 0;
 
-  if (isApiConfigured()) {
-    const [matches, scorers] = await Promise.all([
-      getMatches(),
-      getScorers(),
-    ]);
+  if (matches) {
+    totalMatches = matches.length;
+    matchesPlayed = matches.filter((m) => m.status === "FINISHED").length;
+    liveMatches = matches.filter((m) => m.isLive);
+    recentResults = matches
+      .filter((m) => m.status === "FINISHED")
+      .sort(
+        (a, b) =>
+          new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime()
+      )
+      .slice(0, 4);
+  }
 
-    if (matches) {
-      totalMatches = matches.length;
-      matchesPlayed = matches.filter((m) => m.status === "FINISHED").length;
-      liveMatches = matches.filter((m) => m.isLive);
-      recentResults = matches
-        .filter((m) => m.status === "FINISHED")
-        .sort(
-          (a, b) =>
-            new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime()
-        )
-        .slice(0, 4);
-    }
-
-    if (scorers) {
-      topScorers = scorers.slice(0, 5);
-    }
+  if (scorers) {
+    topScorers = scorers.slice(0, 5);
   }
 
   const hasTournamentData = matchesPlayed > 0 || liveMatches.length > 0;
@@ -199,7 +209,7 @@ export default async function Home() {
       <section className="border-b border-white/10 bg-navy-light/30 py-8">
         <Container>
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
-            <QuickStat label="Participants" value={String(participants.length)} icon="👥" />
+            <QuickStat label="Participants" value={String(kvParticipants.length)} icon="👥" />
             <QuickStat label="Teams" value="48" icon="🏟️" />
             <QuickStat label="Groups" value="12" icon="📊" />
             <QuickStat
@@ -439,7 +449,7 @@ export default async function Home() {
               Most popular 1st-place pick for each group
             </p>
           </div>
-          {participants.length === 0 ? (
+          {kvParticipants.length === 0 ? (
             <div className="text-center py-8">
               <span className="text-4xl block mb-3" aria-hidden>📋</span>
               <p className="text-gray-400 text-sm">No participants yet. Popular picks will appear here once contestants submit their predictions.</p>
@@ -458,7 +468,7 @@ export default async function Home() {
                       <span className="text-3xl block mb-1">{teamData.flag}</span>
                       <p className="font-heading text-sm font-bold text-white">{teamData.name}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {count}/{participants.length} picks
+                        {count}/{kvParticipants.length} picks
                       </p>
                     </CardBody>
                   </Card>
