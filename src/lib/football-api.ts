@@ -151,6 +151,8 @@ export async function getTeams(): Promise<TransformedTeam[] | null> {
 
 /**
  * Fetch current group standings.
+ * Falls back to computing standings from match results if the
+ * standings endpoint returns no data (common on free API tiers).
  */
 export async function getStandings(): Promise<TransformedGroupStandings[] | null> {
   const cacheKey = "standings";
@@ -158,40 +160,57 @@ export async function getStandings(): Promise<TransformedGroupStandings[] | null
   if (cached) return cached;
 
   const raw = await apiFetch<ApiStandingsResponse>(`/competitions/${COMPETITION}/standings`);
-  if (!raw?.standings) return getStaleCached<TransformedGroupStandings[]>(cacheKey);
 
-  const transformed: TransformedGroupStandings[] = raw.standings
-    .filter((s) => s.type === "TOTAL")
-    .map((group) => ({
-      group: extractGroupLetter(group.group),
-      standings: group.table.map(
-        (entry): TransformedStanding => ({
-          position: safeNum(entry.position),
-          team: {
-            id: entry.team.id,
-            name: safeStr(entry.team.name, "Unknown"),
-            shortName: safeStr(entry.team.shortName, "Unknown"),
-            tla: safeStr(entry.team.tla, "???"),
-            crest: entry.team.crest ?? null,
-            group: extractGroupLetter(group.group),
-            area: "",
-            areaFlag: null,
-          },
-          played: safeNum(entry.playedGames),
-          won: safeNum(entry.won),
-          draw: safeNum(entry.draw),
-          lost: safeNum(entry.lost),
-          goalsFor: safeNum(entry.goalsFor),
-          goalsAgainst: safeNum(entry.goalsAgainst),
-          goalDifference: safeNum(entry.goalDifference),
-          points: safeNum(entry.points),
-          form: entry.form ?? null,
-        })
-      ),
-    }));
+  if (raw?.standings && raw.standings.length > 0) {
+    const transformed: TransformedGroupStandings[] = raw.standings
+      .filter((s) => s.type === "TOTAL")
+      .map((group) => ({
+        group: extractGroupLetter(group.group),
+        standings: group.table.map(
+          (entry): TransformedStanding => ({
+            position: safeNum(entry.position),
+            team: {
+              id: entry.team.id,
+              name: safeStr(entry.team.name, "Unknown"),
+              shortName: safeStr(entry.team.shortName, "Unknown"),
+              tla: safeStr(entry.team.tla, "???"),
+              crest: entry.team.crest ?? null,
+              group: extractGroupLetter(group.group),
+              area: "",
+              areaFlag: null,
+            },
+            played: safeNum(entry.playedGames),
+            won: safeNum(entry.won),
+            draw: safeNum(entry.draw),
+            lost: safeNum(entry.lost),
+            goalsFor: safeNum(entry.goalsFor),
+            goalsAgainst: safeNum(entry.goalsAgainst),
+            goalDifference: safeNum(entry.goalDifference),
+            points: safeNum(entry.points),
+            form: entry.form ?? null,
+          })
+        ),
+      }));
 
-  setCache(cacheKey, transformed, CacheTTL.STANDINGS);
-  return transformed;
+    setCache(cacheKey, transformed, CacheTTL.STANDINGS);
+    return transformed;
+  }
+
+  // Standings endpoint failed or empty: compute from match results
+  log.info("standings endpoint returned no data, computing from match results");
+  const stale = getStaleCached<TransformedGroupStandings[]>(cacheKey);
+  if (stale) return stale;
+
+  const matches = await getMatches();
+  if (matches && matches.length > 0) {
+    const computed = computeStandingsFromMatches(matches);
+    if (computed.length > 0) {
+      setCache(cacheKey, computed, CacheTTL.STANDINGS);
+      return computed;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -412,6 +431,147 @@ function transformMatch(m: ApiMatch): TransformedMatch {
     },
     isLive: LIVE_STATUSES.includes(m.status),
   };
+}
+
+// ── Compute standings from match results (fallback when standings endpoint fails) ──
+
+export function computeStandingsFromMatches(
+  matches: TransformedMatch[]
+): TransformedGroupStandings[] {
+  const groupMatches = matches.filter(
+    (m) => m.stage === "group" && m.status === "FINISHED" && m.group
+  );
+
+  if (groupMatches.length === 0) return [];
+
+  const teamStats = new Map<
+    string,
+    {
+      group: string;
+      tla: string;
+      name: string;
+      shortName: string;
+      crest: string | null;
+      id: number;
+      played: number;
+      won: number;
+      draw: number;
+      lost: number;
+      goalsFor: number;
+      goalsAgainst: number;
+      points: number;
+    }
+  >();
+
+  function ensureTeam(
+    team: TransformedMatch["homeTeam"],
+    group: string
+  ): void {
+    const key = `${group}-${team.tla}`;
+    if (!teamStats.has(key)) {
+      teamStats.set(key, {
+        group,
+        tla: team.tla,
+        name: team.name,
+        shortName: team.shortName,
+        crest: team.crest,
+        id: team.id,
+        played: 0,
+        won: 0,
+        draw: 0,
+        lost: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        points: 0,
+      });
+    }
+  }
+
+  for (const m of groupMatches) {
+    const group = m.group!;
+    ensureTeam(m.homeTeam, group);
+    ensureTeam(m.awayTeam, group);
+
+    const homeKey = `${group}-${m.homeTeam.tla}`;
+    const awayKey = `${group}-${m.awayTeam.tla}`;
+    const home = teamStats.get(homeKey)!;
+    const away = teamStats.get(awayKey)!;
+
+    const hg = m.score.fullTime.home ?? 0;
+    const ag = m.score.fullTime.away ?? 0;
+
+    home.played += 1;
+    away.played += 1;
+    home.goalsFor += hg;
+    home.goalsAgainst += ag;
+    away.goalsFor += ag;
+    away.goalsAgainst += hg;
+
+    if (hg > ag) {
+      home.won += 1;
+      home.points += 3;
+      away.lost += 1;
+    } else if (hg < ag) {
+      away.won += 1;
+      away.points += 3;
+      home.lost += 1;
+    } else {
+      home.draw += 1;
+      away.draw += 1;
+      home.points += 1;
+      away.points += 1;
+    }
+  }
+
+  // Group by group letter
+  const grouped = new Map<string, typeof teamStats extends Map<string, infer V> ? V[] : never>();
+  for (const stats of teamStats.values()) {
+    if (!grouped.has(stats.group)) grouped.set(stats.group, []);
+    grouped.get(stats.group)!.push(stats);
+  }
+
+  const result: TransformedGroupStandings[] = [];
+  for (const [group, teams] of grouped) {
+    // Sort: points desc, goal difference desc, goals for desc, name asc
+    teams.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      const gdA = a.goalsFor - a.goalsAgainst;
+      const gdB = b.goalsFor - b.goalsAgainst;
+      if (gdB !== gdA) return gdB - gdA;
+      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+      return a.name.localeCompare(b.name);
+    });
+
+    result.push({
+      group,
+      standings: teams.map((t, i) => ({
+        position: i + 1,
+        team: {
+          id: t.id,
+          name: t.name,
+          shortName: t.shortName,
+          tla: t.tla,
+          crest: t.crest,
+          group: t.group,
+          area: "",
+          areaFlag: null,
+        },
+        played: t.played,
+        won: t.won,
+        draw: t.draw,
+        lost: t.lost,
+        goalsFor: t.goalsFor,
+        goalsAgainst: t.goalsAgainst,
+        goalDifference: t.goalsFor - t.goalsAgainst,
+        points: t.points,
+        form: null,
+      })),
+    });
+  }
+
+  result.sort((a, b) => a.group.localeCompare(b.group));
+  log.info({ groupCount: result.length, source: "computed from matches" }, "standings computed from match results");
+  return result;
 }
 
 // ── Convenience: check if API is configured ──

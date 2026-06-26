@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getStandings, isApiConfigured } from "@/lib/football-api";
+import { getStandings, getMatches, computeStandingsFromMatches, isApiConfigured } from "@/lib/football-api";
 import { getLogger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +16,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const standings = await getStandings();
-  if (!standings) {
+  let standings = await getStandings();
+
+  if (!standings || standings.length === 0) {
+    log.info("standings endpoint returned no data, computing from matches");
+    const matches = await getMatches();
+    if (matches) {
+      standings = computeStandingsFromMatches(matches);
+    }
+  }
+
+  if (!standings || standings.length === 0) {
     return NextResponse.json(
       { error: "Failed to fetch standings", standings: null },
       { status: 502 }
