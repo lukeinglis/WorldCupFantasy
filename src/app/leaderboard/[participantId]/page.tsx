@@ -339,12 +339,27 @@ export default async function ParticipantDetailPage({
                     );
                     if (!gp) return null;
                     const actual = actualGroupResults?.[groupId] ?? null;
+                    let groupPts = 0;
+                    if (actual) {
+                      for (let i = 0; i < gp.order.length; i++) {
+                        const actualPos = actual.indexOf(gp.order[i]);
+                        if (actualPos === i) groupPts += 3;
+                        else if (actualPos !== -1 && (i <= 1) === (actualPos <= 1)) groupPts += 1;
+                      }
+                    }
                     return (
                       <Card key={groupId}>
                         <CardHeader>
-                          <h3 className="font-heading text-sm font-bold uppercase tracking-wide text-white">
-                            Group {groupId}
-                          </h3>
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-heading text-sm font-bold uppercase tracking-wide text-white">
+                              Group {groupId}
+                            </h3>
+                            {actual && (
+                              <span className={`text-xs font-bold ${groupPts >= 8 ? "text-green-400" : groupPts >= 4 ? "text-yellow-400" : "text-red-400"}`}>
+                                {groupPts}/12
+                              </span>
+                            )}
+                          </div>
                         </CardHeader>
                         <CardBody className="space-y-1.5">
                           {gp.order.map((code, i) => {
