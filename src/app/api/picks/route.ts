@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPicks, savePicks, archivePicks, getUserById, type PicksRecord } from "@/lib/storage";
 import { getLogger } from "@/lib/logger";
-import { TOURNAMENT_START, KNOCKOUT_START } from "@/lib/tournament-dates";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
 
 // GET /api/picks?userId=xxx
 export async function GET(request: Request) {
@@ -163,17 +163,6 @@ async function handleTier1Submission(body: any, userId: string, log: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleTier2Submission(body: any, userId: string, log: any) {
-  // Hard lock: once the final has started, no more changes period
-  const FINAL_DATE = new Date("2026-07-19T19:00:00Z");
-  if (new Date() >= FINAL_DATE) {
-    log.warn({ userId }, "Tier 2 picks rejected: tournament is over");
-    return NextResponse.json(
-      { error: "The tournament is over. No more picks can be changed." },
-      { status: 403 }
-    );
-  }
-
-  // Read existing picks (user must have Tier 1 picks already)
   const existing = await getPicks(userId);
   if (!existing) {
     return NextResponse.json(
@@ -182,12 +171,19 @@ async function handleTier2Submission(body: any, userId: string, log: any) {
     );
   }
 
+  if (existing.tier2Submitted) {
+    log.warn({ userId }, "Tier 2 picks rejected: already submitted, no edits allowed");
+    return NextResponse.json(
+      { error: "Your Tier 2 picks have already been submitted. No changes are allowed after submission." },
+      { status: 403 }
+    );
+  }
+
   const { knockoutPicks, goldenBall } = body as {
     knockoutPicks?: { round: string; matchNumber: number; winner: string }[];
     goldenBall?: string;
   };
 
-  // Validate knockoutPicks
   if (!Array.isArray(knockoutPicks)) {
     return NextResponse.json(
       { error: "knockoutPicks must be an array." },
@@ -213,7 +209,6 @@ async function handleTier2Submission(body: any, userId: string, log: any) {
     }
   }
 
-  // Validate goldenBall
   if (typeof goldenBall !== "string") {
     return NextResponse.json(
       { error: "goldenBall must be a string." },
@@ -221,103 +216,29 @@ async function handleTier2Submission(body: any, userId: string, log: any) {
     );
   }
 
-  // Per-match locking: reject picks for matches already started or finished
-  const lockedMatches = await getLockedMatches(log);
-  if (lockedMatches === null) {
-    log.warn({ userId }, "Tier 2 picks rejected: cannot verify match locks (API unavailable)");
-    return NextResponse.json(
-      { error: "Cannot save picks right now. The match lock system is temporarily unavailable. Please try again in a few minutes." },
-      { status: 503 }
-    );
-  }
-  const rejected: string[] = [];
-  const acceptedPicks = knockoutPicks.filter((pick) => {
-    const key = `${pick.round}_${pick.matchNumber}`;
-    if (lockedMatches.has(key)) {
-      rejected.push(key);
-      return false;
-    }
-    return true;
-  });
-
-  if (rejected.length > 0) {
-    log.info({ userId, rejected, accepted: acceptedPicks.length }, "some picks rejected (matches already started)");
+  // Check deadline for warning (still allow late submissions)
+  const KNOCKOUT_DEADLINE = new Date("2026-06-28T19:00:00Z"); // 3pm EST
+  const isLate = new Date() >= KNOCKOUT_DEADLINE;
+  if (isLate) {
+    log.warn({ userId }, "Tier 2 picks submitted after deadline, late submission penalty applies");
   }
 
-  // Merge: for locked matches, preserve existing picks; for unlocked, use new submissions
-  const preservedPicks = (existing.knockoutPicks ?? []).filter((p) =>
-    lockedMatches.has(`${p.round}_${p.matchNumber}`)
-  );
-  const finalPicks = [...preservedPicks, ...acceptedPicks];
+  await archivePicks(userId);
 
   const merged: PicksRecord = {
     ...existing,
-    knockoutPicks: finalPicks,
+    knockoutPicks: knockoutPicks,
     goldenBall: goldenBall || "",
     tier2Submitted: true,
     submittedAt: new Date().toISOString(),
   };
 
-  await archivePicks(userId);
-  log.info({ userId, knockoutPickCount: finalPicks.length, goldenBall }, "Tier 2 picks saving");
+  log.info({ userId, knockoutPickCount: knockoutPicks.length, goldenBall, isLate }, "Tier 2 picks saving");
   await savePicks(merged);
-  log.info({ userId, total: finalPicks.length, accepted: acceptedPicks.length, preserved: preservedPicks.length }, "Tier 2 picks saved");
 
   return NextResponse.json({
     success: true,
     submittedAt: merged.submittedAt,
-    lockedMatches: rejected,
+    isLate,
   });
-}
-
-const KNOCKOUT_STAGES = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
-const STAGE_ORDER: Record<string, number> = {
-  round_of_32: 0, round_of_16: 1, quarter: 2, semi: 3, third_place: 4, final: 5,
-};
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getLockedMatches(log: any): Promise<Set<string> | null> {
-  const locked = new Set<string>();
-
-  try {
-    const { getMatches, isApiConfigured } = await import("@/lib/football-api");
-    if (!isApiConfigured()) {
-      log.warn("football API not configured, failing closed");
-      return null;
-    }
-
-    const allMatches = await getMatches();
-    if (!allMatches) {
-      log.warn("football API returned no data, failing closed");
-      return null;
-    }
-
-    const now = new Date();
-    const knockoutMatches = allMatches
-      .filter((m) => KNOCKOUT_STAGES.includes(m.stage))
-      .sort((a, b) => {
-        const sa = STAGE_ORDER[a.stage] ?? 99;
-        const sb = STAGE_ORDER[b.stage] ?? 99;
-        if (sa !== sb) return sa - sb;
-        return new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime();
-      });
-
-    const matchNumberByRound: Record<string, number> = {};
-    for (const m of knockoutMatches) {
-      if (!matchNumberByRound[m.stage]) matchNumberByRound[m.stage] = 1;
-      const matchNumber = matchNumberByRound[m.stage]++;
-      const matchDate = new Date(m.utcDate);
-
-      if (m.status === "IN_PLAY" || m.status === "FINISHED" || m.status === "PAUSED" || matchDate <= now) {
-        locked.add(`${m.stage}_${matchNumber}`);
-      }
-    }
-
-    log.info({ lockedCount: locked.size }, "computed locked matches");
-  } catch (err) {
-    log.warn({ err: err instanceof Error ? err.message : String(err) }, "failed to compute locked matches, failing closed");
-    return null;
-  }
-
-  return locked;
 }
