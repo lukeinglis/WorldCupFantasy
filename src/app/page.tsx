@@ -28,16 +28,6 @@ import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-typ
 
 export const dynamic = "force-dynamic";
 
-function QuickStat({ label, value, icon }: { label: string; value: string; icon: string }) {
-  return (
-    <div className="text-center">
-      <span className="text-2xl block mb-1" aria-hidden>{icon}</span>
-      <p className="font-heading text-2xl font-bold text-white sm:text-3xl">{value}</p>
-      <p className="text-xs text-gray-500 uppercase tracking-wide mt-1">{label}</p>
-    </div>
-  );
-}
-
 function TierCard({
   tier,
   title,
@@ -276,23 +266,6 @@ export default async function Home() {
                 Rules
               </Link>
             </div>
-          </div>
-        </Container>
-      </section>
-
-      {/* Quick Stats */}
-      <section className="border-b border-white/10 bg-navy-light/30 py-8">
-        <Container>
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
-            <QuickStat label="Participants" value={String(kvParticipants.length)} icon="👥" />
-            <QuickStat label="Teams" value="48" icon="🏟️" />
-            <QuickStat label="Groups" value="12" icon="📊" />
-            <QuickStat
-              label={isTournamentActive ? "Matches Played" : "Host Cities"}
-              value={isTournamentActive ? (hasTournamentData ? `${matchesPlayed}/${totalMatches}` : "Live") : "16"}
-              icon={isTournamentActive ? "⚽" : "🌎"}
-            />
-            <QuickStat label="Max Points" value={String(OVERALL_MAX)} icon="🏆" />
           </div>
         </Container>
       </section>
