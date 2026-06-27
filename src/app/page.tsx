@@ -190,13 +190,13 @@ export default async function Home() {
               "radial-gradient(ellipse at 30% 50%, rgba(0, 230, 118, 0.08), transparent 70%)",
           }}
         />
-        <Container className="relative py-16 sm:py-24 lg:py-32">
+        <Container className="relative py-10 sm:py-14 lg:py-16">
           <div className="flex flex-col items-center text-center">
             <div className="animate-fade-in-up">
               <p className="font-heading text-xs font-semibold uppercase tracking-[0.3em] text-accent sm:text-sm">
                 USA · Mexico · Canada
               </p>
-              <h1 className="mt-4 font-heading text-5xl font-extrabold uppercase tracking-tight text-white sm:text-6xl lg:text-7xl">
+              <h1 className="mt-4 font-heading text-4xl font-extrabold uppercase tracking-tight text-white sm:text-5xl lg:text-6xl">
                 World Cup{" "}
                 <span className="text-gradient">2026</span>{" "}
                 Fantasy
@@ -207,12 +207,12 @@ export default async function Home() {
             </div>
 
             {/* Countdown */}
-            <div className="mt-10 animate-fade-in-up animate-delay-100">
+            <div className="mt-6 animate-fade-in-up animate-delay-100">
               <CountdownTimer />
             </div>
 
             {/* Phase-aware CTA buttons */}
-            <div className="mt-10 flex flex-wrap justify-center gap-3 animate-fade-in-up animate-delay-200">
+            <div className="mt-6 flex flex-wrap justify-center gap-3 animate-fade-in-up animate-delay-200">
               {isTournamentActive ? (
                 <>
                   <Link
