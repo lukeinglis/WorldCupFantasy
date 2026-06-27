@@ -80,14 +80,20 @@ export default async function ParticipantDetailPage({
   const kvData = await getAllUsersWithPicks();
   const participants = buildParticipantsFromKv(kvData);
 
+  let hasGroupScoring = false;
   if (isApiConfigured()) {
     const [groupResults, bonusResults] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
     ]);
-    if (groupResults) setActualGroupResults(groupResults.groups);
+    if (groupResults) {
+      setActualGroupResults(groupResults.groups);
+      hasGroupScoring = true;
+    }
     if (bonusResults) setActualBonusResults(bonusResults);
   }
+
+  const tournamentStarted = new Date() >= TOURNAMENT_START;
 
   const withPoints = calculateAllPoints(participants);
 
@@ -145,6 +151,15 @@ export default async function ParticipantDetailPage({
               &larr; Back to Leaderboard
             </Link>
           </div>
+
+          {/* Score status warning */}
+          {tournamentStarted && !hasGroupScoring && (
+            <div className="mb-6 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-3 text-center">
+              <p className="text-sm text-yellow-400 font-medium">
+                Live scores temporarily unavailable. Refresh the page to retry.
+              </p>
+            </div>
+          )}
 
           {/* Score Summary Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-10">
