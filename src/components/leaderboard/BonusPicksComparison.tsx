@@ -13,13 +13,13 @@ import type { ParticipantPicks } from "@/lib/picks-types";
 
 interface Scorer {
   playerName: string;
-  teamName: string;
+  teamName?: string;
   teamTla: string;
   goals: number;
 }
 
 interface TeamStat {
-  teamName: string;
+  teamName?: string;
   teamTla: string;
   goalsScored: number;
   goalsConceded: number;
@@ -32,44 +32,25 @@ interface ActualLeaders {
   teamsByConceded: TeamStat[];
 }
 
-function useActualLeaders(): { leaders: ActualLeaders | null; loading: boolean } {
-  const [leaders, setLeaders] = useState<ActualLeaders | null>(null);
-  const [loading, setLoading] = useState(true);
+interface BonusPicksComparisonProps {
+  scorers?: Scorer[];
+  teamStats?: TeamStat[];
+}
 
-  useEffect(() => {
-    async function fetchLeaders() {
-      try {
-        const [scorersRes, statsRes] = await Promise.all([
-          fetch("/api/football/scorers"),
-          fetch("/api/football/stats"),
-        ]);
+function deriveLeaders(scorers: Scorer[], teamStats: TeamStat[]): ActualLeaders {
+  const topScorers = scorers.slice(0, 3);
 
-        const scorersData = scorersRes.ok ? await scorersRes.json() : null;
-        const statsData = statsRes.ok ? await statsRes.json() : null;
+  const withMatches = teamStats.filter((t) => t.matchesPlayed > 0);
 
-        const scorers: Scorer[] = (scorersData?.scorers ?? []).slice(0, 3);
+  const teamsByGoals = [...withMatches]
+    .sort((a, b) => b.goalsScored - a.goalsScored)
+    .slice(0, 3);
 
-        const allStats: TeamStat[] = statsData?.stats ?? [];
-        const withMatches = allStats.filter((t: TeamStat) => t.matchesPlayed > 0);
+  const teamsByConceded = [...withMatches]
+    .sort((a, b) => a.goalsConceded - b.goalsConceded)
+    .slice(0, 3);
 
-        const teamsByGoals = [...withMatches]
-          .sort((a, b) => b.goalsScored - a.goalsScored)
-          .slice(0, 3);
-
-        const teamsByConceded = [...withMatches]
-          .sort((a, b) => a.goalsConceded - b.goalsConceded)
-          .slice(0, 3);
-
-        setLeaders({ scorers, teamsByGoals, teamsByConceded });
-      } catch {
-        // API unavailable
-      }
-      setLoading(false);
-    }
-    fetchLeaders();
-  }, []);
-
-  return { leaders, loading };
+  return { scorers: topScorers, teamsByGoals, teamsByConceded };
 }
 
 function LeaderBadge() {
@@ -86,12 +67,9 @@ function ActualLeaderColumn({
   pickedValues,
 }: {
   categoryKey: string;
-  leaders: ActualLeaders | null;
+  leaders: ActualLeaders;
   pickedValues: Set<string>;
 }) {
-  if (!leaders) {
-    return <p className="text-xs text-gray-500">Loading tournament data...</p>;
-  }
 
   if (categoryKey === "goldenBall") {
     return (
@@ -193,10 +171,10 @@ function ActualLeaderColumn({
   return null;
 }
 
-export default function BonusPicksComparison() {
+export default function BonusPicksComparison({ scorers = [], teamStats = [] }: BonusPicksComparisonProps) {
   const [participants, setParticipants] = useState<ParticipantPicks[]>([]);
   const [loading, setLoading] = useState(true);
-  const { leaders, loading: leadersLoading } = useActualLeaders();
+  const leaders = deriveLeaders(scorers, teamStats);
 
   useEffect(() => {
     async function fetchData() {
@@ -350,15 +328,11 @@ export default function BonusPicksComparison() {
                     <h4 className="text-xs font-semibold uppercase text-gray-500 mb-3">
                       {cat.key === "goldenBall" ? "Award Status" : "Current Leaders"}
                     </h4>
-                    {leadersLoading ? (
-                      <p className="text-xs text-gray-500">Loading...</p>
-                    ) : (
-                      <ActualLeaderColumn
-                        categoryKey={cat.key}
-                        leaders={leaders}
-                        pickedValues={pickedRawValues}
-                      />
-                    )}
+                    <ActualLeaderColumn
+                      categoryKey={cat.key}
+                      leaders={leaders}
+                      pickedValues={pickedRawValues}
+                    />
                   </div>
                 </div>
               </div>
