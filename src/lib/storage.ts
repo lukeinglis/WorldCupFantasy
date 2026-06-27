@@ -118,6 +118,16 @@ export async function savePicks(picks: PicksRecord): Promise<void> {
   log.info({ participantId: picks.participantId }, "savePicks");
 }
 
+export async function archivePicks(participantId: string): Promise<void> {
+  requireKv();
+  const current = await getPicks(participantId);
+  if (current) {
+    const key = `picks-history:${participantId}:${current.submittedAt}`;
+    await kv.set(key, current);
+    log.info({ participantId, archivedAt: current.submittedAt }, "picks archived");
+  }
+}
+
 // ---- List operations ----
 
 export async function getAllParticipantIds(): Promise<string[]> {

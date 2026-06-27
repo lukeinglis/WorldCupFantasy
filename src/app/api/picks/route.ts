@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPicks, savePicks, getUserById, type PicksRecord } from "@/lib/storage";
+import { getPicks, savePicks, archivePicks, getUserById, type PicksRecord } from "@/lib/storage";
 import { getLogger } from "@/lib/logger";
 import { TOURNAMENT_START, KNOCKOUT_START } from "@/lib/tournament-dates";
 
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function handleTier1Submission(body: any, userId: string, log: any) {
+async function handleTier1Submission(body: any, userId: string, log: any) {
   const { picks } = body as {
     picks?: Omit<PicksRecord, "participantId" | "submittedAt">;
   };
@@ -155,13 +155,24 @@ function handleTier1Submission(body: any, userId: string, log: any) {
     knockoutPicks: [],
   };
 
-  return savePicks(record).then(() => {
-    return NextResponse.json({ success: true, submittedAt: record.submittedAt });
-  });
+  await archivePicks(userId);
+  log.info({ userId, groupPredictions: record.groupPredictions, bonusPicks: { goldenBoot: record.goldenBoot, mostGoalsTeam: record.mostGoalsTeam, fewestConcededTeam: record.fewestConcededTeam } }, "Tier 1 picks saving");
+  await savePicks(record);
+  return NextResponse.json({ success: true, submittedAt: record.submittedAt });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleTier2Submission(body: any, userId: string, log: any) {
+  // Hard lock: once the final has started, no more changes period
+  const FINAL_DATE = new Date("2026-07-19T19:00:00Z");
+  if (new Date() >= FINAL_DATE) {
+    log.warn({ userId }, "Tier 2 picks rejected: tournament is over");
+    return NextResponse.json(
+      { error: "The tournament is over. No more picks can be changed." },
+      { status: 403 }
+    );
+  }
+
   // Read existing picks (user must have Tier 1 picks already)
   const existing = await getPicks(userId);
   if (!existing) {
@@ -212,6 +223,13 @@ async function handleTier2Submission(body: any, userId: string, log: any) {
 
   // Per-match locking: reject picks for matches already started or finished
   const lockedMatches = await getLockedMatches(log);
+  if (lockedMatches === null) {
+    log.warn({ userId }, "Tier 2 picks rejected: cannot verify match locks (API unavailable)");
+    return NextResponse.json(
+      { error: "Cannot save picks right now. The match lock system is temporarily unavailable. Please try again in a few minutes." },
+      { status: 503 }
+    );
+  }
   const rejected: string[] = [];
   const acceptedPicks = knockoutPicks.filter((pick) => {
     const key = `${pick.round}_${pick.matchNumber}`;
@@ -240,6 +258,8 @@ async function handleTier2Submission(body: any, userId: string, log: any) {
     submittedAt: new Date().toISOString(),
   };
 
+  await archivePicks(userId);
+  log.info({ userId, knockoutPickCount: finalPicks.length, goldenBall }, "Tier 2 picks saving");
   await savePicks(merged);
   log.info({ userId, total: finalPicks.length, accepted: acceptedPicks.length, preserved: preservedPicks.length }, "Tier 2 picks saved");
 
@@ -256,15 +276,21 @@ const STAGE_ORDER: Record<string, number> = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getLockedMatches(log: any): Promise<Set<string>> {
+async function getLockedMatches(log: any): Promise<Set<string> | null> {
   const locked = new Set<string>();
 
   try {
     const { getMatches, isApiConfigured } = await import("@/lib/football-api");
-    if (!isApiConfigured()) return locked;
+    if (!isApiConfigured()) {
+      log.warn("football API not configured, failing closed");
+      return null;
+    }
 
     const allMatches = await getMatches();
-    if (!allMatches) return locked;
+    if (!allMatches) {
+      log.warn("football API returned no data, failing closed");
+      return null;
+    }
 
     const now = new Date();
     const knockoutMatches = allMatches
@@ -289,7 +315,8 @@ async function getLockedMatches(log: any): Promise<Set<string>> {
 
     log.info({ lockedCount: locked.size }, "computed locked matches");
   } catch (err) {
-    log.warn({ err: err instanceof Error ? err.message : String(err) }, "failed to compute locked matches, allowing all");
+    log.warn({ err: err instanceof Error ? err.message : String(err) }, "failed to compute locked matches, failing closed");
+    return null;
   }
 
   return locked;
