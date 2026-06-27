@@ -128,7 +128,7 @@ export default async function Home() {
     rank: i + 1,
     total: p.calculatedPoints.total,
   }));
-  const top5 = ranked.slice(0, 5);
+  // ranked already contains all participants sorted by points
 
   // Popular group winner picks
   const popularPicks: { group: string; team: string; count: number }[] = [];
@@ -271,7 +271,7 @@ export default async function Home() {
       </section>
 
       {/* Leaderboard Preview */}
-      {top5.length > 0 && (
+      {ranked.length > 0 && (
         <section className="py-8 border-b border-white/10 bg-navy-light/20">
           <Container>
             <div className="flex items-center justify-between mb-6">
@@ -285,9 +285,9 @@ export default async function Home() {
                 Full Standings →
               </Link>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:grid sm:grid-cols-5 sm:overflow-visible">
-              {top5.map((p) => (
-                <Card key={p.id} hover className="text-center snap-start min-w-[140px] sm:min-w-0">
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+              {ranked.map((p) => (
+                <Card key={p.id} hover className="text-center snap-start min-w-[140px] flex-shrink-0">
                   <CardBody className="py-4">
                     <div className="mb-1">
                       {p.rank <= 3 ? (
