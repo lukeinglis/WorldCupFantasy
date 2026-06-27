@@ -2,39 +2,70 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "./AuthProvider";
 
 interface NavItem {
   href: string;
   label: string;
+  children?: { href: string; label: string }[];
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home" },
   { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/picks", label: "Picks" },
-  { href: "/groups", label: "Groups" },
-  { href: "/schedule", label: "Schedule" },
+  {
+    href: "/groups",
+    label: "Groups",
+    children: [
+      { href: "/groups", label: "Standings" },
+      { href: "/groups?tab=picks", label: "Picks" },
+      { href: "/groups?tab=schedule", label: "Schedule" },
+    ],
+  },
   { href: "/rules", label: "Rules" },
-  { href: "/how-to-play", label: "How to Play" },
 ];
 
 function isActive(currentPath: string, href: string): boolean {
   if (href === "/") return currentPath === "/";
-  return currentPath === href || currentPath.startsWith(`${href}/`);
+  const base = href.split("?")[0];
+  return currentPath === base || currentPath.startsWith(`${base}/`);
 }
 
 export default function SiteNav() {
   const pathname = usePathname() ?? "/";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
   const showAdmin = user?.isAdmin ?? false;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting UI state on route change (external navigation event)
     setMobileOpen(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting UI state on route change (external navigation event)
+    setDropdownOpen(false);
   }, [pathname]);
+
+  const closeDropdown = useCallback(() => setDropdownOpen(false), []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        closeDropdown();
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [dropdownOpen, closeDropdown]);
+
+  function handleDropdownKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      closeDropdown();
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-navy/95 backdrop-blur supports-[backdrop-filter]:bg-navy/80 shadow-lg shadow-black/20 relative">
@@ -53,6 +84,55 @@ export default function SiteNav() {
         <nav className="hidden lg:flex items-center gap-1" aria-label="Primary">
           {NAV_ITEMS.map((item) => {
             const active = isActive(pathname, item.href);
+
+            if (item.children) {
+              return (
+                <div key={item.href} className="relative" ref={dropdownRef} onKeyDown={handleDropdownKeyDown}>
+                  <button
+                    type="button"
+                    onClick={() => setDropdownOpen((v) => !v)}
+                    aria-expanded={dropdownOpen}
+                    aria-haspopup="true"
+                    aria-controls="groups-dropdown"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1 ${
+                      active
+                        ? "bg-pitch text-white"
+                        : "text-gray-300 hover:bg-white/5 hover:text-accent"
+                    }`}
+                  >
+                    {item.label}
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {dropdownOpen && (
+                    <ul
+                      id="groups-dropdown"
+                      className="absolute top-full left-0 mt-1 w-44 rounded-lg border border-white/10 bg-navy shadow-xl shadow-black/30 py-1 z-50"
+                    >
+                      {item.children.map((child) => (
+                        <li key={child.href}>
+                          <Link
+                            href={child.href}
+                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-accent transition-colors"
+                          >
+                            {child.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
@@ -160,6 +240,37 @@ export default function SiteNav() {
           <ul className="flex flex-col gap-1 px-4 py-3 sm:px-6">
             {NAV_ITEMS.map((item) => {
               const active = isActive(pathname, item.href);
+
+              if (item.children) {
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        active
+                          ? "bg-pitch text-white"
+                          : "text-gray-300 hover:bg-white/5 hover:text-accent"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                    <ul className="ml-4 mt-1 space-y-1">
+                      {item.children.map((child) => (
+                        <li key={child.href}>
+                          <Link
+                            href={child.href}
+                            className="block px-3 py-1.5 rounded-md text-sm text-gray-400 hover:bg-white/5 hover:text-accent transition-colors"
+                          >
+                            {child.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                );
+              }
+
               return (
                 <li key={item.href}>
                   <Link

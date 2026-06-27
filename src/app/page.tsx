@@ -10,23 +10,23 @@ import {
   TIER2_MAX,
   OVERALL_MAX,
 } from "@/data/participants";
+import {
+  calculateAllPoints,
+  setActualGroupResults,
+  setActualBonusResults,
+} from "@/data/scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
+import {
+  getLiveGroupResults,
+  getLiveBonusResults,
+} from "@/lib/live-scoring";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
 
 export const dynamic = "force-dynamic";
-
-function QuickStat({ label, value, icon }: { label: string; value: string; icon: string }) {
-  return (
-    <div className="text-center">
-      <span className="text-2xl block mb-1" aria-hidden>{icon}</span>
-      <p className="font-heading text-2xl font-bold text-white sm:text-3xl">{value}</p>
-      <p className="text-xs text-gray-500 uppercase tracking-wide mt-1">{label}</p>
-    </div>
-  );
-}
 
 function TierCard({
   tier,
@@ -82,8 +82,16 @@ function TierCard({
   );
 }
 
+function getMedalEmoji(rank: number): string {
+  switch (rank) {
+    case 1: return "🥇";
+    case 2: return "🥈";
+    case 3: return "🥉";
+    default: return "";
+  }
+}
+
 export default async function Home() {
-  // Fetch live data and participants in parallel
   const apiReady = isApiConfigured();
   const kvReady = isKvConfigured();
 
@@ -95,7 +103,34 @@ export default async function Home() {
 
   const kvParticipants = kvData.length > 0 ? buildParticipantsFromKv(kvData) : [];
 
-  // Compute popular group winner picks from real participants
+  // Inject live scoring for leaderboard preview
+  if (apiReady) {
+    const [groupResults, bonusResults] = await Promise.all([
+      getLiveGroupResults(),
+      getLiveBonusResults(),
+    ]);
+    if (groupResults) setActualGroupResults(groupResults.groups);
+    if (bonusResults) setActualBonusResults(bonusResults);
+  }
+
+  const withPoints = calculateAllPoints(kvParticipants);
+  const sorted = [...withPoints].sort((a, b) => {
+    const totalDiff = b.calculatedPoints.total - a.calculatedPoints.total;
+    if (totalDiff !== 0) return totalDiff;
+    const tier1Diff =
+      b.calculatedPoints.tier1Groups + b.calculatedPoints.tier1Bonus -
+      (a.calculatedPoints.tier1Groups + a.calculatedPoints.tier1Bonus);
+    if (tier1Diff !== 0) return tier1Diff;
+    return a.name.localeCompare(b.name);
+  });
+  const ranked = sorted.map((p, i) => ({
+    ...p,
+    rank: i + 1,
+    total: p.calculatedPoints.total,
+  }));
+  const top5 = ranked.slice(0, 5);
+
+  // Popular group winner picks
   const popularPicks: { group: string; team: string; count: number }[] = [];
   for (const group of groupLabels) {
     const dist: Record<string, number> = {};
@@ -135,6 +170,8 @@ export default async function Home() {
   }
 
   const hasTournamentData = matchesPlayed > 0 || liveMatches.length > 0;
+  const isTournamentActive = hasTournamentData || new Date() >= TOURNAMENT_START;
+  const isGroupStageOver = matchesPlayed >= 48 || new Date() >= new Date('2026-06-27T00:00:00-04:00');
 
   return (
     <>
@@ -153,13 +190,13 @@ export default async function Home() {
               "radial-gradient(ellipse at 30% 50%, rgba(0, 230, 118, 0.08), transparent 70%)",
           }}
         />
-        <Container className="relative py-16 sm:py-24 lg:py-32">
+        <Container className="relative py-10 sm:py-14 lg:py-16">
           <div className="flex flex-col items-center text-center">
             <div className="animate-fade-in-up">
               <p className="font-heading text-xs font-semibold uppercase tracking-[0.3em] text-accent sm:text-sm">
                 USA · Mexico · Canada
               </p>
-              <h1 className="mt-4 font-heading text-5xl font-extrabold uppercase tracking-tight text-white sm:text-6xl lg:text-7xl">
+              <h1 className="mt-4 font-heading text-4xl font-extrabold uppercase tracking-tight text-white sm:text-5xl lg:text-6xl">
                 World Cup{" "}
                 <span className="text-gradient">2026</span>{" "}
                 Fantasy
@@ -170,57 +207,109 @@ export default async function Home() {
             </div>
 
             {/* Countdown */}
-            <div className="mt-10 animate-fade-in-up animate-delay-100">
+            <div className="mt-6 animate-fade-in-up animate-delay-100">
               <CountdownTimer />
             </div>
 
-            {/* CTA buttons */}
-            <div className="mt-10 flex flex-wrap justify-center gap-3 animate-fade-in-up animate-delay-200">
-              <Link
-                href="/join"
-                className="font-heading rounded-lg bg-accent px-8 py-3 text-base font-bold uppercase tracking-wide text-navy shadow-lg shadow-accent/20 transition-all hover:bg-green-300 hover:shadow-accent/40"
-              >
-                Join the Contest
-              </Link>
-              <Link
-                href="/picks"
-                className="font-heading rounded-lg bg-pitch px-6 py-3 text-base font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
-              >
-                View Picks
-              </Link>
-              <Link
-                href="/leaderboard"
-                className="font-heading rounded-lg border border-accent/40 px-6 py-3 text-base font-bold uppercase tracking-wide text-accent transition-all hover:bg-accent/10"
-              >
-                Leaderboard
-              </Link>
+            {/* Phase-aware CTA buttons */}
+            <div className="mt-6 flex flex-wrap justify-center gap-3 animate-fade-in-up animate-delay-200">
+              {isTournamentActive ? (
+                <>
+                  <Link
+                    href="/leaderboard"
+                    className="font-heading rounded-lg bg-accent px-8 py-3 text-base font-bold uppercase tracking-wide text-navy shadow-lg shadow-accent/20 transition-all hover:bg-green-300 hover:shadow-accent/40"
+                  >
+                    Leaderboard
+                  </Link>
+                  {isGroupStageOver ? (
+                    <Link
+                      href="/my-picks"
+                      className="font-heading rounded-lg bg-gold px-6 py-3 text-base font-bold uppercase tracking-wide text-navy shadow-lg shadow-gold/20 transition-all hover:bg-yellow-300 hover:shadow-gold/40"
+                    >
+                      Submit Tier 2 Picks
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/groups?tab=picks"
+                      className="font-heading rounded-lg bg-pitch px-6 py-3 text-base font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
+                    >
+                      View Picks
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/join"
+                    className="font-heading rounded-lg bg-accent px-8 py-3 text-base font-bold uppercase tracking-wide text-navy shadow-lg shadow-accent/20 transition-all hover:bg-green-300 hover:shadow-accent/40"
+                  >
+                    Join the Contest
+                  </Link>
+                  <Link
+                    href="/groups?tab=picks"
+                    className="font-heading rounded-lg bg-pitch px-6 py-3 text-base font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
+                  >
+                    View Picks
+                  </Link>
+                  <Link
+                    href="/leaderboard"
+                    className="font-heading rounded-lg border border-accent/40 px-6 py-3 text-base font-bold uppercase tracking-wide text-accent transition-all hover:bg-accent/10"
+                  >
+                    Leaderboard
+                  </Link>
+                </>
+              )}
               <Link
                 href="/rules"
                 className="font-heading rounded-lg border border-white/20 px-6 py-3 text-base font-bold uppercase tracking-wide text-gray-300 transition-all hover:bg-white/5"
               >
-                Contest Rules
+                Rules
               </Link>
             </div>
           </div>
         </Container>
       </section>
 
-      {/* Quick Stats */}
-      <section className="border-b border-white/10 bg-navy-light/30 py-8">
-        <Container>
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
-            <QuickStat label="Participants" value={String(kvParticipants.length)} icon="👥" />
-            <QuickStat label="Teams" value="48" icon="🏟️" />
-            <QuickStat label="Groups" value="12" icon="📊" />
-            <QuickStat
-              label={hasTournamentData ? "Matches Played" : "Host Cities"}
-              value={hasTournamentData ? `${matchesPlayed}/${totalMatches}` : "16"}
-              icon={hasTournamentData ? "⚽" : "🌎"}
-            />
-            <QuickStat label="Max Points" value={String(OVERALL_MAX)} icon="🏆" />
-          </div>
-        </Container>
-      </section>
+      {/* Leaderboard Preview */}
+      {top5.length > 0 && (
+        <section className="py-8 border-b border-white/10 bg-navy-light/20">
+          <Container>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white">
+                Leaderboard
+              </h2>
+              <Link
+                href="/leaderboard"
+                className="text-sm text-accent hover:text-green-300 transition-colors"
+              >
+                Full Standings →
+              </Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:grid sm:grid-cols-5 sm:overflow-visible">
+              {top5.map((p) => (
+                <Card key={p.id} hover className="text-center snap-start min-w-[140px] sm:min-w-0">
+                  <CardBody className="py-4">
+                    <div className="mb-1">
+                      {p.rank <= 3 ? (
+                        <span className="text-2xl">{getMedalEmoji(p.rank)}</span>
+                      ) : (
+                        <span className="font-heading text-lg font-bold text-gray-500">{p.rank}</span>
+                      )}
+                    </div>
+                    <p className="font-heading text-sm font-bold text-white truncate">
+                      {p.name}
+                    </p>
+                    <p className="font-heading text-2xl font-bold text-accent mt-1">
+                      {p.total}
+                    </p>
+                    <p className="text-xs text-gray-500">points</p>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          </Container>
+        </section>
+      )}
 
       {/* Live Matches (if any) */}
       {liveMatches.length > 0 && (
@@ -296,7 +385,7 @@ export default async function Home() {
                 Recent Results
               </h2>
               <Link
-                href="/schedule"
+                href="/groups?tab=schedule"
                 className="text-sm text-accent hover:text-green-300 transition-colors"
               >
                 Full Schedule →
@@ -400,7 +489,7 @@ export default async function Home() {
       )}
 
       {/* Two-Tier System */}
-      <section className="py-12 sm:py-16">
+      <section className="py-12 sm:py-16 border-t border-white/10">
         <Container>
           <div className="text-center mb-10">
             <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
@@ -438,8 +527,41 @@ export default async function Home() {
         </Container>
       </section>
 
-      {/* Popular Group Winners */}
+      {/* How It Works */}
       <section className="py-12 sm:py-16 border-t border-white/10 bg-navy-light/20">
+        <Container>
+          <div className="text-center mb-10">
+            <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
+              How It Works
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
+            {[
+              { step: "1", title: "Predict Groups", desc: "Before the tournament, predict the finishing order for all 12 groups plus bonus picks.", icon: "📊" },
+              { step: "2", title: "Watch Groups", desc: "Follow the group stage and see how your predictions hold up in real time.", icon: "📺" },
+              { step: "3", title: "Fill Your Bracket", desc: "Once the knockout bracket is set, predict winners for every match from R32 to the Final.", icon: "🏆" },
+              { step: "4", title: "Claim Victory", desc: "Total points from both tiers determine the champion. Tiebreaker: predicted final score.", icon: "👑" },
+            ].map((item) => (
+              <Card key={item.step} hover>
+                <CardBody className="text-center py-8">
+                  <span className="text-3xl mb-3 block" aria-hidden>{item.icon}</span>
+                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-pitch/20 text-accent font-heading font-bold text-sm mb-3">
+                    {item.step}
+                  </div>
+                  <h3 className="font-heading text-lg font-bold text-white">{item.title}</h3>
+                  <p className="mt-2 text-sm text-gray-400">{item.desc}</p>
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* Mini Games */}
+      <MiniGames />
+
+      {/* Popular Group Winners (bottom) */}
+      <section className="py-12 sm:py-16 border-t border-white/10">
         <Container>
           <div className="text-center mb-10">
             <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
@@ -479,40 +601,7 @@ export default async function Home() {
         </Container>
       </section>
 
-      {/* Mini Games */}
-      <MiniGames />
-
-      {/* How It Works */}
-      <section className="py-12 sm:py-16 border-t border-white/10">
-        <Container>
-          <div className="text-center mb-10">
-            <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
-              How It Works
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
-            {[
-              { step: "1", title: "Predict Groups", desc: "Before the tournament, predict the finishing order for all 12 groups plus bonus picks.", icon: "📊" },
-              { step: "2", title: "Watch Groups", desc: "Follow the group stage and see how your predictions hold up in real time.", icon: "📺" },
-              { step: "3", title: "Fill Your Bracket", desc: "Once the knockout bracket is set, predict winners for every match from R32 to the Final.", icon: "🏆" },
-              { step: "4", title: "Claim Victory", desc: "Total points from both tiers determine the champion. Tiebreaker: predicted final score.", icon: "👑" },
-            ].map((item) => (
-              <Card key={item.step} hover>
-                <CardBody className="text-center py-8">
-                  <span className="text-3xl mb-3 block" aria-hidden>{item.icon}</span>
-                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-pitch/20 text-accent font-heading font-bold text-sm mb-3">
-                    {item.step}
-                  </div>
-                  <h3 className="font-heading text-lg font-bold text-white">{item.title}</h3>
-                  <p className="mt-2 text-sm text-gray-400">{item.desc}</p>
-                </CardBody>
-              </Card>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      {/* Key Dates */}
+      {/* Key Dates (bottom) */}
       <section className="py-12 sm:py-16 border-t border-white/10 bg-navy-light/20">
         <Container>
           <div className="text-center mb-10">

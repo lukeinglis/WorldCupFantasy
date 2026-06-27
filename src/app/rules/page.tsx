@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
@@ -38,8 +39,18 @@ export default function RulesPage() {
     { key: "round_of_16", label: "Round of 16" },
     { key: "quarter", label: "Quarterfinals" },
     { key: "semi", label: "Semifinals" },
+    { key: "third_place", label: "Third Place" },
     { key: "final", label: "Final" },
   ];
+
+  const knockoutBracketTotal = knockoutRounds.reduce(
+    (sum, { key }) => sum + knockoutRoundMatchCounts[key] * knockoutRoundPoints[key],
+    0
+  );
+  const knockoutMatchTotal = knockoutRounds.reduce(
+    (sum, { key }) => sum + knockoutRoundMatchCounts[key],
+    0
+  );
 
   return (
     <>
@@ -52,6 +63,48 @@ export default function RulesPage() {
       <section className="py-10 sm:py-14">
         <Container>
           <div className="max-w-3xl mx-auto space-y-8">
+            {/* How to Play */}
+            <div id="how-to-play">
+              <Card>
+                <CardHeader>
+                  <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
+                    How to Play
+                  </h2>
+                </CardHeader>
+                <CardBody>
+                  <div className="space-y-4">
+                    {[
+                      { step: 1, title: "Get Invited", desc: "The contest is invite-only among friends. If you are reading this, you are probably already in. Welcome!", icon: "🎟️" },
+                      { step: 2, title: "Study the Groups", desc: "Check out the 48 teams across 12 groups. Look at FIFA rankings, confederations, and recent form.", icon: "📚", link: { href: "/groups", label: "View Groups" } },
+                      { step: 3, title: "Submit Tier 1 Picks (Before June 11)", desc: "Predict the 1st through 4th finishing order for all 12 groups. Also pick your Golden Boot, Most Goals Team, and Fewest Goals Conceded Team.", icon: "📊" },
+                      { step: 4, title: "Watch the Group Stage", desc: "Follow the group stage action and see how your predictions hold up.", icon: "📺" },
+                      { step: 5, title: "Submit Tier 2 Picks (After Groups End)", desc: "Once the knockout bracket is set, predict the winner of every match from R32 through the Final. Also pick your Golden Ball.", icon: "🏆" },
+                      { step: 6, title: "Watch the Knockouts", desc: "Follow the knockout rounds. Tier 2 points increase as rounds progress.", icon: "⚔️" },
+                      { step: 7, title: "Claim Victory", desc: "After the final on July 19th, total points from both tiers determine the winner. If tied, the predicted final score breaks it.", icon: "👑" },
+                    ].map((item) => (
+                      <div key={item.step} className="flex items-start gap-3 rounded-lg bg-navy-lighter/30 px-4 py-3 border border-white/5">
+                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-pitch/20 border border-accent/20 flex items-center justify-center">
+                          <span className="font-heading text-sm font-bold text-accent">{item.step}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg" aria-hidden>{item.icon}</span>
+                            <p className="text-sm font-medium text-white">{item.title}</p>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1 leading-relaxed">{item.desc}</p>
+                          {item.link && (
+                            <Link href={item.link.href} className="inline-block mt-1 text-xs text-accent hover:text-green-300 transition-colors">
+                              {item.link.label} →
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+
             {/* Overview */}
             <Card>
               <CardHeader>
@@ -213,7 +266,7 @@ export default function RulesPage() {
                 <div className="space-y-6">
                   {/* Bracket Scoring */}
                   <div>
-                    <h3 className="text-sm font-semibold text-white mb-3">🏆 Knockout Bracket (114 pts max)</h3>
+                    <h3 className="text-sm font-semibold text-white mb-3">🏆 Knockout Bracket ({knockoutBracketTotal} pts max)</h3>
                     <p className="text-sm text-gray-400 mb-3">
                       Once the knockout bracket is finalized, predict the winner of every match from the Round of 32 through the Final.
                     </p>
@@ -240,7 +293,7 @@ export default function RulesPage() {
                           ))}
                           <tr className="border-t border-white/10 bg-navy-lighter/30">
                             <td colSpan={3} className="px-4 py-2.5 text-sm font-semibold text-white">Total</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-gold">114 pts</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-gold">{knockoutBracketTotal} pts</td>
                           </tr>
                         </tbody>
                       </table>
@@ -296,8 +349,8 @@ export default function RulesPage() {
                         <td className="px-4 py-2.5 text-right text-accent font-bold">{TIER1_MAX} pts</td>
                       </tr>
                       <tr className="border-t border-white/5">
-                        <td className="px-4 py-2.5 text-gray-300">Tier 2: Knockout Bracket (31 matches)</td>
-                        <td className="px-4 py-2.5 text-right text-gold font-bold">114 pts</td>
+                        <td className="px-4 py-2.5 text-gray-300">Tier 2: Knockout Bracket ({knockoutMatchTotal} matches)</td>
+                        <td className="px-4 py-2.5 text-right text-gold font-bold">{knockoutBracketTotal} pts</td>
                       </tr>
                       <tr className="border-t border-white/5">
                         <td className="px-4 py-2.5 text-gray-300">Tier 2: Bonus Pick (Golden Ball)</td>
@@ -373,8 +426,8 @@ export default function RulesPage() {
                   <div>
                     <h3 className="font-medium text-white mb-1">Knockout Bracket Structure</h3>
                     <p>
-                      32 teams enter the knockout stage. The bracket has 31 total matches:
-                      16 in R32, 8 in R16, 4 quarterfinals, 2 semifinals, and 1 final.
+                      32 teams enter the knockout stage. The bracket has {knockoutMatchTotal} total matches:
+                      16 in R32, 8 in R16, 4 quarterfinals, 2 semifinals, 1 third-place match, and 1 final.
                       Points per correct pick increase as the rounds progress.
                     </p>
                   </div>
@@ -424,6 +477,55 @@ export default function RulesPage() {
                     <span>Trash talk is encouraged. Poor sportsmanship is not.</span>
                   </li>
                 </ul>
+              </CardBody>
+            </Card>
+
+            {/* Strategy Tips */}
+            <Card>
+              <CardHeader>
+                <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
+                  Strategy Tips
+                </h2>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent font-bold mt-0.5">1.</span>
+                    <p>
+                      <strong className="text-white">Group order is king in Tier 1.</strong> With 144 points available from group positions alone (vs 30 from bonuses), getting finishing orders right is the biggest lever.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent font-bold mt-0.5">2.</span>
+                    <p>
+                      <strong className="text-white">Do not just pick favorites first.</strong> Getting the 3rd and 4th place teams right matters too. Each exact position is 3 points regardless of whether it is 1st or 4th.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent font-bold mt-0.5">3.</span>
+                    <p>
+                      <strong className="text-white">Later knockout rounds are worth more.</strong> Getting the Final right is 10 pts, while a Round of 32 pick is only 2 pts.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent font-bold mt-0.5">4.</span>
+                    <p>
+                      <strong className="text-white">Most Goals and Fewest Conceded are group stage only.</strong> Think about which teams play attacking vs defensive football in the groups specifically.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent font-bold mt-0.5">5.</span>
+                    <p>
+                      <strong className="text-white">Tier 2 is a second chance.</strong> Even if your Tier 1 picks were rough, Tier 2 offers up to {TIER2_MAX} points.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent font-bold mt-0.5">6.</span>
+                    <p>
+                      <strong className="text-white">Tiebreaker is the final score.</strong> Predict the exact final score of the championship match. This only matters if you tie on points with someone else.
+                    </p>
+                  </div>
+                </div>
               </CardBody>
             </Card>
           </div>
