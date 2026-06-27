@@ -278,6 +278,8 @@ function TeamDropdown({
 /*  Tier 2 Section                                                     */
 /* ------------------------------------------------------------------ */
 
+const KNOCKOUT_DEADLINE = new Date("2026-06-28T19:00:00Z"); // 3pm EST
+
 function Tier2Section({
   user,
   existingKnockoutPicks,
@@ -297,7 +299,6 @@ function Tier2Section({
   const [submitted, setSubmitted] = useState(tier2Submitted);
   const [showConfetti, setShowConfetti] = useState(false);
   const [error, setError] = useState("");
-  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     async function fetchMatches() {
@@ -313,32 +314,15 @@ function Tier2Section({
     fetchMatches();
   }, []);
 
-  // Compute locked matches (started or finished)
-  const lockedMatchKeys = useMemo(() => {
-    const locked = new Set<string>();
-    const now = new Date();
-    const lockedStatuses = new Set(["IN_PLAY", "FINISHED", "PAUSED"]);
-    for (const m of knockoutMatches) {
-      const key = `${m.round}_${m.matchNumber}`;
-      if (lockedStatuses.has(m.status) || (m.utcDate && new Date(m.utcDate) <= now)) {
-        locked.add(key);
-      }
-    }
-    return locked;
-  }, [knockoutMatches]);
-
+  const now = new Date();
+  const isPastDeadline = now >= KNOCKOUT_DEADLINE;
   const totalMatches = Object.values(knockoutRoundMatchCounts).reduce(
     (sum, c) => sum + c,
     0
   );
-  const unlockedTotal = totalMatches - lockedMatchKeys.size;
-  const unlockedPicks = knockoutPicks.filter(
-    (p) => !lockedMatchKeys.has(`${p.round}_${p.matchNumber}`)
-  ).length;
-  const allUnlockedPicked = unlockedTotal > 0 ? unlockedPicks >= unlockedTotal : knockoutPicks.length === totalMatches;
-  const allMatchesLocked = lockedMatchKeys.size === totalMatches;
   const hasGoldenBall = goldenBall.trim() !== "";
-  const canSubmit = (allUnlockedPicked && hasGoldenBall) || (knockoutPicks.length > 0 && hasGoldenBall);
+  const allPicked = knockoutPicks.length >= totalMatches;
+  const canSubmit = allPicked && hasGoldenBall;
 
   async function handleTier2Submit() {
     if (!canSubmit) return;
@@ -365,7 +349,6 @@ function Tier2Section({
       }
 
       setSubmitted(true);
-      setEditing(false);
       setSubmitting(false);
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 4000);
@@ -375,42 +358,13 @@ function Tier2Section({
     }
   }
 
-  if (allMatchesLocked) {
-    if (submitted) {
-      return (
-        <Tier2SubmittedSummary
-          knockoutPicks={knockoutPicks}
-          goldenBall={goldenBall}
-          locked
-        />
-      );
-    }
-    return (
-      <Card className="border-gold/20 bg-gold/5">
-        <CardBody className="py-8 text-center">
-          <span className="text-4xl block mb-3" aria-hidden>
-            🔒
-          </span>
-          <h3 className="font-heading text-xl font-bold text-white mb-2">
-            Tier 2 Picks Are Locked
-          </h3>
-          <p className="text-sm text-gray-400">
-            All knockout matches have started. Tier 2 picks are no longer accepted.
-          </p>
-        </CardBody>
-      </Card>
-    );
-  }
-
-  if (submitted && !editing) {
+  if (submitted) {
     return (
       <>
         {showConfetti && <ConfettiBurst />}
         <Tier2SubmittedSummary
           knockoutPicks={knockoutPicks}
           goldenBall={goldenBall}
-          locked={false}
-          onEdit={() => setEditing(true)}
         />
       </>
     );
@@ -420,6 +374,22 @@ function Tier2Section({
     <>
       {showConfetti && <ConfettiBurst />}
       <div className="space-y-8">
+        {/* Deadline warning */}
+        {isPastDeadline && (
+          <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3">
+            <p className="text-sm text-red-400 font-medium">
+              The deadline has passed. You can still submit, but late submissions will receive reduced points for games already played.
+            </p>
+          </div>
+        )}
+        {!isPastDeadline && (
+          <div className="rounded-lg bg-gold/10 border border-gold/20 px-4 py-3">
+            <p className="text-sm text-gold font-medium">
+              Deadline: June 28, 2026 at 3:00 PM EST. Once submitted, your picks are final and cannot be edited.
+            </p>
+          </div>
+        )}
+
         <div>
           <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-gold mb-2">
             Knockout Bracket
@@ -475,17 +445,17 @@ function Tier2Section({
             Submit Tier 2
           </h2>
 
-          {!allUnlockedPicked && (
+          {(!allPicked || !hasGoldenBall) && (
             <div className="rounded-lg bg-white/[0.02] border border-white/5 px-4 py-3 mb-4">
               <p className="text-xs text-gray-500 mb-1.5 font-medium">
                 Still needed:
               </p>
               <ul className="space-y-0.5">
-                {!allUnlockedPicked && (
+                {!allPicked && (
                   <li className="text-xs text-gray-600 flex items-center gap-1.5">
                     <span className="text-gray-700">&#x2022;</span> Pick{" "}
-                    {unlockedTotal - unlockedPicks} more knockout match
-                    {unlockedTotal - unlockedPicks !== 1 ? "es" : ""}
+                    {totalMatches - knockoutPicks.length} more knockout match
+                    {totalMatches - knockoutPicks.length !== 1 ? "es" : ""}
                   </li>
                 )}
                 {!hasGoldenBall && (
@@ -514,12 +484,12 @@ function Tier2Section({
                 : "bg-gray-800 text-gray-600 cursor-not-allowed"
             } disabled:opacity-70`}
           >
-            {submitting
-              ? "Submitting..."
-              : submitted
-              ? "Update Tier 2 Picks"
-              : "Submit Tier 2 Picks"}
+            {submitting ? "Submitting..." : "Submit Tier 2 Picks"}
           </button>
+
+          <p className="text-xs text-gray-600 mt-3 text-center">
+            Once submitted, your picks are final and cannot be changed.
+          </p>
         </div>
       </div>
     </>
@@ -529,13 +499,9 @@ function Tier2Section({
 function Tier2SubmittedSummary({
   knockoutPicks,
   goldenBall,
-  locked,
-  onEdit,
 }: {
   knockoutPicks: KnockoutPick[];
   goldenBall: string;
-  locked: boolean;
-  onEdit?: () => void;
 }) {
   const roundOrder = [
     "round_of_32",
@@ -565,19 +531,8 @@ function Tier2SubmittedSummary({
             Tier 2 Picks Submitted!
           </h2>
           <p className="text-gray-400 mb-4">
-            {locked
-              ? "Tier 2 picks are locked. The knockout stage is underway!"
-              : "Good luck! You can update your picks until June 28, 2026."}
+            Your picks are locked. Good luck!
           </p>
-          {!locked && onEdit && (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="font-heading rounded-lg bg-gold/80 px-8 py-3 text-sm font-bold uppercase tracking-wide text-navy shadow-lg shadow-gold/20 transition-all hover:bg-gold hover:shadow-gold/40"
-            >
-              Edit Tier 2 Picks
-            </button>
-          )}
         </CardBody>
       </Card>
 
@@ -847,7 +802,7 @@ export default function MyPicksPage() {
                         Tier 2: Knockout Bracket
                       </h2>
                       <p className="text-sm text-gray-400">
-                        Picks lock on June 28, 2026 when the Round of 32 begins.
+                        Deadline: June 28, 2026 at 3:00 PM EST. Once submitted, picks are final.
                       </p>
                     </div>
                   </div>
