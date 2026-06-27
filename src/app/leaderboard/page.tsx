@@ -18,7 +18,7 @@ import {
   setActualBonusResults,
   setActualKnockoutResults,
 } from "@/data/scoring";
-import { isApiConfigured, getScorers, getTeamStats } from "@/lib/football-api";
+import { isApiConfigured, getScorers, getStandings } from "@/lib/football-api";
 import {
   getLiveGroupResults,
   getLiveBonusResults,
@@ -68,20 +68,18 @@ export default async function LeaderboardPage() {
   let hasLiveMatches = false;
   let isTournamentActive = false;
   let scorersData: import("@/lib/football-api-types").TransformedScorer[] = [];
-  let teamStatsData: import("@/lib/football-api-types").TeamStats[] = [];
+  let teamStatsData: { teamTla: string; goalsScored: number; goalsConceded: number; matchesPlayed: number }[] = [];
 
   if (isApiConfigured()) {
-    const [groupResults, bonusResults, knockoutResults, tournamentStatus, scorersResult, teamStatsResult] = await Promise.all([
+    const [groupResults, bonusResults, knockoutResults, tournamentStatus, scorersResult] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
       getLiveKnockoutResults(),
       getLiveTournamentStatus(),
       getScorers(),
-      getTeamStats(),
     ]);
 
     scorersData = scorersResult ?? [];
-    teamStatsData = teamStatsResult ?? [];
 
     if (groupResults) {
       setActualGroupResults(groupResults.groups);
@@ -99,6 +97,18 @@ export default async function LeaderboardPage() {
     if (tournamentStatus) {
       hasLiveMatches = tournamentStatus.liveMatches > 0;
       isTournamentActive = tournamentStatus.playedMatches > 0;
+    }
+
+    const standingsForStats = await getStandings();
+    if (standingsForStats) {
+      teamStatsData = standingsForStats.flatMap(g =>
+        g.standings.map(s => ({
+          teamTla: s.team.tla,
+          goalsScored: s.goalsFor,
+          goalsConceded: s.goalsAgainst,
+          matchesPlayed: s.played,
+        }))
+      );
     }
   }
 
