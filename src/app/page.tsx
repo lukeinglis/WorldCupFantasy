@@ -104,16 +104,12 @@ export default async function Home() {
   const kvParticipants = kvData.length > 0 ? buildParticipantsFromKv(kvData) : [];
 
   // Inject live scoring for leaderboard preview
-  let hasGroupScoring = false;
   if (apiReady) {
     const [groupResults, bonusResults] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
     ]);
-    if (groupResults) {
-      setActualGroupResults(groupResults.groups);
-      hasGroupScoring = true;
-    }
+    if (groupResults) setActualGroupResults(groupResults.groups);
     if (bonusResults) setActualBonusResults(bonusResults);
   }
 
@@ -298,11 +294,6 @@ export default async function Home() {
                 Full Standings →
               </Link>
             </div>
-            {isTournamentActive && !hasGroupScoring && (
-              <p className="text-xs text-yellow-400 mb-4 text-center">
-                Live scores temporarily unavailable. Refresh to retry.
-              </p>
-            )}
             <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
               {ranked.map((p) => (
                 <Card key={p.id} hover className="text-center snap-start min-w-[140px] flex-shrink-0">
