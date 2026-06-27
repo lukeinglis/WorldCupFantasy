@@ -39,8 +39,18 @@ export default function RulesPage() {
     { key: "round_of_16", label: "Round of 16" },
     { key: "quarter", label: "Quarterfinals" },
     { key: "semi", label: "Semifinals" },
+    { key: "third_place", label: "Third Place" },
     { key: "final", label: "Final" },
   ];
+
+  const knockoutBracketTotal = knockoutRounds.reduce(
+    (sum, { key }) => sum + knockoutRoundMatchCounts[key] * knockoutRoundPoints[key],
+    0
+  );
+  const knockoutMatchTotal = knockoutRounds.reduce(
+    (sum, { key }) => sum + knockoutRoundMatchCounts[key],
+    0
+  );
 
   return (
     <>
@@ -256,7 +266,7 @@ export default function RulesPage() {
                 <div className="space-y-6">
                   {/* Bracket Scoring */}
                   <div>
-                    <h3 className="text-sm font-semibold text-white mb-3">🏆 Knockout Bracket (114 pts max)</h3>
+                    <h3 className="text-sm font-semibold text-white mb-3">🏆 Knockout Bracket ({knockoutBracketTotal} pts max)</h3>
                     <p className="text-sm text-gray-400 mb-3">
                       Once the knockout bracket is finalized, predict the winner of every match from the Round of 32 through the Final.
                     </p>
@@ -283,7 +293,7 @@ export default function RulesPage() {
                           ))}
                           <tr className="border-t border-white/10 bg-navy-lighter/30">
                             <td colSpan={3} className="px-4 py-2.5 text-sm font-semibold text-white">Total</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-gold">114 pts</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-gold">{knockoutBracketTotal} pts</td>
                           </tr>
                         </tbody>
                       </table>
@@ -339,8 +349,8 @@ export default function RulesPage() {
                         <td className="px-4 py-2.5 text-right text-accent font-bold">{TIER1_MAX} pts</td>
                       </tr>
                       <tr className="border-t border-white/5">
-                        <td className="px-4 py-2.5 text-gray-300">Tier 2: Knockout Bracket (31 matches)</td>
-                        <td className="px-4 py-2.5 text-right text-gold font-bold">114 pts</td>
+                        <td className="px-4 py-2.5 text-gray-300">Tier 2: Knockout Bracket ({knockoutMatchTotal} matches)</td>
+                        <td className="px-4 py-2.5 text-right text-gold font-bold">{knockoutBracketTotal} pts</td>
                       </tr>
                       <tr className="border-t border-white/5">
                         <td className="px-4 py-2.5 text-gray-300">Tier 2: Bonus Pick (Golden Ball)</td>
@@ -416,8 +426,8 @@ export default function RulesPage() {
                   <div>
                     <h3 className="font-medium text-white mb-1">Knockout Bracket Structure</h3>
                     <p>
-                      32 teams enter the knockout stage. The bracket has 31 total matches:
-                      16 in R32, 8 in R16, 4 quarterfinals, 2 semifinals, and 1 final.
+                      32 teams enter the knockout stage. The bracket has {knockoutMatchTotal} total matches:
+                      16 in R32, 8 in R16, 4 quarterfinals, 2 semifinals, 1 third-place match, and 1 final.
                       Points per correct pick increase as the rounds progress.
                     </p>
                   </div>

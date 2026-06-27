@@ -23,6 +23,7 @@ import {
   getLiveGroupResults,
   getLiveBonusResults,
 } from "@/lib/live-scoring";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
 
 export const dynamic = "force-dynamic";
@@ -179,8 +180,8 @@ export default async function Home() {
   }
 
   const hasTournamentData = matchesPlayed > 0 || liveMatches.length > 0;
-  const isTournamentActive = hasTournamentData;
-  const isGroupStageOver = matchesPlayed >= 48;
+  const isTournamentActive = hasTournamentData || new Date() >= TOURNAMENT_START;
+  const isGroupStageOver = matchesPlayed >= 48 || new Date() >= new Date('2026-06-27T00:00:00-04:00');
 
   return (
     <>
@@ -287,9 +288,9 @@ export default async function Home() {
             <QuickStat label="Teams" value="48" icon="🏟️" />
             <QuickStat label="Groups" value="12" icon="📊" />
             <QuickStat
-              label={hasTournamentData ? "Matches Played" : "Host Cities"}
-              value={hasTournamentData ? `${matchesPlayed}/${totalMatches}` : "16"}
-              icon={hasTournamentData ? "⚽" : "🌎"}
+              label={isTournamentActive ? "Matches Played" : "Host Cities"}
+              value={isTournamentActive ? (hasTournamentData ? `${matchesPlayed}/${totalMatches}` : "Live") : "16"}
+              icon={isTournamentActive ? "⚽" : "🌎"}
             />
             <QuickStat label="Max Points" value={String(OVERALL_MAX)} icon="🏆" />
           </div>
@@ -311,9 +312,9 @@ export default async function Home() {
                 Full Standings →
               </Link>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory sm:grid sm:grid-cols-5 sm:overflow-visible">
               {top5.map((p) => (
-                <Card key={p.id} hover className="text-center">
+                <Card key={p.id} hover className="text-center snap-start min-w-[140px] sm:min-w-0">
                   <CardBody className="py-4">
                     <div className="mb-1">
                       {p.rank <= 3 ? (
@@ -514,10 +515,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Mini Games */}
-      <MiniGames />
-
-      {/* Two-Tier System (moved to bottom) */}
+      {/* Two-Tier System */}
       <section className="py-12 sm:py-16 border-t border-white/10">
         <Container>
           <div className="text-center mb-10">
@@ -556,7 +554,7 @@ export default async function Home() {
         </Container>
       </section>
 
-      {/* How It Works (collapsible/bottom) */}
+      {/* How It Works */}
       <section className="py-12 sm:py-16 border-t border-white/10 bg-navy-light/20">
         <Container>
           <div className="text-center mb-10">
@@ -585,6 +583,9 @@ export default async function Home() {
           </div>
         </Container>
       </section>
+
+      {/* Mini Games */}
+      <MiniGames />
 
       {/* Popular Group Winners (bottom) */}
       <section className="py-12 sm:py-16 border-t border-white/10">
