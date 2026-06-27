@@ -32,6 +32,8 @@ import logger from "./logger";
 
 const log = logger.child({ module: "football-api" });
 
+const inflight = new Map<string, Promise<unknown>>();
+
 // ── API TLA normalization ──
 // football-data.org uses different codes than our teams.ts for some teams.
 // Normalize once here so every consumer sees our internal codes.
@@ -59,32 +61,41 @@ async function apiFetch<T>(path: string): Promise<T | null> {
   const apiKey = getApiKey();
   if (!apiKey) return null;
 
-  const url = `${API_BASE}${path}`;
-
-  try {
-    const res = await fetch(url, {
-      headers: { "X-Auth-Token": apiKey },
-      // Next.js extended fetch: do not cache at the framework level;
-      // we handle caching ourselves via api-cache.ts
-      cache: "no-store",
-    });
-
-    if (res.status === 429) {
-      log.warn({ path, status: 429 }, "rate limited, returning cached data or null");
-      return null;
-    }
-
-    if (!res.ok) {
-      log.warn({ path, status: res.status, statusText: res.statusText }, "API error");
-      return null;
-    }
-
-    const data: T = await res.json();
-    return data;
-  } catch (err) {
-    log.error({ path, err }, "network error");
-    return null;
+  const existing = inflight.get(path);
+  if (existing) {
+    log.info({ path }, "dedup: joining in-flight request");
+    return existing as Promise<T | null>;
   }
+
+  const promise = (async (): Promise<T | null> => {
+    const url = `${API_BASE}${path}`;
+    try {
+      const res = await fetch(url, {
+        headers: { "X-Auth-Token": apiKey },
+        cache: "no-store",
+      });
+
+      if (res.status === 429) {
+        log.warn({ path, status: 429 }, "rate limited");
+        return null;
+      }
+
+      if (!res.ok) {
+        log.warn({ path, status: res.status, statusText: res.statusText }, "API error");
+        return null;
+      }
+
+      return await res.json();
+    } catch (err) {
+      log.error({ path, error: (err as Error).message }, "fetch failed");
+      return null;
+    } finally {
+      inflight.delete(path);
+    }
+  })();
+
+  inflight.set(path, promise);
+  return promise;
 }
 
 // ── Sanitization helpers ──
