@@ -32,6 +32,18 @@ import logger from "./logger";
 
 const log = logger.child({ module: "football-api" });
 
+// ── API TLA normalization ──
+// football-data.org uses different codes than our teams.ts for some teams.
+// Normalize once here so every consumer sees our internal codes.
+const API_TLA_MAP: Record<string, string> = {
+  CUW: "CUR",
+  URU: "URY",
+};
+
+function normalizeTla(tla: string): string {
+  return API_TLA_MAP[tla] ?? tla;
+}
+
 // ── Config ──
 
 const API_BASE = "https://api.football-data.org/v4";
@@ -138,7 +150,7 @@ export async function getTeams(): Promise<TransformedTeam[] | null> {
     id: t.id,
     name: safeStr(t.name, "Unknown"),
     shortName: safeStr(t.shortName, safeStr(t.name, "Unknown")),
-    tla: safeStr(t.tla, "???"),
+    tla: normalizeTla(safeStr(t.tla, "???")),
     crest: t.crest ?? null,
     group: teamGroupMap.get(t.id) ?? "",
     area: safeStr(t.area?.name, ""),
@@ -173,7 +185,7 @@ export async function getStandings(): Promise<TransformedGroupStandings[] | null
               id: entry.team.id,
               name: safeStr(entry.team.name, "Unknown"),
               shortName: safeStr(entry.team.shortName, "Unknown"),
-              tla: safeStr(entry.team.tla, "???"),
+              tla: normalizeTla(safeStr(entry.team.tla, "???")),
               crest: entry.team.crest ?? null,
               group: extractGroupLetter(group.group),
               area: "",
@@ -278,7 +290,7 @@ export async function getScorers(): Promise<TransformedScorer[] | null> {
   const transformed: TransformedScorer[] = raw.scorers.map((s) => ({
     playerName: safeStr(s.player?.name, "Unknown"),
     teamName: safeStr(s.team?.name, "Unknown"),
-    teamTla: safeStr(s.team?.tla, "???"),
+    teamTla: normalizeTla(safeStr(s.team?.tla, "???")),
     teamCrest: s.team?.crest ?? null,
     goals: safeNum(s.goals),
     assists: safeNum(s.assists),
@@ -330,7 +342,7 @@ export async function getTeamStats(): Promise<TeamStats[] | null> {
     if (!statsMap.has(team.id)) {
       statsMap.set(team.id, {
         name: safeStr(team.name, "Unknown"),
-        tla: safeStr(team.tla, "???"),
+        tla: normalizeTla(safeStr(team.tla, "???")),
         crest: team.crest ?? null,
         goalsScored: 0,
         goalsConceded: 0,
@@ -408,14 +420,14 @@ function transformMatch(m: ApiMatch): TransformedMatch {
       id: m.homeTeam.id,
       name: safeStr(m.homeTeam.name, "TBD"),
       shortName: safeStr(m.homeTeam.shortName, "TBD"),
-      tla: safeStr(m.homeTeam.tla, "TBD"),
+      tla: normalizeTla(safeStr(m.homeTeam.tla, "TBD")),
       crest: m.homeTeam.crest ?? null,
     },
     awayTeam: {
       id: m.awayTeam.id,
       name: safeStr(m.awayTeam.name, "TBD"),
       shortName: safeStr(m.awayTeam.shortName, "TBD"),
-      tla: safeStr(m.awayTeam.tla, "TBD"),
+      tla: normalizeTla(safeStr(m.awayTeam.tla, "TBD")),
       crest: m.awayTeam.crest ?? null,
     },
     score: {
