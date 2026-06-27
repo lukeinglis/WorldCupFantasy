@@ -241,6 +241,117 @@ function ParticipantRow({ participant }: { participant: AdminParticipant }) {
   );
 }
 
+interface CacheKeyInfo {
+  key: string;
+  expiresAt: number;
+  ttlRemaining: number;
+}
+
+interface CacheStats {
+  size: number;
+  keys: CacheKeyInfo[];
+}
+
+function CacheControlSection({ userId }: { userId: string }) {
+  const [stats, setStats] = useState<CacheStats | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/cache?userId=${userId}`);
+      if (res.ok) {
+        const json = await res.json();
+        setStats(json.stats);
+      }
+    } catch {
+      // silently fail, stats are informational
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const handleClear = async () => {
+    setClearing(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/admin/cache?userId=${userId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setMessage("Cache cleared successfully");
+        await fetchStats();
+        setTimeout(() => setMessage(null), 3000);
+      }
+    } catch {
+      setMessage("Failed to clear cache");
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const formatTtl = (ms: number) => {
+    if (ms <= 0) return "expired";
+    const secs = Math.floor(ms / 1000);
+    if (secs < 60) return `${secs}s`;
+    const mins = Math.floor(secs / 60);
+    const remainSecs = secs % 60;
+    return remainSecs > 0 ? `${mins}m ${remainSecs}s` : `${mins}m`;
+  };
+
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-base font-bold uppercase tracking-wide text-white">
+            Cache Control
+          </h2>
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={clearing}
+            className="rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+          >
+            {clearing ? "Clearing..." : "Clear Cache"}
+          </button>
+        </div>
+      </CardHeader>
+      <CardBody>
+        {message && (
+          <div className="mb-3 rounded bg-accent/10 border border-accent/20 px-3 py-2 text-xs text-accent">
+            {message}
+          </div>
+        )}
+        <div className="mb-3">
+          <p className="text-xs text-gray-400">
+            Cached keys: <span className="font-semibold text-white">{stats?.size ?? 0}</span>
+          </p>
+        </div>
+        {stats && stats.keys.length > 0 && (
+          <div className="space-y-1">
+            {stats.keys.map((k) => (
+              <div
+                key={k.key}
+                className="flex items-center justify-between rounded bg-navy-lighter/50 px-3 py-1.5 border border-white/5"
+              >
+                <span className="text-[11px] text-white truncate mr-2">{k.key}</span>
+                <span className={`text-[11px] whitespace-nowrap ${k.ttlRemaining > 0 ? "text-gray-500" : "text-red-400"}`}>
+                  {formatTtl(k.ttlRemaining)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {stats && stats.keys.length === 0 && (
+          <p className="text-xs text-gray-500">No cached entries.</p>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<AdminData | null>(null);
@@ -374,6 +485,9 @@ export default function AdminPage() {
               accent="text-gold"
             />
           </div>
+
+          {/* Cache control */}
+          {user && <CacheControlSection userId={user.id} />}
 
           {/* Participants table */}
           <Card>
