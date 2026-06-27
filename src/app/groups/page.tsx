@@ -20,16 +20,6 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-const stageOrder = [
-  "group",
-  "round_of_32",
-  "round_of_16",
-  "quarter",
-  "semi",
-  "third_place",
-  "final",
-] as const;
-
 export default async function GroupsPage() {
   const teamsByGroup = getTeamsByGroup();
 
@@ -269,219 +259,246 @@ export default async function GroupsPage() {
   );
 }
 
-function renderLiveSchedule(matches: TransformedMatch[]) {
-  const matchesByStage: Record<string, TransformedMatch[]> = {};
-  for (const m of matches) {
-    const stage = m.stage;
-    if (!matchesByStage[stage]) matchesByStage[stage] = [];
-    matchesByStage[stage].push(m);
-  }
+function renderLiveMatchCard(match: TransformedMatch) {
+  const isLive = match.isLive;
+  const isFinished = match.status === "FINISHED";
+  const hasScore =
+    match.score.fullTime.home !== null &&
+    match.score.fullTime.away !== null;
+  const stageLabel = match.group
+    ? null
+    : stageLabels[match.stage] ?? match.stage;
 
-  return stageOrder.map((stage) => {
-    const stageMatches = matchesByStage[stage];
-    if (!stageMatches || stageMatches.length === 0) return null;
-
-    return (
-      <Card key={stage}>
-        <CardHeader>
-          <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
-            {stageLabels[stage] ?? stage}
-          </h2>
-        </CardHeader>
-        <CardBody className="p-0">
-          <div className="divide-y divide-white/5">
-            {stageMatches.map((match) => {
-              const isLive = match.isLive;
-              const isFinished = match.status === "FINISHED";
-              const hasScore =
-                match.score.fullTime.home !== null &&
-                match.score.fullTime.away !== null;
-
-              return (
-                <div
-                  key={match.id}
-                  className={`flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 transition-colors ${
-                    isLive
-                      ? "bg-red-500/5 hover:bg-red-500/10"
-                      : "hover:bg-white/[0.02]"
-                  }`}
-                >
-                  <div className="flex-shrink-0 sm:w-36 flex items-center gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-gray-300">
-                        {new Date(match.utcDate).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(match.utcDate).toLocaleTimeString("en-US", {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                    {isLive && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-bold text-red-400 animate-pulse">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                        LIVE
-                      </span>
-                    )}
-                    {isFinished && (
-                      <span className="inline-flex items-center rounded-full bg-gray-500/20 px-2 py-0.5 text-xs font-semibold text-gray-400">
-                        FT
-                      </span>
-                    )}
-                  </div>
-
-                  {match.group && (
-                    <div className="flex-shrink-0 sm:w-12">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-pitch/20 text-accent text-xs font-bold">
-                        {match.group}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex-1 flex items-center justify-center gap-4">
-                    <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                      <span className="text-sm font-medium text-white truncate">
-                        {match.homeTeam.shortName}
-                      </span>
-                      {match.homeTeam.crest ? (
-                        <Image
-                          src={match.homeTeam.crest}
-                          alt={match.homeTeam.shortName}
-                          width={24}
-                          height={24}
-                          className="w-6 h-6 object-contain"
-                          placeholder="blur"
-                          blurDataURL={CREST_BLUR_PLACEHOLDER}
-                        />
-                      ) : null}
-                    </div>
-
-                    {hasScore ? (
-                      <span
-                        className={`font-heading text-lg font-bold px-3 min-w-[60px] text-center ${
-                          isLive
-                            ? "text-red-400"
-                            : isFinished
-                            ? "text-white"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {match.score.fullTime.home} : {match.score.fullTime.away}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-gray-600 px-3 min-w-[60px] text-center">
-                        vs
-                      </span>
-                    )}
-
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      {match.awayTeam.crest ? (
-                        <Image
-                          src={match.awayTeam.crest}
-                          alt={match.awayTeam.shortName}
-                          width={24}
-                          height={24}
-                          className="w-6 h-6 object-contain"
-                          placeholder="blur"
-                          blurDataURL={CREST_BLUR_PLACEHOLDER}
-                        />
-                      ) : null}
-                      <span className="text-sm font-medium text-white truncate">
-                        {match.awayTeam.shortName}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
+  return (
+    <Card key={match.id}>
+      <CardBody className="px-3 py-2.5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <p className="text-xs text-gray-500">
+            {new Date(match.utcDate).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
             })}
+            {" · "}
+            {new Date(match.utcDate).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </p>
+          {match.group && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-pitch/20 text-accent text-[10px] font-bold">
+              {match.group}
+            </span>
+          )}
+          {stageLabel && (
+            <span className="text-[10px] font-semibold text-gold/70 uppercase">
+              {stageLabel}
+            </span>
+          )}
+          {isLive && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold text-red-400 animate-pulse ml-auto">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+              LIVE
+            </span>
+          )}
+          {isFinished && (
+            <span className="inline-flex items-center rounded-full bg-gray-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-gray-400 ml-auto">
+              FT
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            {match.homeTeam.crest ? (
+              <Image
+                src={match.homeTeam.crest}
+                alt={match.homeTeam.shortName}
+                width={20}
+                height={20}
+                className="w-5 h-5 object-contain flex-shrink-0"
+                placeholder="blur"
+                blurDataURL={CREST_BLUR_PLACEHOLDER}
+              />
+            ) : null}
+            <span className="text-sm font-medium text-white truncate">
+              {match.homeTeam.shortName}
+            </span>
           </div>
-        </CardBody>
-      </Card>
-    );
-  });
+          {hasScore ? (
+            <span
+              className={`font-heading text-sm font-bold px-2 min-w-[48px] text-center flex-shrink-0 ${
+                isLive
+                  ? "text-red-400"
+                  : isFinished
+                  ? "text-white"
+                  : "text-gray-400"
+              }`}
+            >
+              {match.score.fullTime.home} : {match.score.fullTime.away}
+            </span>
+          ) : (
+            <span className="text-xs font-bold text-gray-600 px-2 min-w-[48px] text-center flex-shrink-0">
+              vs
+            </span>
+          )}
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+            <span className="text-sm font-medium text-white truncate">
+              {match.awayTeam.shortName}
+            </span>
+            {match.awayTeam.crest ? (
+              <Image
+                src={match.awayTeam.crest}
+                alt={match.awayTeam.shortName}
+                width={20}
+                height={20}
+                className="w-5 h-5 object-contain flex-shrink-0"
+                placeholder="blur"
+                blurDataURL={CREST_BLUR_PLACEHOLDER}
+              />
+            ) : null}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function renderLiveSchedule(matches: TransformedMatch[]) {
+  const live = matches.filter((m) => m.isLive);
+  const played = matches
+    .filter((m) => m.status === "FINISHED")
+    .sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime());
+  const upcoming = matches
+    .filter((m) => m.status !== "FINISHED" && !m.isLive)
+    .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-accent mb-4">
+          Results
+        </h3>
+        <div className="overflow-y-auto max-h-[600px] space-y-2 pr-1">
+          {played.length === 0 ? (
+            <p className="text-sm text-gray-500 italic py-4 text-center">No results yet</p>
+          ) : (
+            played.map((match) => renderLiveMatchCard(match))
+          )}
+        </div>
+      </div>
+      <div>
+        <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-gold mb-4">
+          Upcoming
+        </h3>
+        <div className="overflow-y-auto max-h-[600px] space-y-2 pr-1">
+          {live.map((match) => renderLiveMatchCard(match))}
+          {upcoming.length === 0 && live.length === 0 ? (
+            <p className="text-sm text-gray-500 italic py-4 text-center">No upcoming matches</p>
+          ) : (
+            upcoming.map((match) => renderLiveMatchCard(match))
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function renderStaticSchedule() {
-  const matchesByStage: Record<string, typeof schedule> = {};
-  for (const stage of stageOrder) {
-    matchesByStage[stage] = schedule.filter((m) => m.stage === stage);
-  }
+  const now = new Date();
 
-  return stageOrder.map((stage) => {
-    const matches = matchesByStage[stage];
-    if (!matches || matches.length === 0) return null;
+  const played = schedule
+    .filter((m) => parseLocalDate(m.date) < now)
+    .sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
+  const upcoming = schedule
+    .filter((m) => parseLocalDate(m.date) >= now)
+    .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
+
+  function renderStaticMatchCard(match: (typeof schedule)[number]) {
+    const homeTeam = getTeamByCode(match.homeTeam);
+    const awayTeam = getTeamByCode(match.awayTeam);
+    const isTBD = match.homeTeam === "TBD";
+    const stageLabel = match.group
+      ? null
+      : stageLabels[match.stage] ?? match.stage;
 
     return (
-      <Card key={stage}>
-        <CardHeader>
-          <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
-            {stageLabels[stage]}
-          </h2>
-        </CardHeader>
-        <CardBody className="p-0">
-          <div className="divide-y divide-white/5">
-            {matches.map((match) => {
-              const homeTeam = getTeamByCode(match.homeTeam);
-              const awayTeam = getTeamByCode(match.awayTeam);
-              const isTBD = match.homeTeam === "TBD";
-
-              return (
-                <div
-                  key={match.id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 hover:bg-white/[0.02] transition-colors"
-                >
-                  <div className="flex-shrink-0 sm:w-32">
-                    <p className="text-sm font-medium text-gray-300">
-                      {parseLocalDate(match.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </p>
-                    <p className="text-xs text-gray-500">{match.time} ET</p>
-                  </div>
-
-                  <div className="flex-1 flex items-center justify-center gap-4">
-                    {isTBD ? (
-                      <span className="text-sm text-gray-500 italic">
-                        To be determined
-                      </span>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                          <span className="text-sm font-medium text-white truncate">
-                            {homeTeam?.name ?? match.homeTeam}
-                          </span>
-                          <span className="text-lg">{homeTeam?.flag}</span>
-                        </div>
-                        <span className="text-xs font-bold text-gray-600 px-2">
-                          vs
-                        </span>
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-lg">{awayTeam?.flag}</span>
-                          <span className="text-sm font-medium text-white truncate">
-                            {awayTeam?.name ?? match.awayTeam}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="flex-shrink-0 text-right sm:w-48">
-                    <p className="text-xs text-gray-400">{match.venue}</p>
-                    <p className="text-xs text-gray-600">{match.city}</p>
-                  </div>
+      <Card key={match.id}>
+        <CardBody className="px-3 py-2.5">
+          <div className="flex items-center gap-2 mb-1.5">
+            <p className="text-xs text-gray-500">
+              {parseLocalDate(match.date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+              {" · "}
+              {match.time} ET
+            </p>
+            {match.group && (
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-pitch/20 text-accent text-[10px] font-bold">
+                {match.group}
+              </span>
+            )}
+            {stageLabel && (
+              <span className="text-[10px] font-semibold text-gold/70 uppercase">
+                {stageLabel}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {isTBD ? (
+              <span className="text-sm text-gray-500 italic w-full text-center">
+                To be determined
+              </span>
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span className="text-base flex-shrink-0">{homeTeam?.flag}</span>
+                  <span className="text-sm font-medium text-white truncate">
+                    {homeTeam?.name ?? match.homeTeam}
+                  </span>
                 </div>
-              );
-            })}
+                <span className="text-xs font-bold text-gray-600 px-2 min-w-[48px] text-center flex-shrink-0">
+                  vs
+                </span>
+                <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+                  <span className="text-sm font-medium text-white truncate">
+                    {awayTeam?.name ?? match.awayTeam}
+                  </span>
+                  <span className="text-base flex-shrink-0">{awayTeam?.flag}</span>
+                </div>
+              </>
+            )}
           </div>
         </CardBody>
       </Card>
     );
-  });
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-accent mb-4">
+          Results
+        </h3>
+        <div className="overflow-y-auto max-h-[600px] space-y-2 pr-1">
+          {played.length === 0 ? (
+            <p className="text-sm text-gray-500 italic py-4 text-center">No results yet</p>
+          ) : (
+            played.map((match) => renderStaticMatchCard(match))
+          )}
+        </div>
+      </div>
+      <div>
+        <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-gold mb-4">
+          Upcoming
+        </h3>
+        <div className="overflow-y-auto max-h-[600px] space-y-2 pr-1">
+          {upcoming.length === 0 ? (
+            <p className="text-sm text-gray-500 italic py-4 text-center">No upcoming matches</p>
+          ) : (
+            upcoming.map((match) => renderStaticMatchCard(match))
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
