@@ -3,10 +3,13 @@
  * Resets on redeploy (acceptable for this use case).
  *
  * TTL defaults:
- *   teams/groups:  24 hours  (rarely change)
- *   standings:     15 minutes
- *   matches:        5 minutes
- *   scorers:       15 minutes
+ *   teams/groups:   24 hours (rarely change)
+ *   standings:       5 minutes
+ *   matches:         5 minutes
+ *   matches (live):  1 minute
+ *   scorers:         5 minutes
+ *   match detail:    5 minutes
+ *   stats:           5 minutes
  */
 
 import { getLogger } from "./logger";
@@ -23,12 +26,12 @@ const cache = new Map<string, CacheEntry<unknown>>();
 /** TTL presets in milliseconds */
 export const CacheTTL = {
   TEAMS: 24 * 60 * 60 * 1000,       // 24 hours
-  STANDINGS: 15 * 60 * 1000,        // 15 minutes
+  STANDINGS: 5 * 60 * 1000,         // 5 minutes
   MATCHES: 5 * 60 * 1000,           // 5 minutes
-  MATCHES_LIVE: 30 * 1000,          // 30 seconds for live matches
-  SCORERS: 15 * 60 * 1000,          // 15 minutes
-  MATCH_DETAIL: 2 * 60 * 1000,      // 2 minutes
-  STATS: 15 * 60 * 1000,            // 15 minutes
+  MATCHES_LIVE: 60 * 1000,          // 1 minute
+  SCORERS: 5 * 60 * 1000,           // 5 minutes
+  MATCH_DETAIL: 5 * 60 * 1000,      // 5 minutes
+  STATS: 5 * 60 * 1000,             // 5 minutes
 } as const;
 
 /**
@@ -108,9 +111,17 @@ export function clearCache(): void {
 /**
  * Get cache stats for debugging.
  */
-export function getCacheStats(): { size: number; keys: string[] } {
+export function getCacheStats(): {
+  size: number;
+  keys: { key: string; expiresAt: number; ttlRemaining: number }[];
+} {
+  const now = Date.now();
   return {
     size: cache.size,
-    keys: Array.from(cache.keys()),
+    keys: Array.from(cache.entries()).map(([key, entry]) => ({
+      key,
+      expiresAt: (entry as CacheEntry<unknown>).expiresAt,
+      ttlRemaining: Math.max(0, (entry as CacheEntry<unknown>).expiresAt - now),
+    })),
   };
 }
