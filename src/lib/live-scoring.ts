@@ -92,6 +92,7 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
     // Check if all matches are played (each team plays 3 group matches)
     const allPlayed = group.standings.every((s) => s.played >= 3);
     if (!allPlayed) isComplete = false;
+    if (!allPlayed) continue;
 
     // Standings are already sorted by position from the API
     const sorted = [...group.standings].sort((a, b) => a.position - b.position);
