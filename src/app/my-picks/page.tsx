@@ -699,7 +699,7 @@ export default function MyPicksPage() {
   const canSubmit = allGroupsDone && bonusComplete && !tier1Locked;
 
   const phase = getCurrentPhase();
-  const showTier2 = tier1Locked && existingPicks && (phase === "group_stage" || phase === "knockout");
+  const showTier2 = tier1Locked && (phase === "group_stage" || phase === "knockout");
 
   // Build list of what's missing
   const missing: string[] = [];
@@ -914,8 +914,59 @@ export default function MyPicksPage() {
     );
   }
 
-  // Tier 1 locked and user never submitted
+  // Tier 1 locked and user never submitted: show Tier 2 if in knockout phase
   if (tier1Locked && !existingPicks) {
+    if (showTier2) {
+      return (
+        <>
+          <PageHeader
+            title="My Picks"
+            subtitle="Your predictions for the World Cup 2026."
+            icon="📋"
+          />
+          <section className="py-10 sm:py-14">
+            <Container>
+              <div className="max-w-4xl mx-auto">
+                {/* Tier 1 locked notice */}
+                <Card className="border-white/10 mb-8">
+                  <CardBody className="py-6 text-center">
+                    <span className="text-4xl block mb-2" aria-hidden>🔒</span>
+                    <h2 className="font-heading text-xl font-bold text-white mb-1">
+                      Tier 1: Locked (0 points)
+                    </h2>
+                    <p className="text-sm text-gray-400">
+                      Group predictions are closed. You will receive 0 points for Tier 1.
+                    </p>
+                  </CardBody>
+                </Card>
+
+                {/* Tier 2 bracket */}
+                <div className="mb-12">
+                  <div className="flex items-center gap-3 mb-8">
+                    <span className="text-3xl" aria-hidden>🏆</span>
+                    <div>
+                      <h2 className="font-heading text-2xl font-bold text-gold">
+                        Tier 2: Knockout Bracket
+                      </h2>
+                      <p className="text-sm text-gray-400">
+                        Deadline: June 28, 2026 at 3:00 PM EST. Once submitted, picks are final.
+                      </p>
+                    </div>
+                  </div>
+                  <Tier2Section
+                    user={user!}
+                    existingKnockoutPicks={existingKnockoutPicks}
+                    existingGoldenBall={existingGoldenBall}
+                    tier2Submitted={existingTier2Submitted}
+                  />
+                </div>
+              </div>
+            </Container>
+          </section>
+        </>
+      );
+    }
+
     return (
       <section className="py-20">
         <Container>
