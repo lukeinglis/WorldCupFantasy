@@ -18,7 +18,7 @@ import {
   setActualBonusResults,
   setActualKnockoutResults,
 } from "@/data/scoring";
-import { isApiConfigured } from "@/lib/football-api";
+import { isApiConfigured, getScorers, getTeamStats } from "@/lib/football-api";
 import {
   getLiveGroupResults,
   getLiveBonusResults,
@@ -67,14 +67,21 @@ export default async function LeaderboardPage() {
   let hasGroupScoring = false;
   let hasLiveMatches = false;
   let isTournamentActive = false;
+  let scorersData: import("@/lib/football-api-types").TransformedScorer[] = [];
+  let teamStatsData: import("@/lib/football-api-types").TeamStats[] = [];
 
   if (isApiConfigured()) {
-    const [groupResults, bonusResults, knockoutResults, tournamentStatus] = await Promise.all([
+    const [groupResults, bonusResults, knockoutResults, tournamentStatus, scorersResult, teamStatsResult] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
       getLiveKnockoutResults(),
       getLiveTournamentStatus(),
+      getScorers(),
+      getTeamStats(),
     ]);
+
+    scorersData = scorersResult ?? [];
+    teamStatsData = teamStatsResult ?? [];
 
     if (groupResults) {
       setActualGroupResults(groupResults.groups);
@@ -284,7 +291,7 @@ export default async function LeaderboardPage() {
           {/* Bonus Picks Comparison */}
           <div className="mt-10">
             <Suspense>
-              <BonusPicksComparison />
+              <BonusPicksComparison scorers={scorersData} teamStats={teamStatsData} />
             </Suspense>
           </div>
 
