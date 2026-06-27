@@ -26,6 +26,7 @@ import {
   getLiveTournamentStatus,
 } from "@/lib/live-scoring";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import LivePoller from "@/components/LivePoller";
 
@@ -63,7 +64,7 @@ export default async function LeaderboardPage() {
   }
 
   // Try to inject live results before scoring
-  let hasLiveScoring = false;
+  let hasGroupScoring = false;
   let hasLiveMatches = false;
   let isTournamentActive = false;
 
@@ -77,17 +78,15 @@ export default async function LeaderboardPage() {
 
     if (groupResults) {
       setActualGroupResults(groupResults.groups);
-      hasLiveScoring = true;
+      hasGroupScoring = true;
     }
 
     if (bonusResults) {
       setActualBonusResults(bonusResults);
-      hasLiveScoring = true;
     }
 
     if (knockoutResults) {
       setActualKnockoutResults(knockoutResults.results);
-      hasLiveScoring = true;
     }
 
     if (tournamentStatus) {
@@ -95,6 +94,9 @@ export default async function LeaderboardPage() {
       isTournamentActive = tournamentStatus.playedMatches > 0;
     }
   }
+
+  const hasLiveScoring = hasGroupScoring;
+  const tournamentStarted = isTournamentActive || new Date() >= TOURNAMENT_START;
 
   const lastUpdated = new Date().toISOString();
 
@@ -141,7 +143,13 @@ export default async function LeaderboardPage() {
       <section className="py-10 sm:py-14">
         <Container>
           {/* Status notice */}
-          <div className="mb-8 rounded-lg border border-accent/20 bg-accent/5 px-5 py-4 text-center">
+          <div className={`mb-8 rounded-lg border px-5 py-4 text-center ${
+            hasLiveScoring
+              ? "border-accent/20 bg-accent/5"
+              : tournamentStarted
+              ? "border-yellow-500/20 bg-yellow-500/5"
+              : "border-accent/20 bg-accent/5"
+          }`}>
             {hasLiveScoring ? (
               <>
                 <p className="text-sm text-accent font-medium">
@@ -149,6 +157,15 @@ export default async function LeaderboardPage() {
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Points update automatically as matches finish.
+                </p>
+              </>
+            ) : tournamentStarted ? (
+              <>
+                <p className="text-sm text-yellow-400 font-medium">
+                  Live scores temporarily unavailable. Refresh the page to retry.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  The tournament is in progress but score data could not be loaded.
                 </p>
               </>
             ) : (
