@@ -144,14 +144,19 @@ export async function getAllUsersWithPicks(): Promise<
 > {
   requireKv();
   const ids = await getAllParticipantIds();
-  const results: { user: UserRecord; picks: PicksRecord | null }[] = [];
 
-  for (const id of ids) {
-    const user = await getUserById(id);
-    if (!user) continue;
-    const picks = await getPicks(id);
-    results.push({ user, picks });
-  }
+  const results = (
+    await Promise.all(
+      ids.map(async (id) => {
+        const [user, picks] = await Promise.all([
+          getUserById(id),
+          getPicks(id),
+        ]);
+        if (!user) return null;
+        return { user, picks };
+      })
+    )
+  ).filter((r): r is { user: UserRecord; picks: PicksRecord | null } => r !== null);
 
   log.info(
     { participantCount: ids.length, withPicks: results.filter((r) => r.picks).length },
