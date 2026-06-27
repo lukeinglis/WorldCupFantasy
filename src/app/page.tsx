@@ -152,6 +152,8 @@ export default async function Home() {
   let matchesPlayed = 0;
   let totalMatches = 0;
 
+  let upcomingMatches: TransformedMatch[] = [];
+
   if (matches) {
     totalMatches = matches.length;
     matchesPlayed = matches.filter((m) => m.status === "FINISHED").length;
@@ -161,6 +163,13 @@ export default async function Home() {
       .sort(
         (a, b) =>
           new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime()
+      )
+      .slice(0, 4);
+    upcomingMatches = matches
+      .filter((m) => m.status !== "FINISHED" && !m.isLive)
+      .sort(
+        (a, b) =>
+          new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()
       )
       .slice(0, 4);
   }
@@ -376,73 +385,89 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Recent Results (if tournament has started) */}
-      {recentResults.length > 0 && (
+      {/* Results & Upcoming */}
+      {(recentResults.length > 0 || upcomingMatches.length > 0) && (
         <section className="py-10 border-b border-white/10">
           <Container>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white">
-                Recent Results
-              </h2>
+            <div className={`grid grid-cols-1 gap-6 ${recentResults.length > 0 && upcomingMatches.length > 0 ? "lg:grid-cols-2" : ""}`}>
+              {recentResults.length > 0 && (
+                <div>
+                  <h2 className="font-heading text-lg font-bold uppercase tracking-tight text-accent mb-4">
+                    Recent Results
+                  </h2>
+                  <div className="space-y-2">
+                    {recentResults.map((match) => (
+                      <div key={match.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-navy-lighter/30 px-3 py-2.5">
+                        <span className="text-xs text-gray-500 w-16 flex-shrink-0">
+                          {match.group ? `Grp ${match.group}` : match.stage}{" "}
+                          {new Date(match.utcDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-1 justify-end">
+                          <span className="text-sm text-white truncate">{match.homeTeam.shortName}</span>
+                          {match.homeTeam.crest && (
+                            <img src={match.homeTeam.crest} alt="" className="w-4 h-4 object-contain" />
+                          )}
+                        </div>
+                        <span className="font-heading text-sm font-bold text-white px-2 min-w-[40px] text-center">
+                          {match.score.fullTime.home ?? 0}:{match.score.fullTime.away ?? 0}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-1">
+                          {match.awayTeam.crest && (
+                            <img src={match.awayTeam.crest} alt="" className="w-4 h-4 object-contain" />
+                          )}
+                          <span className="text-sm text-white truncate">{match.awayTeam.shortName}</span>
+                        </div>
+                        <span className="inline-flex items-center rounded-full bg-gray-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-gray-400 flex-shrink-0">
+                          FT
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {upcomingMatches.length > 0 && (
+                <div>
+                  <h2 className="font-heading text-lg font-bold uppercase tracking-tight text-gold mb-4">
+                    Upcoming
+                  </h2>
+                  <div className="space-y-2">
+                    {upcomingMatches.map((match) => (
+                      <div key={match.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-navy-lighter/30 px-3 py-2.5">
+                        <span className="text-xs text-gray-500 w-16 flex-shrink-0">
+                          {match.group ? `Grp ${match.group}` : match.stage}{" "}
+                          {new Date(match.utcDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-1 justify-end">
+                          <span className="text-sm text-white truncate">{match.homeTeam.shortName}</span>
+                          {match.homeTeam.crest && (
+                            <img src={match.homeTeam.crest} alt="" className="w-4 h-4 object-contain" />
+                          )}
+                        </div>
+                        <span className="font-heading text-sm font-bold text-gray-400 px-2 min-w-[40px] text-center">
+                          vs
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-1">
+                          {match.awayTeam.crest && (
+                            <img src={match.awayTeam.crest} alt="" className="w-4 h-4 object-contain" />
+                          )}
+                          <span className="text-sm text-white truncate">{match.awayTeam.shortName}</span>
+                        </div>
+                        <span className="text-[10px] text-gray-500 flex-shrink-0">
+                          {new Date(match.utcDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 text-center">
               <Link
                 href="/groups?tab=schedule"
-                className="text-sm text-accent hover:text-green-300 transition-colors"
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
               >
                 Full Schedule →
               </Link>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {recentResults.map((match) => (
-                <Card key={match.id} hover>
-                  <CardBody>
-                    <div className="flex items-center gap-2 mb-2">
-                      {match.group && (
-                        <span className="text-xs text-gray-500">
-                          Group {match.group}
-                        </span>
-                      )}
-                      <span className="text-xs text-gray-600">
-                        {new Date(match.utcDate).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </span>
-                      <span className="inline-flex items-center rounded-full bg-gray-500/20 px-2 py-0.5 text-xs font-semibold text-gray-400">
-                        FT
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 flex-1">
-                        {match.homeTeam.crest && (
-                          <img
-                            src={match.homeTeam.crest}
-                            alt={match.homeTeam.shortName}
-                            className="w-6 h-6 object-contain"
-                          />
-                        )}
-                        <span className="text-sm font-medium text-white">
-                          {match.homeTeam.shortName}
-                        </span>
-                      </div>
-                      <span className="font-heading text-lg font-bold text-white px-3">
-                        {match.score.fullTime.home ?? 0} : {match.score.fullTime.away ?? 0}
-                      </span>
-                      <div className="flex items-center gap-2 flex-1 justify-end">
-                        <span className="text-sm font-medium text-white">
-                          {match.awayTeam.shortName}
-                        </span>
-                        {match.awayTeam.crest && (
-                          <img
-                            src={match.awayTeam.crest}
-                            alt={match.awayTeam.shortName}
-                            className="w-6 h-6 object-contain"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </CardBody>
-                </Card>
-              ))}
             </div>
           </Container>
         </section>
