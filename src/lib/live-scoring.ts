@@ -24,6 +24,18 @@ import { getLogger } from "./logger";
 
 const log = getLogger("live-scoring");
 
+// ── API TLA normalization ──
+// football-data.org uses different codes than our teams.ts for some teams.
+// Normalize at the API boundary so scoring always sees our internal codes.
+const API_TLA_MAP: Record<string, string> = {
+  CUW: "CUR", // Curaçao
+  URU: "URY", // Uruguay
+};
+
+function normalizeTla(tla: string): string {
+  return API_TLA_MAP[tla] ?? tla;
+}
+
 // ── Types ──
 
 export interface LiveGroupResults {
@@ -84,10 +96,10 @@ export async function getLiveGroupResults(): Promise<LiveGroupResults | null> {
     // Standings are already sorted by position from the API
     const sorted = [...group.standings].sort((a, b) => a.position - b.position);
     groups[group.group] = [
-      sorted[0]?.team.tla ?? "",
-      sorted[1]?.team.tla ?? "",
-      sorted[2]?.team.tla ?? "",
-      sorted[3]?.team.tla ?? "",
+      normalizeTla(sorted[0]?.team.tla ?? ""),
+      normalizeTla(sorted[1]?.team.tla ?? ""),
+      normalizeTla(sorted[2]?.team.tla ?? ""),
+      normalizeTla(sorted[3]?.team.tla ?? ""),
     ];
 
     log.debug(
@@ -128,13 +140,13 @@ export async function getLiveBonusResults(): Promise<LiveBonusResults | null> {
       const byGoals = [...withMatches].sort(
         (a, b) => b.goalsScored - a.goalsScored
       );
-      mostGoalsTeam = byGoals[0].teamTla;
+      mostGoalsTeam = normalizeTla(byGoals[0].teamTla);
 
       // Fewest conceded in group stage
       const byConceded = [...withMatches].sort(
         (a, b) => a.goalsConceded - b.goalsConceded
       );
-      fewestConcededTeam = byConceded[0].teamTla;
+      fewestConcededTeam = normalizeTla(byConceded[0].teamTla);
     }
   }
 
@@ -253,7 +265,7 @@ export async function getLiveKnockoutResults(): Promise<LiveKnockoutResults | nu
         // DRAW in knockout is rare (penalty shootout); the API typically
         // resolves the winner field, but if still DRAW we skip.
         if (winnerTla) {
-          results[`${stage}_${matchNumber}`] = winnerTla;
+          results[`${stage}_${matchNumber}`] = normalizeTla(winnerTla);
         }
       }
     }
