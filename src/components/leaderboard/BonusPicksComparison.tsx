@@ -37,18 +37,39 @@ interface BonusPicksComparisonProps {
   teamStats?: TeamStat[];
 }
 
+interface TieGroup<T> {
+  rank: number;
+  items: T[];
+  value: number;
+}
+
+function groupWithTies<T>(items: T[], getValue: (item: T) => number): TieGroup<T>[] {
+  const groups: TieGroup<T>[] = [];
+  let rank = 1;
+  for (let i = 0; i < items.length; i++) {
+    const value = getValue(items[i]);
+    if (groups.length > 0 && groups[groups.length - 1].value === value) {
+      groups[groups.length - 1].items.push(items[i]);
+    } else {
+      groups.push({ rank, items: [items[i]], value });
+    }
+    rank = i + 2;
+  }
+  return groups;
+}
+
 function deriveLeaders(scorers: Scorer[], teamStats: TeamStat[]): ActualLeaders {
-  const topScorers = scorers.slice(0, 3);
+  const topScorers = scorers.slice(0, 5);
 
   const withMatches = teamStats.filter((t) => t.matchesPlayed > 0);
 
   const teamsByGoals = [...withMatches]
     .sort((a, b) => b.goalsScored - a.goalsScored)
-    .slice(0, 3);
+    .slice(0, 5);
 
   const teamsByConceded = [...withMatches]
     .sort((a, b) => a.goalsConceded - b.goalsConceded)
-    .slice(0, 3);
+    .slice(0, 5);
 
   return { scorers: topScorers, teamsByGoals, teamsByConceded };
 }
@@ -83,26 +104,43 @@ function ActualLeaderColumn({
     if (leaders.scorers.length === 0) {
       return <p className="text-xs text-gray-500">No goals scored yet</p>;
     }
+    const groups = groupWithTies(leaders.scorers, (s) => s.goals);
     return (
       <div className="space-y-2">
-        {leaders.scorers.map((s, i) => {
-          const team = getTeamByCode(s.teamTla);
+        {groups.map((group) => {
+          const first = group.items[0];
+          const team = getTeamByCode(first.teamTla);
           const label = team
-            ? `${s.playerName} (${team.flag} ${team.code})`
-            : `${s.playerName} (${s.teamTla})`;
-          const isPicked = pickedValues.has(s.playerName);
+            ? `${first.playerName} (${team.flag} ${team.code})`
+            : `${first.playerName} (${first.teamTla})`;
+          const isLeader = group.rank === 1;
+          const isPicked = pickedValues.has(first.playerName);
+          const tiedOthers = group.items.slice(1);
           return (
-            <div key={s.playerName} className="flex items-center gap-2">
-              <span className={`text-xs font-bold ${i === 0 ? "text-gold" : "text-gray-400"}`}>
-                {i + 1}.
-              </span>
-              <span className={`text-sm ${i === 0 ? "text-gold font-medium" : "text-white"}`}>
-                {label}
-              </span>
-              <span className="text-xs text-gray-500">
-                {s.goals} {s.goals === 1 ? "goal" : "goals"}
-              </span>
-              {isPicked && <LeaderBadge />}
+            <div key={first.playerName}>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold ${isLeader ? "text-gold" : "text-gray-400"}`}>
+                  {group.rank}.
+                </span>
+                <span className={`text-sm ${isLeader ? "text-gold font-medium" : "text-white"}`}>
+                  {label}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {first.goals} {first.goals === 1 ? "goal" : "goals"}
+                </span>
+                {isPicked && <LeaderBadge />}
+              </div>
+              {tiedOthers.length > 0 && (
+                <p className="ml-6 text-xs text-gray-500">
+                  Tied with{" "}
+                  {tiedOthers.length <= 2
+                    ? tiedOthers.map((s) => {
+                        const t = getTeamByCode(s.teamTla);
+                        return t ? `${s.playerName} (${t.code})` : s.playerName;
+                      }).join(", ")
+                    : `${tiedOthers.length} other${tiedOthers.length === 1 ? "" : "s"}`}
+                </p>
+              )}
             </div>
           );
         })}
@@ -114,24 +152,39 @@ function ActualLeaderColumn({
     if (leaders.teamsByGoals.length === 0) {
       return <p className="text-xs text-gray-500">No matches played yet</p>;
     }
+    const groups = groupWithTies(leaders.teamsByGoals, (t) => t.goalsScored);
     return (
       <div className="space-y-2">
-        {leaders.teamsByGoals.map((t, i) => {
-          const team = getTeamByCode(t.teamTla);
-          const label = team ? `${team.flag} ${team.name}` : t.teamName;
-          const isPicked = pickedValues.has(t.teamTla);
+        {groups.map((group) => {
+          const first = group.items[0];
+          const team = getTeamByCode(first.teamTla);
+          const label = team ? `${team.flag} ${team.name}` : first.teamName;
+          const isLeader = group.rank === 1;
+          const isPicked = pickedValues.has(first.teamTla);
+          const tiedOthers = group.items.slice(1);
           return (
-            <div key={t.teamTla} className="flex items-center gap-2">
-              <span className={`text-xs font-bold ${i === 0 ? "text-gold" : "text-gray-400"}`}>
-                {i + 1}.
-              </span>
-              <span className={`text-sm ${i === 0 ? "text-gold font-medium" : "text-white"}`}>
-                {label}
-              </span>
-              <span className="text-xs text-gray-500">
-                {t.goalsScored} {t.goalsScored === 1 ? "goal" : "goals"}
-              </span>
-              {isPicked && <LeaderBadge />}
+            <div key={first.teamTla}>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold ${isLeader ? "text-gold" : "text-gray-400"}`}>
+                  {group.rank}.
+                </span>
+                <span className={`text-sm ${isLeader ? "text-gold font-medium" : "text-white"}`}>
+                  {label}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {first.goalsScored} {first.goalsScored === 1 ? "goal" : "goals"}
+                </span>
+                {isPicked && <LeaderBadge />}
+              </div>
+              {tiedOthers.length > 0 && (
+                <p className="ml-6 text-xs text-gray-500">
+                  Tied with{" "}
+                  {tiedOthers.map((t) => {
+                    const tm = getTeamByCode(t.teamTla);
+                    return tm ? `${tm.flag} ${tm.name}` : t.teamName;
+                  }).join(", ")}
+                </p>
+              )}
             </div>
           );
         })}
@@ -143,24 +196,39 @@ function ActualLeaderColumn({
     if (leaders.teamsByConceded.length === 0) {
       return <p className="text-xs text-gray-500">No matches played yet</p>;
     }
+    const groups = groupWithTies(leaders.teamsByConceded, (t) => t.goalsConceded);
     return (
       <div className="space-y-2">
-        {leaders.teamsByConceded.map((t, i) => {
-          const team = getTeamByCode(t.teamTla);
-          const label = team ? `${team.flag} ${team.name}` : t.teamName;
-          const isPicked = pickedValues.has(t.teamTla);
+        {groups.map((group) => {
+          const first = group.items[0];
+          const team = getTeamByCode(first.teamTla);
+          const label = team ? `${team.flag} ${team.name}` : first.teamName;
+          const isLeader = group.rank === 1;
+          const isPicked = pickedValues.has(first.teamTla);
+          const tiedOthers = group.items.slice(1);
           return (
-            <div key={t.teamTla} className="flex items-center gap-2">
-              <span className={`text-xs font-bold ${i === 0 ? "text-gold" : "text-gray-400"}`}>
-                {i + 1}.
-              </span>
-              <span className={`text-sm ${i === 0 ? "text-gold font-medium" : "text-white"}`}>
-                {label}
-              </span>
-              <span className="text-xs text-gray-500">
-                {t.goalsConceded} conceded
-              </span>
-              {isPicked && <LeaderBadge />}
+            <div key={first.teamTla}>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold ${isLeader ? "text-gold" : "text-gray-400"}`}>
+                  {group.rank}.
+                </span>
+                <span className={`text-sm ${isLeader ? "text-gold font-medium" : "text-white"}`}>
+                  {label}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {first.goalsConceded} conceded
+                </span>
+                {isPicked && <LeaderBadge />}
+              </div>
+              {tiedOthers.length > 0 && (
+                <p className="ml-6 text-xs text-gray-500">
+                  Tied with{" "}
+                  {tiedOthers.map((t) => {
+                    const tm = getTeamByCode(t.teamTla);
+                    return tm ? `${tm.flag} ${tm.name}` : t.teamName;
+                  }).join(", ")}
+                </p>
+              )}
             </div>
           );
         })}
