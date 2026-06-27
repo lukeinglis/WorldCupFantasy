@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardHeader } from "@/components/Card";
@@ -214,7 +215,12 @@ export default async function LeaderboardPage() {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div>
-                              <span className="font-medium text-white">{p.name}</span>
+                              <Link
+                                href={`/leaderboard/${p.id}`}
+                                className="font-medium text-white hover:text-accent transition-colors"
+                              >
+                                {p.name}
+                              </Link>
                               <p className="text-xs text-gray-600">
                                 TB: {p.tiebreaker.homeScore}:{p.tiebreaker.awayScore}
                               </p>
