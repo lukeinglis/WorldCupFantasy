@@ -4,6 +4,7 @@ import "./globals.css";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 import AuthProvider from "@/components/AuthProvider";
+import Tier2Banner from "@/components/Tier2Banner";
 
 const oswald = Oswald({
   subsets: ["latin"],
@@ -47,6 +48,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <SiteNav />
+          <Tier2Banner />
           <main className="flex-1">{children}</main>
           <SiteFooter />
         </AuthProvider>

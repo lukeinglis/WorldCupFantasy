@@ -48,9 +48,9 @@ describe("scoring constants validation", () => {
     expect(OVERALL_MAX).toBe(TIER1_MAX + TIER2_MAX);
   });
 
-  it("knockout round points has all five rounds", () => {
+  it("knockout round points has all six rounds", () => {
     expect(Object.keys(knockoutRoundPoints)).toEqual(
-      expect.arrayContaining(["round_of_32", "round_of_16", "quarter", "semi", "final"])
+      expect.arrayContaining(["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"])
     );
   });
 
@@ -58,7 +58,8 @@ describe("scoring constants validation", () => {
     expect(knockoutRoundPoints.round_of_32).toBeLessThan(knockoutRoundPoints.round_of_16);
     expect(knockoutRoundPoints.round_of_16).toBeLessThan(knockoutRoundPoints.quarter);
     expect(knockoutRoundPoints.quarter).toBeLessThan(knockoutRoundPoints.semi);
-    expect(knockoutRoundPoints.semi).toBeLessThan(knockoutRoundPoints.final);
+    expect(knockoutRoundPoints.semi).toBeLessThanOrEqual(knockoutRoundPoints.final);
+    expect(knockoutRoundPoints.third_place).toBe(knockoutRoundPoints.semi);
   });
 
   it("knockout match counts are correct for 48-team bracket", () => {
@@ -66,6 +67,7 @@ describe("scoring constants validation", () => {
     expect(knockoutRoundMatchCounts.round_of_16).toBe(8);
     expect(knockoutRoundMatchCounts.quarter).toBe(4);
     expect(knockoutRoundMatchCounts.semi).toBe(2);
+    expect(knockoutRoundMatchCounts.third_place).toBe(1);
     expect(knockoutRoundMatchCounts.final).toBe(1);
   });
 

@@ -202,6 +202,72 @@ export async function getLiveTournamentStatus(): Promise<LiveTournamentStatus | 
   return status;
 }
 
+// ── Fetch live knockout results ──
+
+export interface LiveKnockoutResults {
+  /** Map: "{round}_{matchNumber}" => winning team TLA */
+  results: Record<string, string>;
+  /** Whether all knockout matches have been played */
+  isComplete: boolean;
+}
+
+export async function getLiveKnockoutResults(): Promise<LiveKnockoutResults | null> {
+  if (!isApiConfigured()) {
+    log.warn("API not configured, skipping live knockout results");
+    return null;
+  }
+
+  const matches = await getMatches();
+  if (!matches) {
+    log.warn("no match data available for knockout results");
+    return null;
+  }
+
+  const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
+  const knockoutMatches = matches.filter(m => knockoutStages.includes(m.stage));
+
+  const results: Record<string, string> = {};
+  let totalKnockout = 0;
+  let finishedKnockout = 0;
+
+  // Group matches by stage, then assign match numbers within each stage
+  for (const stage of knockoutStages) {
+    const stageMatches = knockoutMatches
+      .filter(m => m.stage === stage)
+      .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+
+    for (let i = 0; i < stageMatches.length; i++) {
+      const match = stageMatches[i];
+      totalKnockout++;
+      const matchNumber = i + 1; // 1-based
+
+      if (match.status === "FINISHED" && match.score.winner) {
+        finishedKnockout++;
+        // Determine winning team TLA
+        let winnerTla: string | null = null;
+        if (match.score.winner === "HOME_TEAM") {
+          winnerTla = match.homeTeam.tla;
+        } else if (match.score.winner === "AWAY_TEAM") {
+          winnerTla = match.awayTeam.tla;
+        }
+        // DRAW in knockout is rare (penalty shootout); the API typically
+        // resolves the winner field, but if still DRAW we skip.
+        if (winnerTla) {
+          results[`${stage}_${matchNumber}`] = winnerTla;
+        }
+      }
+    }
+  }
+
+  const isComplete = totalKnockout > 0 && finishedKnockout === totalKnockout;
+
+  log.info(
+    { resultCount: Object.keys(results).length, totalKnockout, finishedKnockout, isComplete },
+    "getLiveKnockoutResults"
+  );
+  return { results, isComplete };
+}
+
 // ── Re-exports for convenience ──
 
 export type {

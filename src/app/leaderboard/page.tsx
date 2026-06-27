@@ -16,11 +16,13 @@ import {
   calculateAllPoints,
   setActualGroupResults,
   setActualBonusResults,
+  setActualKnockoutResults,
 } from "@/data/scoring";
 import { isApiConfigured } from "@/lib/football-api";
 import {
   getLiveGroupResults,
   getLiveBonusResults,
+  getLiveKnockoutResults,
   getLiveTournamentStatus,
 } from "@/lib/live-scoring";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
@@ -66,9 +68,10 @@ export default async function LeaderboardPage() {
   let isTournamentActive = false;
 
   if (isApiConfigured()) {
-    const [groupResults, bonusResults, tournamentStatus] = await Promise.all([
+    const [groupResults, bonusResults, knockoutResults, tournamentStatus] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
+      getLiveKnockoutResults(),
       getLiveTournamentStatus(),
     ]);
 
@@ -79,6 +82,11 @@ export default async function LeaderboardPage() {
 
     if (bonusResults) {
       setActualBonusResults(bonusResults);
+      hasLiveScoring = true;
+    }
+
+    if (knockoutResults) {
+      setActualKnockoutResults(knockoutResults.results);
       hasLiveScoring = true;
     }
 

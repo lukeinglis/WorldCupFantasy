@@ -17,7 +17,7 @@ export interface BonusPicks {
 }
 
 export interface KnockoutPick {
-  round: "round_of_32" | "round_of_16" | "quarter" | "semi" | "final";
+  round: "round_of_32" | "round_of_16" | "quarter" | "semi" | "third_place" | "final";
   matchNumber: number;   // 1-based match index within the round
   winner: string;        // team code
 }

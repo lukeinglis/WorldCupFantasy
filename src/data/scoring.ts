@@ -70,6 +70,17 @@ export function setActualGroupResults(
   actualGroupResults = results;
 }
 
+// Map knockout match results: key = "{round}_{matchNumber}", value = winning team TLA
+export let actualKnockoutResults: Record<string, string> | null = null;
+
+export function setActualKnockoutResults(
+  results: Record<string, string> | null
+): void {
+  const matchCount = results ? Object.keys(results).length : 0;
+  logger.info({ matchCount, hasResults: results !== null }, "knockout results updated");
+  actualKnockoutResults = results;
+}
+
 export function scoreGroupPrediction(
   prediction: GroupPrediction,
   actual: [string, string, string, string]
@@ -159,10 +170,19 @@ export function scoreTier1Bonus(participant: Participant): number {
 }
 
 export function scoreTier2Bracket(participant: Participant): number {
-  const points = 0;
+  if (!actualKnockoutResults) {
+    logger.debug({ participantId: participant.id }, "no knockout results available, returning 0");
+    return 0;
+  }
+
+  let points = 0;
   for (const pick of participant.knockoutPicks) {
-    const roundPts = knockoutRoundPoints[pick.round] ?? 0;
-    void roundPts;
+    const key = `${pick.round}_${pick.matchNumber}`;
+    const actualWinner = actualKnockoutResults[key];
+    if (actualWinner && pick.winner === actualWinner) {
+      const roundPts = knockoutRoundPoints[pick.round] ?? 0;
+      points += roundPts;
+    }
   }
   logger.debug({ participantId: participant.id, knockoutPicks: participant.knockoutPicks.length, tier2Bracket: points }, "tier 2 bracket scored");
   return points;
@@ -183,6 +203,61 @@ export function calculatePoints(participant: Participant): Points {
 
   logger.info({ participantId: participant.id, tier1Groups, tier1Bonus, tier2Bracket, tier2Bonus, total }, "points calculated");
   return { tier1Groups, tier1Bonus, tier2Bracket, tier2Bonus, total };
+}
+
+export interface PotentialPoints {
+  earned: number;
+  remaining: number;
+  maximum: number;
+}
+
+export function calculatePotentialPoints(participant: Participant): PotentialPoints {
+  const earned = calculatePoints(participant);
+
+  let remaining = 0;
+
+  // Groups: 12 pts max per group (4 teams x 3 pts exact position)
+  for (const gp of participant.groupPredictions) {
+    if (!actualGroupResults || !actualGroupResults[gp.group]) {
+      remaining += 12;
+    }
+  }
+
+  // Tier 1 bonuses: 10 pts each if undecided and participant made a pick
+  if (!actualBonusResults.goldenBoot && participant.bonusPicks.goldenBoot) {
+    remaining += 10;
+  }
+  if (!actualBonusResults.mostGoalsTeam && participant.bonusPicks.mostGoalsTeam) {
+    remaining += 10;
+  }
+  if (!actualBonusResults.fewestConcededTeam && participant.bonusPicks.fewestConcededTeam) {
+    remaining += 10;
+  }
+
+  // Knockout picks: round points if match not yet decided
+  for (const pick of participant.knockoutPicks) {
+    const key = `${pick.round}_${pick.matchNumber}`;
+    const actualWinner = actualKnockoutResults ? actualKnockoutResults[key] : undefined;
+    if (!actualWinner) {
+      remaining += knockoutRoundPoints[pick.round] ?? 0;
+    }
+  }
+
+  // Golden Ball: 10 pts if not yet decided and participant made a pick
+  if (!actualBonusResults.goldenBall && participant.bonusPicks.goldenBall) {
+    remaining += 10;
+  }
+
+  logger.debug(
+    { participantId: participant.id, earned: earned.total, remaining, maximum: earned.total + remaining },
+    "potential points calculated"
+  );
+
+  return {
+    earned: earned.total,
+    remaining,
+    maximum: earned.total + remaining,
+  };
 }
 
 export function calculateAllPoints(participants: Participant[]): (Participant & { calculatedPoints: Points })[] {

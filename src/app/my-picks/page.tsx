@@ -6,7 +6,12 @@ import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody } from "@/components/Card";
 import { useAuth } from "@/components/AuthProvider";
-import { getTeamsByGroup, teams, groupLabels } from "@/data/teams";
+import { getTeamsByGroup, teams, groupLabels, getTeamByCode } from "@/data/teams";
+import { TOURNAMENT_START } from "@/lib/tournament-dates";
+import { getCurrentPhase, knockoutRoundMatchCounts } from "@/data/participants";
+import BracketPicker from "@/components/BracketPicker";
+import type { KnockoutPick } from "@/data/participants";
+import type { KnockoutMatch } from "@/components/BracketPicker";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -270,6 +275,368 @@ function TeamDropdown({
 }
 
 /* ------------------------------------------------------------------ */
+/*  Tier 2 Section                                                     */
+/* ------------------------------------------------------------------ */
+
+function Tier2Section({
+  user,
+  existingKnockoutPicks,
+  existingGoldenBall,
+  tier2Submitted,
+}: {
+  user: { id: string };
+  existingKnockoutPicks: KnockoutPick[];
+  existingGoldenBall: string;
+  tier2Submitted: boolean;
+}) {
+  const [knockoutPicks, setKnockoutPicks] = useState<KnockoutPick[]>(existingKnockoutPicks);
+  const [goldenBall, setGoldenBall] = useState(existingGoldenBall);
+  const [knockoutMatches, setKnockoutMatches] = useState<KnockoutMatch[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(tier2Submitted);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    async function fetchMatches() {
+      try {
+        const res = await fetch("/api/knockout-matches");
+        const data = await res.json();
+        setKnockoutMatches(data.matches ?? []);
+      } catch {
+        // Use placeholder structure if API fails
+      }
+      setLoadingMatches(false);
+    }
+    fetchMatches();
+  }, []);
+
+  // Compute locked matches (started or finished)
+  const lockedMatchKeys = useMemo(() => {
+    const locked = new Set<string>();
+    const now = new Date();
+    const lockedStatuses = new Set(["IN_PLAY", "FINISHED", "PAUSED"]);
+    for (const m of knockoutMatches) {
+      const key = `${m.round}_${m.matchNumber}`;
+      if (lockedStatuses.has(m.status) || (m.utcDate && new Date(m.utcDate) <= now)) {
+        locked.add(key);
+      }
+    }
+    return locked;
+  }, [knockoutMatches]);
+
+  const totalMatches = Object.values(knockoutRoundMatchCounts).reduce(
+    (sum, c) => sum + c,
+    0
+  );
+  const unlockedTotal = totalMatches - lockedMatchKeys.size;
+  const unlockedPicks = knockoutPicks.filter(
+    (p) => !lockedMatchKeys.has(`${p.round}_${p.matchNumber}`)
+  ).length;
+  const allUnlockedPicked = unlockedTotal > 0 ? unlockedPicks >= unlockedTotal : knockoutPicks.length === totalMatches;
+  const allMatchesLocked = lockedMatchKeys.size === totalMatches;
+  const hasGoldenBall = goldenBall.trim() !== "";
+  const canSubmit = (allUnlockedPicked && hasGoldenBall) || (knockoutPicks.length > 0 && hasGoldenBall);
+
+  async function handleTier2Submit() {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/picks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          tier: 2,
+          knockoutPicks,
+          goldenBall: goldenBall.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to submit Tier 2 picks");
+        setSubmitting(false);
+        return;
+      }
+
+      setSubmitted(true);
+      setEditing(false);
+      setSubmitting(false);
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4000);
+    } catch {
+      setError("Network error. Please try again.");
+      setSubmitting(false);
+    }
+  }
+
+  if (allMatchesLocked) {
+    if (submitted) {
+      return (
+        <Tier2SubmittedSummary
+          knockoutPicks={knockoutPicks}
+          goldenBall={goldenBall}
+          locked
+        />
+      );
+    }
+    return (
+      <Card className="border-gold/20 bg-gold/5">
+        <CardBody className="py-8 text-center">
+          <span className="text-4xl block mb-3" aria-hidden>
+            🔒
+          </span>
+          <h3 className="font-heading text-xl font-bold text-white mb-2">
+            Tier 2 Picks Are Locked
+          </h3>
+          <p className="text-sm text-gray-400">
+            All knockout matches have started. Tier 2 picks are no longer accepted.
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  if (submitted && !editing) {
+    return (
+      <>
+        {showConfetti && <ConfettiBurst />}
+        <Tier2SubmittedSummary
+          knockoutPicks={knockoutPicks}
+          goldenBall={goldenBall}
+          locked={false}
+          onEdit={() => setEditing(true)}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      {showConfetti && <ConfettiBurst />}
+      <div className="space-y-8">
+        <div>
+          <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-gold mb-2">
+            Knockout Bracket
+          </h2>
+          <p className="text-sm text-gray-400 mb-6">
+            Pick the winner of every knockout match. Points increase each round:
+            R32 = 2 pts, R16 = 4 pts, QF = 6 pts, SF = 8 pts, Final = 10 pts.
+          </p>
+
+          {loadingMatches ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 text-sm">Loading bracket data...</p>
+            </div>
+          ) : (
+            <BracketPicker
+              knockoutMatches={knockoutMatches}
+              picks={knockoutPicks}
+              onPicksChange={setKnockoutPicks}
+            />
+          )}
+        </div>
+
+        {/* Golden Ball */}
+        <div className="max-w-2xl">
+          <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-gold mb-2">
+            Tier 2 Bonus Pick
+          </h2>
+          <div>
+            <label
+              htmlFor="goldenBall"
+              className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-1.5"
+            >
+              <span>🌟</span> Golden Ball (Best Player of the Tournament)
+            </label>
+            <p className="text-xs text-gray-600 mb-2">
+              Pick the player who will win the FIFA Best Player award. Worth 10
+              points.
+            </p>
+            <input
+              id="goldenBall"
+              type="text"
+              value={goldenBall}
+              onChange={(e) => setGoldenBall(e.target.value)}
+              placeholder="e.g. Lionel Messi"
+              className="w-full rounded-lg border border-gold/20 bg-navy-lighter/80 px-4 py-2.5 text-white placeholder-gray-600 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="max-w-2xl">
+          <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white mb-4">
+            Submit Tier 2
+          </h2>
+
+          {!allUnlockedPicked && (
+            <div className="rounded-lg bg-white/[0.02] border border-white/5 px-4 py-3 mb-4">
+              <p className="text-xs text-gray-500 mb-1.5 font-medium">
+                Still needed:
+              </p>
+              <ul className="space-y-0.5">
+                {!allUnlockedPicked && (
+                  <li className="text-xs text-gray-600 flex items-center gap-1.5">
+                    <span className="text-gray-700">&#x2022;</span> Pick{" "}
+                    {unlockedTotal - unlockedPicks} more knockout match
+                    {unlockedTotal - unlockedPicks !== 1 ? "es" : ""}
+                  </li>
+                )}
+                {!hasGoldenBall && (
+                  <li className="text-xs text-gray-600 flex items-center gap-1.5">
+                    <span className="text-gray-700">&#x2022;</span> Pick your
+                    Golden Ball winner
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 mb-4">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleTier2Submit}
+            disabled={!canSubmit || submitting}
+            className={`w-full font-heading rounded-xl px-8 py-4 text-lg font-bold uppercase tracking-wide shadow-lg transition-all ${
+              canSubmit
+                ? "bg-gold text-navy shadow-gold/20 hover:bg-yellow-300 hover:shadow-gold/40 active:scale-[0.98]"
+                : "bg-gray-800 text-gray-600 cursor-not-allowed"
+            } disabled:opacity-70`}
+          >
+            {submitting
+              ? "Submitting..."
+              : submitted
+              ? "Update Tier 2 Picks"
+              : "Submit Tier 2 Picks"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Tier2SubmittedSummary({
+  knockoutPicks,
+  goldenBall,
+  locked,
+  onEdit,
+}: {
+  knockoutPicks: KnockoutPick[];
+  goldenBall: string;
+  locked: boolean;
+  onEdit?: () => void;
+}) {
+  const roundOrder = [
+    "round_of_32",
+    "round_of_16",
+    "quarter",
+    "semi",
+    "third_place",
+    "final",
+  ];
+  const roundLabels: Record<string, string> = {
+    round_of_32: "R32",
+    round_of_16: "R16",
+    quarter: "QF",
+    semi: "SF",
+    third_place: "3rd Place",
+    final: "Final",
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-gold/20">
+        <CardBody className="py-8 text-center">
+          <span className="text-5xl block mb-3" aria-hidden>
+            🏆
+          </span>
+          <h2 className="font-heading text-2xl font-bold text-white mb-2">
+            Tier 2 Picks Submitted!
+          </h2>
+          <p className="text-gray-400 mb-4">
+            {locked
+              ? "Tier 2 picks are locked. The knockout stage is underway!"
+              : "Good luck! You can update your picks until June 28, 2026."}
+          </p>
+          {!locked && onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="font-heading rounded-lg bg-gold/80 px-8 py-3 text-sm font-bold uppercase tracking-wide text-navy shadow-lg shadow-gold/20 transition-all hover:bg-gold hover:shadow-gold/40"
+            >
+              Edit Tier 2 Picks
+            </button>
+          )}
+        </CardBody>
+      </Card>
+
+      {/* Summary of picks by round */}
+      <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
+        Your Knockout Picks
+      </h3>
+      <div className="space-y-3">
+        {roundOrder.map((round) => {
+          const roundPicks = knockoutPicks.filter((p) => p.round === round);
+          if (roundPicks.length === 0) return null;
+
+          return (
+            <div
+              key={round}
+              className="rounded-lg border border-gold/10 bg-navy-light/60 p-3"
+            >
+              <p className="text-xs font-semibold text-gold uppercase tracking-wider mb-2">
+                {roundLabels[round] ?? round}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {roundPicks
+                  .sort((a, b) => a.matchNumber - b.matchNumber)
+                  .map((pick) => {
+                    const team = getTeamByCode(pick.winner);
+                    return (
+                      <span
+                        key={`${pick.round}-${pick.matchNumber}`}
+                        className="inline-flex items-center gap-1 rounded bg-gold/10 border border-gold/20 px-2 py-1 text-xs"
+                      >
+                        <span>{team?.flag ?? ""}</span>
+                        <span className="text-gray-300">
+                          {team?.name ?? pick.winner}
+                        </span>
+                      </span>
+                    );
+                  })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Golden Ball */}
+      <Card className="border-gold/10">
+        <CardBody>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">🌟 Golden Ball</span>
+            <span className="text-white font-medium">
+              {goldenBall || "Not set"}
+            </span>
+          </div>
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Page                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -282,6 +649,9 @@ export default function MyPicksPage() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
   const [existingPicks, setExistingPicks] = useState(false);
+  const [existingKnockoutPicks, setExistingKnockoutPicks] = useState<KnockoutPick[]>([]);
+  const [existingGoldenBall, setExistingGoldenBall] = useState("");
+  const [existingTier2Submitted, setExistingTier2Submitted] = useState(false);
   const submitRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
@@ -316,12 +686,15 @@ export default function MyPicksPage() {
             fewestConcededTeam: data.picks.fewestConcededTeam ?? "",
             tiebreakerGoals: totalGoals > 0 ? String(totalGoals) : "",
           } as FormData,
+          knockoutPicks: (data.picks.knockoutPicks ?? []) as KnockoutPick[],
+          goldenBall: (data.picks.goldenBall ?? "") as string,
+          tier2Submitted: !!data.picks.tier2Submitted,
         };
       }
     } catch {
       // No existing picks, start fresh
     }
-    return { found: false, formData: null };
+    return { found: false, formData: null, knockoutPicks: [], goldenBall: "", tier2Submitted: false };
   }, []);
 
   useEffect(() => {
@@ -333,6 +706,9 @@ export default function MyPicksPage() {
         setExistingPicks(true);
         setSubmitted(true);
         setFormData(result.formData);
+        setExistingKnockoutPicks(result.knockoutPicks);
+        setExistingGoldenBall(result.goldenBall);
+        setExistingTier2Submitted(result.tier2Submitted);
       }
     });
     return () => { cancelled = true; };
@@ -364,7 +740,11 @@ export default function MyPicksPage() {
     formData.mostGoalsTeam !== "" &&
     formData.fewestConcededTeam !== "" &&
     formData.tiebreakerGoals.trim() !== "";
-  const canSubmit = allGroupsDone && bonusComplete;
+  const tier1Locked = new Date() >= TOURNAMENT_START;
+  const canSubmit = allGroupsDone && bonusComplete && !tier1Locked;
+
+  const phase = getCurrentPhase();
+  const showTier2 = tier1Locked && existingPicks && (phase === "group_stage" || phase === "knockout");
 
   // Build list of what's missing
   const missing: string[] = [];
@@ -457,23 +837,50 @@ export default function MyPicksPage() {
         <section className="py-10 sm:py-14">
           <Container>
             <div className="max-w-4xl mx-auto">
-              {/* Success banner */}
+              {/* Tier 2 Section (shown first when tournament is underway) */}
+              {showTier2 && (
+                <div className="mb-12">
+                  <div className="flex items-center gap-3 mb-8">
+                    <span className="text-3xl" aria-hidden>🏆</span>
+                    <div>
+                      <h2 className="font-heading text-2xl font-bold text-gold">
+                        Tier 2: Knockout Bracket
+                      </h2>
+                      <p className="text-sm text-gray-400">
+                        Picks lock on June 28, 2026 when the Round of 32 begins.
+                      </p>
+                    </div>
+                  </div>
+                  <Tier2Section
+                    user={user!}
+                    existingKnockoutPicks={existingKnockoutPicks}
+                    existingGoldenBall={existingGoldenBall}
+                    tier2Submitted={existingTier2Submitted}
+                  />
+                </div>
+              )}
+
+              {/* Tier 1 Success banner */}
               <Card className="border-accent/20 mb-8">
                 <CardBody className="py-8 text-center">
                   <span className="text-5xl block mb-3" aria-hidden>🎉</span>
                   <h2 className="font-heading text-2xl font-bold text-white mb-2">
-                    Picks Submitted!
+                    Tier 1 Picks Submitted!
                   </h2>
                   <p className="text-gray-400 mb-4">
-                    Good luck! You can update your picks until June 11, 2026.
+                    {tier1Locked
+                      ? "Tier 1 picks are locked. The tournament is underway!"
+                      : "Good luck! You can update your picks until June 11, 2026."}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="font-heading rounded-lg bg-pitch px-8 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
-                  >
-                    Edit Picks
-                  </button>
+                  {!tier1Locked && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(true)}
+                      className="font-heading rounded-lg bg-pitch px-8 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-pitch/20 transition-all hover:bg-pitch-light hover:shadow-pitch/40"
+                    >
+                      Edit Picks
+                    </button>
+                  )}
                 </CardBody>
               </Card>
 
@@ -514,7 +921,7 @@ export default function MyPicksPage() {
               <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-white mb-4">
                 Bonus Picks
               </h3>
-              <Card className="border-accent/10">
+              <Card className="border-accent/10 mb-12">
                 <CardBody>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -544,10 +951,31 @@ export default function MyPicksPage() {
                   </div>
                 </CardBody>
               </Card>
+
             </div>
           </Container>
         </section>
       </>
+    );
+  }
+
+  // Tier 1 locked and user never submitted
+  if (tier1Locked && !existingPicks) {
+    return (
+      <section className="py-20">
+        <Container>
+          <div className="text-center max-w-lg mx-auto">
+            <span className="text-5xl block mb-4" aria-hidden>🔒</span>
+            <h2 className="font-heading text-2xl font-bold text-white mb-3">
+              Tier 1 Picks Are Locked
+            </h2>
+            <p className="text-gray-400">
+              The tournament has started and Tier 1 group predictions are no longer accepted.
+              Tier 2 knockout bracket picks will be available soon.
+            </p>
+          </div>
+        </Container>
+      </section>
     );
   }
 
@@ -704,7 +1132,7 @@ export default function MyPicksPage() {
                   <ul className="space-y-0.5">
                     {missing.map((item) => (
                       <li key={item} className="text-xs text-gray-600 flex items-center gap-1.5">
-                        <span className="text-gray-700">•</span> {item}
+                        <span className="text-gray-700">&#x2022;</span> {item}
                       </li>
                     ))}
                   </ul>
@@ -731,7 +1159,7 @@ export default function MyPicksPage() {
                   ? "Submitting..."
                   : existingPicks
                   ? "Update My Picks"
-                  : "Submit My Picks ⚽"}
+                  : "Submit My Picks"}
               </button>
             </div>
           </div>
