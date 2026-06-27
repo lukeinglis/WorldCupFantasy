@@ -14,6 +14,8 @@ import {
   calculateAllPoints,
   setActualGroupResults,
   setActualBonusResults,
+  setActualKnockoutResults,
+  setKnockoutMatchSchedule,
 } from "@/data/scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
@@ -22,6 +24,7 @@ import { buildParticipantsFromKv } from "@/lib/build-participants";
 import {
   getLiveGroupResults,
   getLiveBonusResults,
+  getLiveKnockoutResults,
 } from "@/lib/live-scoring";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
@@ -105,12 +108,33 @@ export default async function Home() {
 
   // Inject live scoring for leaderboard preview
   if (apiReady) {
-    const [groupResults, bonusResults] = await Promise.all([
+    const [groupResults, bonusResults, knockoutResults] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
+      getLiveKnockoutResults(),
     ]);
     if (groupResults) setActualGroupResults(groupResults.groups);
     if (bonusResults) setActualBonusResults(bonusResults);
+    if (knockoutResults) setActualKnockoutResults(knockoutResults.results);
+    if (matches) {
+      const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
+      const knockoutSchedule = matches
+        .filter(m => knockoutStages.includes(m.stage))
+        .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
+        .reduce<{ round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[]>((acc, m) => {
+          const matchNumber = acc.filter(x => x.round === m.stage).length + 1;
+          acc.push({
+            round: m.stage,
+            matchNumber,
+            utcDate: m.utcDate,
+            homeTeam: m.homeTeam.tla,
+            awayTeam: m.awayTeam.tla,
+            status: m.status,
+          });
+          return acc;
+        }, []);
+      setKnockoutMatchSchedule(knockoutSchedule);
+    }
   }
 
   const withPoints = calculateAllPoints(kvParticipants);

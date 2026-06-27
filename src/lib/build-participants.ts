@@ -20,6 +20,7 @@ export function buildParticipantsFromKv(
         goldenBall: picks!.goldenBall ?? "",
       },
       knockoutPicks: (picks!.knockoutPicks ?? []) as KnockoutPick[],
+      tier2SubmittedAt: picks!.tier2Submitted ? picks!.submittedAt : undefined,
       tiebreaker: picks!.tiebreaker ?? { homeScore: 0, awayScore: 0 },
       points: { tier1Groups: 0, tier1Bonus: 0, tier2Bracket: 0, tier2Bonus: 0, total: 0 },
     }));
