@@ -177,9 +177,9 @@ export default async function LeaderboardPage() {
                 <p className="text-gray-400 text-sm">No participants yet. The leaderboard will populate once contestants join the contest.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-auto max-h-[600px]">
                 <table className="w-full">
-                  <thead>
+                  <thead className="sticky top-0 bg-navy z-10">
                     <tr className="border-b border-white/10 text-left">
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-14">#</th>
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Player</th>
