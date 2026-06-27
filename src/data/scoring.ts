@@ -73,6 +73,15 @@ export function setActualGroupResults(
 // Map knockout match results: key = "{round}_{matchNumber}", value = winning team TLA
 export let actualKnockoutResults: Record<string, string> | null = null;
 
+// Knockout match schedule for late submission penalty
+export let knockoutMatchSchedule: { round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[] | null = null;
+
+export function setKnockoutMatchSchedule(matches: typeof knockoutMatchSchedule): void {
+  const matchCount = matches ? matches.length : 0;
+  logger.info({ matchCount }, "knockout match schedule updated");
+  knockoutMatchSchedule = matches;
+}
+
 export function setActualKnockoutResults(
   results: Record<string, string> | null
 ): void {
@@ -175,16 +184,46 @@ export function scoreTier2Bracket(participant: Participant): number {
     return 0;
   }
 
+  const taintedTeams = new Set<string>();
+  const missedMatches = new Set<string>();
+
+  const KNOCKOUT_DEADLINE = new Date("2026-06-28T19:00:00Z");
+  const submittedAt = participant.tier2SubmittedAt ? new Date(participant.tier2SubmittedAt) : null;
+  const isLate = submittedAt && submittedAt > KNOCKOUT_DEADLINE;
+
+  if (isLate && knockoutMatchSchedule) {
+    for (const match of knockoutMatchSchedule) {
+      const matchDate = new Date(match.utcDate);
+      if (match.status === "FINISHED" || matchDate < submittedAt) {
+        missedMatches.add(`${match.round}_${match.matchNumber}`);
+        if (match.homeTeam) taintedTeams.add(match.homeTeam);
+        if (match.awayTeam) taintedTeams.add(match.awayTeam);
+      }
+    }
+    logger.info(
+      { participantId: participant.id, missedCount: missedMatches.size, taintedCount: taintedTeams.size },
+      "late submission penalty applied"
+    );
+  }
+
   let points = 0;
   for (const pick of participant.knockoutPicks) {
     const key = `${pick.round}_${pick.matchNumber}`;
     const actualWinner = actualKnockoutResults[key];
-    if (actualWinner && pick.winner === actualWinner) {
-      const roundPts = knockoutRoundPoints[pick.round] ?? 0;
+
+    if (!actualWinner || pick.winner !== actualWinner) continue;
+
+    const roundPts = knockoutRoundPoints[pick.round] ?? 0;
+
+    if (missedMatches.has(key)) {
+      continue;
+    } else if (taintedTeams.has(pick.winner)) {
+      points += Math.floor(roundPts / 2);
+    } else {
       points += roundPts;
     }
   }
-  logger.debug({ participantId: participant.id, knockoutPicks: participant.knockoutPicks.length, tier2Bracket: points }, "tier 2 bracket scored");
+  logger.debug({ participantId: participant.id, knockoutPicks: participant.knockoutPicks.length, tier2Bracket: points, isLate: !!isLate }, "tier 2 bracket scored");
   return points;
 }
 

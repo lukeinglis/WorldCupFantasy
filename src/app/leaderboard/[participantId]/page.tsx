@@ -9,10 +9,12 @@ import {
   calculateAllPoints,
   setActualGroupResults,
   setActualBonusResults,
+  setActualKnockoutResults,
+  setKnockoutMatchSchedule,
   actualGroupResults,
 } from "@/data/scoring";
-import { isApiConfigured } from "@/lib/football-api";
-import { getLiveGroupResults, getLiveBonusResults } from "@/lib/live-scoring";
+import { isApiConfigured, getMatches } from "@/lib/football-api";
+import { getLiveGroupResults, getLiveBonusResults, getLiveKnockoutResults } from "@/lib/live-scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import {
   TIER1_MAX,
@@ -82,15 +84,37 @@ export default async function ParticipantDetailPage({
 
   let hasGroupScoring = false;
   if (isApiConfigured()) {
-    const [groupResults, bonusResults] = await Promise.all([
+    const [groupResults, bonusResults, knockoutResults, matchesData] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
+      getLiveKnockoutResults(),
+      getMatches(),
     ]);
     if (groupResults) {
       setActualGroupResults(groupResults.groups);
       hasGroupScoring = true;
     }
     if (bonusResults) setActualBonusResults(bonusResults);
+    if (knockoutResults) setActualKnockoutResults(knockoutResults.results);
+    if (matchesData) {
+      const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
+      const knockoutSchedule = matchesData
+        .filter(m => knockoutStages.includes(m.stage))
+        .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
+        .reduce<{ round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[]>((acc, m) => {
+          const matchNumber = acc.filter(x => x.round === m.stage).length + 1;
+          acc.push({
+            round: m.stage,
+            matchNumber,
+            utcDate: m.utcDate,
+            homeTeam: m.homeTeam.tla,
+            awayTeam: m.awayTeam.tla,
+            status: m.status,
+          });
+          return acc;
+        }, []);
+      setKnockoutMatchSchedule(knockoutSchedule);
+    }
   }
 
   const tournamentStarted = new Date() >= TOURNAMENT_START;

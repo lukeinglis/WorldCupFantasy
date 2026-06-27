@@ -17,8 +17,9 @@ import {
   setActualGroupResults,
   setActualBonusResults,
   setActualKnockoutResults,
+  setKnockoutMatchSchedule,
 } from "@/data/scoring";
-import { isApiConfigured, getScorers, getStandings } from "@/lib/football-api";
+import { isApiConfigured, getScorers, getStandings, getMatches } from "@/lib/football-api";
 import {
   getLiveGroupResults,
   getLiveBonusResults,
@@ -71,12 +72,13 @@ export default async function LeaderboardPage() {
   let teamStatsData: { teamTla: string; goalsScored: number; goalsConceded: number; matchesPlayed: number }[] = [];
 
   if (isApiConfigured()) {
-    const [groupResults, bonusResults, knockoutResults, tournamentStatus, scorersResult] = await Promise.all([
+    const [groupResults, bonusResults, knockoutResults, tournamentStatus, scorersResult, matchesData] = await Promise.all([
       getLiveGroupResults(),
       getLiveBonusResults(),
       getLiveKnockoutResults(),
       getLiveTournamentStatus(),
       getScorers(),
+      getMatches(),
     ]);
 
     scorersData = scorersResult ?? [];
@@ -92,6 +94,26 @@ export default async function LeaderboardPage() {
 
     if (knockoutResults) {
       setActualKnockoutResults(knockoutResults.results);
+    }
+
+    if (matchesData) {
+      const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
+      const knockoutSchedule = matchesData
+        .filter(m => knockoutStages.includes(m.stage))
+        .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
+        .reduce<{ round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[]>((acc, m) => {
+          const matchNumber = acc.filter(x => x.round === m.stage).length + 1;
+          acc.push({
+            round: m.stage,
+            matchNumber,
+            utcDate: m.utcDate,
+            homeTeam: m.homeTeam.tla,
+            awayTeam: m.awayTeam.tla,
+            status: m.status,
+          });
+          return acc;
+        }, []);
+      setKnockoutMatchSchedule(knockoutSchedule);
     }
 
     if (tournamentStatus) {

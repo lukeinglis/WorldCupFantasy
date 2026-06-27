@@ -42,6 +42,7 @@ export interface Participant {
   groupPredictions: GroupPrediction[];
   bonusPicks: BonusPicks;
   knockoutPicks: KnockoutPick[];  // empty until Tier 2 opens
+  tier2SubmittedAt?: string;      // ISO timestamp of Tier 2 submission
   tiebreaker: Tiebreaker;
   points: Points;
 }
