@@ -164,14 +164,8 @@ async function handleTier1Submission(body: any, userId: string, log: any) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleTier2Submission(body: any, userId: string, log: any) {
   const existing = await getPicks(userId);
-  if (!existing) {
-    return NextResponse.json(
-      { error: "You must submit Tier 1 picks before submitting Tier 2." },
-      { status: 400 }
-    );
-  }
 
-  if (existing.tier2Submitted) {
+  if (existing?.tier2Submitted) {
     log.warn({ userId }, "Tier 2 picks rejected: already submitted, no edits allowed");
     return NextResponse.json(
       { error: "Your Tier 2 picks have already been submitted. No changes are allowed after submission." },
@@ -226,9 +220,14 @@ async function handleTier2Submission(body: any, userId: string, log: any) {
   await archivePicks(userId);
 
   const merged: PicksRecord = {
-    ...existing,
+    participantId: userId,
+    groupPredictions: existing?.groupPredictions ?? [],
+    goldenBoot: existing?.goldenBoot ?? "",
+    mostGoalsTeam: existing?.mostGoalsTeam ?? "",
+    fewestConcededTeam: existing?.fewestConcededTeam ?? "",
+    goldenBall: goldenBall || existing?.goldenBall || "",
+    tiebreaker: existing?.tiebreaker ?? { homeScore: 0, awayScore: 0 },
     knockoutPicks: knockoutPicks,
-    goldenBall: goldenBall || "",
     tier2Submitted: true,
     submittedAt: new Date().toISOString(),
   };
