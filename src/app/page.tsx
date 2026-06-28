@@ -15,6 +15,7 @@ import {
   setActualBonusResults,
   setActualKnockoutResults,
   setKnockoutMatchSchedule,
+  actualGroupResults,
 } from "@/data/scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
@@ -596,8 +597,10 @@ export default async function Home() {
               {popularPicks.map(({ group, team, count }) => {
                 const teamData = getTeamByCode(team);
                 if (!teamData) return null;
+                const actualWinner = actualGroupResults[group]?.[0];
+                const isCorrect = actualWinner === team;
                 return (
-                  <Card key={group} hover className="text-center">
+                  <Card key={group} hover className={`text-center ${isCorrect ? "border-accent/40" : ""}`}>
                     <CardBody className="py-4">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                         Group {group}
@@ -607,6 +610,15 @@ export default async function Home() {
                       <p className="text-xs text-gray-500 mt-1">
                         {count}/{kvParticipants.length} picks
                       </p>
+                      {isCorrect ? (
+                        <span className="inline-block mt-2 text-[10px] font-bold uppercase tracking-wider text-accent bg-accent/10 rounded-full px-2 py-0.5">
+                          Won Group
+                        </span>
+                      ) : actualWinner ? (
+                        <span className="inline-block mt-2 text-[10px] font-medium text-gray-600">
+                          Winner: {getTeamByCode(actualWinner)?.flag} {actualWinner}
+                        </span>
+                      ) : null}
                     </CardBody>
                   </Card>
                 );
