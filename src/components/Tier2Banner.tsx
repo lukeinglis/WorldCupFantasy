@@ -15,6 +15,8 @@ export default function Tier2Banner() {
 
   const now = new Date();
   const knockoutLocked = now >= KNOCKOUT_START;
+  const TIER2_OPENS = new Date("2026-06-28T06:00:00Z");
+  const notYetOpen = now < TIER2_OPENS;
 
   // Only show during group_stage (late) and knockout phases
   if (phase !== "group_stage" && phase !== "knockout") return null;
@@ -28,26 +30,32 @@ export default function Tier2Banner() {
   );
 
   return (
-    <div className="border-b border-gold/20 bg-gold/5">
+    <div className={`border-b ${notYetOpen ? "border-white/10 bg-navy-lighter" : "border-gold/20 bg-gold/5"}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-gold text-lg shrink-0" aria-hidden>🏆</span>
+          <span className="text-lg shrink-0" aria-hidden>{notYetOpen ? "🔒" : "🏆"}</span>
           <p className="text-sm text-gray-300 truncate">
-            <span className="font-bold text-gold">Knockout bracket picks are open!</span>
-            {" "}
-            {user ? (
-              <Link href="/my-picks" className="underline hover:text-gold transition-colors">
-                Submit your Tier 2 picks
-              </Link>
+            {notYetOpen ? (
+              <span className="font-bold text-gray-400">Knockout picks open at 2:00 AM EST on June 28 after the bracket is finalized.</span>
             ) : (
-              <Link href="/join" className="underline hover:text-gold transition-colors">
-                Sign in to submit
-              </Link>
-            )}
-            {daysUntilLock > 0 && (
-              <span className="text-gray-500">
-                {" "}({daysUntilLock} {daysUntilLock === 1 ? "day" : "days"} remaining)
-              </span>
+              <>
+                <span className="font-bold text-gold">Knockout bracket picks are open!</span>
+                {" "}
+                {user ? (
+                  <Link href="/my-picks" className="underline hover:text-gold transition-colors">
+                    Submit your Tier 2 picks
+                  </Link>
+                ) : (
+                  <Link href="/join" className="underline hover:text-gold transition-colors">
+                    Sign in to submit
+                  </Link>
+                )}
+                {daysUntilLock > 0 && (
+                  <span className="text-gray-500">
+                    {" "}({daysUntilLock} {daysUntilLock === 1 ? "day" : "days"} remaining)
+                  </span>
+                )}
+              </>
             )}
           </p>
         </div>
