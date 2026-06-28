@@ -58,13 +58,7 @@ function getNextRoundSlot(
   }
 }
 
-const MATCH_H = 40;
-const SLOT_HEIGHTS: Record<string, number> = {
-  round_of_32: MATCH_H + 4,
-  round_of_16: (MATCH_H + 4) * 2,
-  quarter: (MATCH_H + 4) * 4,
-  semi: (MATCH_H + 4) * 8,
-};
+const BRACKET_H = 384;
 
 function MatchCard({
   homeCode,
@@ -134,8 +128,6 @@ function RoundColumn({
   picksMap,
   onPick,
   disabled,
-  label,
-  points,
 }: {
   round: string;
   matchNumbers: number[];
@@ -143,38 +135,24 @@ function RoundColumn({
   picksMap: Map<string, string>;
   onPick: (round: string, matchNumber: number, winner: string) => void;
   disabled: boolean;
-  label: string;
-  points: number;
 }) {
-  const slotH = SLOT_HEIGHTS[round] ?? MATCH_H;
-
   return (
-    <div className="flex flex-col shrink-0">
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1 text-center whitespace-nowrap px-1">
-        {label}
-        <span className="text-gray-600 ml-1">({points}pts)</span>
-      </div>
-      <div className="flex flex-col">
-        {matchNumbers.map((matchNumber) => {
-          const matchKey = `${round}_${matchNumber}`;
-          const derived = derivedTeams.get(matchKey);
-          return (
-            <div
-              key={matchKey}
-              className="flex items-center justify-center"
-              style={{ height: `${slotH}px` }}
-            >
-              <MatchCard
-                homeCode={derived?.home ?? null}
-                awayCode={derived?.away ?? null}
-                selectedWinner={picksMap.get(matchKey) ?? null}
-                onPick={(winner) => onPick(round, matchNumber, winner)}
-                disabled={disabled}
-              />
-            </div>
-          );
-        })}
-      </div>
+    <div className="flex flex-col justify-around shrink-0">
+      {matchNumbers.map((matchNumber) => {
+        const matchKey = `${round}_${matchNumber}`;
+        const derived = derivedTeams.get(matchKey);
+        return (
+          <div key={matchKey} className="flex items-center justify-center px-0.5">
+            <MatchCard
+              homeCode={derived?.home ?? null}
+              awayCode={derived?.away ?? null}
+              selectedWinner={picksMap.get(matchKey) ?? null}
+              onPick={(winner) => onPick(round, matchNumber, winner)}
+              disabled={disabled}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -182,21 +160,16 @@ function RoundColumn({
 function ConnectorColumn({
   pairCount,
   side,
-  slotH,
 }: {
   pairCount: number;
   side: "left" | "right";
-  slotH: number;
 }) {
-  // Each pair spans 2 slots of the previous round.
-  // We draw a bracket connector: top half border-top + right, bottom half border-bottom + right
-  const pairH = slotH * 2;
   const borderSide = side === "left" ? "border-r" : "border-l";
 
   return (
-    <div className="flex flex-col shrink-0 w-4" style={{ marginTop: "18px" }}>
+    <div className="flex flex-col justify-around shrink-0 w-3">
       {Array.from({ length: pairCount }, (_, i) => (
-        <div key={i} className="flex flex-col" style={{ height: `${pairH}px` }}>
+        <div key={i} className="flex-1 flex flex-col">
           <div className={`${borderSide} border-t border-white/15 flex-1`} />
           <div className={`${borderSide} border-b border-white/15 flex-1`} />
         </div>
@@ -325,7 +298,17 @@ export default function BracketPicker({
   const rightQF = [3, 4];
   const rightSF = [2];
 
-  const r32SlotH = SLOT_HEIGHTS.round_of_32;
+  const roundHeaders = [
+    { label: ROUND_LABELS.round_of_32, points: ROUND_POINTS.round_of_32, span: "col-span-2" },
+    { label: ROUND_LABELS.round_of_16, points: ROUND_POINTS.round_of_16, span: "col-span-2" },
+    { label: ROUND_LABELS.quarter, points: ROUND_POINTS.quarter, span: "col-span-2" },
+    { label: ROUND_LABELS.semi, points: ROUND_POINTS.semi, span: "col-span-1" },
+    { label: "Final / 3rd", points: null, span: "col-span-1" },
+    { label: ROUND_LABELS.semi, points: ROUND_POINTS.semi, span: "col-span-1" },
+    { label: ROUND_LABELS.quarter, points: ROUND_POINTS.quarter, span: "col-span-2" },
+    { label: ROUND_LABELS.round_of_16, points: ROUND_POINTS.round_of_16, span: "col-span-2" },
+    { label: ROUND_LABELS.round_of_32, points: ROUND_POINTS.round_of_32, span: "col-span-2" },
+  ];
 
   return (
     <div className="space-y-4">
@@ -359,133 +342,133 @@ export default function BracketPicker({
 
       {/* Bracket */}
       <div className="overflow-x-auto pb-4 -mx-4 px-4">
-        <div className="flex items-start min-w-[1200px]">
-          {/* === LEFT BRACKET === */}
-          <RoundColumn
-            round="round_of_32"
-            matchNumbers={leftR32}
-            derivedTeams={derivedTeams}
-            picksMap={picksMap}
-            onPick={handlePick}
-            disabled={disabled}
-            label={ROUND_LABELS.round_of_32}
-            points={ROUND_POINTS.round_of_32}
-          />
-          <ConnectorColumn pairCount={4} side="left" slotH={r32SlotH} />
-          <RoundColumn
-            round="round_of_16"
-            matchNumbers={leftR16}
-            derivedTeams={derivedTeams}
-            picksMap={picksMap}
-            onPick={handlePick}
-            disabled={disabled}
-            label={ROUND_LABELS.round_of_16}
-            points={ROUND_POINTS.round_of_16}
-          />
-          <ConnectorColumn pairCount={2} side="left" slotH={SLOT_HEIGHTS.round_of_16} />
-          <RoundColumn
-            round="quarter"
-            matchNumbers={leftQF}
-            derivedTeams={derivedTeams}
-            picksMap={picksMap}
-            onPick={handlePick}
-            disabled={disabled}
-            label={ROUND_LABELS.quarter}
-            points={ROUND_POINTS.quarter}
-          />
-          <ConnectorColumn pairCount={1} side="left" slotH={SLOT_HEIGHTS.quarter} />
-          <RoundColumn
-            round="semi"
-            matchNumbers={leftSF}
-            derivedTeams={derivedTeams}
-            picksMap={picksMap}
-            onPick={handlePick}
-            disabled={disabled}
-            label={ROUND_LABELS.semi}
-            points={ROUND_POINTS.semi}
-          />
-
-          {/* === CENTER: Final + Third Place === */}
-          <div className="flex flex-col items-center justify-center shrink-0 mx-2" style={{ marginTop: "18px", height: `${r32SlotH * 8}px` }}>
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="text-center mb-2">
-                <div className="text-xs text-gold uppercase tracking-wider font-bold font-heading">
-                  🏆 {ROUND_LABELS.final}
+        <div className="min-w-[1100px]">
+          {/* Round headers */}
+          <div className="grid grid-cols-[repeat(15,auto)] mb-1">
+            {roundHeaders.map((h, i) => (
+              <div key={i} className={`${h.span} text-center`}>
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium whitespace-nowrap px-1">
+                  {h.label}
+                  {h.points != null && (
+                    <span className="text-gray-600 ml-1">({h.points}pts)</span>
+                  )}
                 </div>
-                <div className="text-[10px] text-gray-500">{ROUND_POINTS.final} pts</div>
               </div>
-              <div className="border border-gold/30 rounded-lg p-1 bg-gold/5">
+            ))}
+          </div>
+
+          {/* Bracket body */}
+          <div className="flex items-stretch" style={{ height: `${BRACKET_H}px` }}>
+            {/* === LEFT BRACKET === */}
+            <RoundColumn
+              round="round_of_32"
+              matchNumbers={leftR32}
+              derivedTeams={derivedTeams}
+              picksMap={picksMap}
+              onPick={handlePick}
+              disabled={disabled}
+            />
+            <ConnectorColumn pairCount={4} side="left" />
+            <RoundColumn
+              round="round_of_16"
+              matchNumbers={leftR16}
+              derivedTeams={derivedTeams}
+              picksMap={picksMap}
+              onPick={handlePick}
+              disabled={disabled}
+            />
+            <ConnectorColumn pairCount={2} side="left" />
+            <RoundColumn
+              round="quarter"
+              matchNumbers={leftQF}
+              derivedTeams={derivedTeams}
+              picksMap={picksMap}
+              onPick={handlePick}
+              disabled={disabled}
+            />
+            <ConnectorColumn pairCount={1} side="left" />
+            <RoundColumn
+              round="semi"
+              matchNumbers={leftSF}
+              derivedTeams={derivedTeams}
+              picksMap={picksMap}
+              onPick={handlePick}
+              disabled={disabled}
+            />
+
+            {/* === CENTER: Final + Third Place === */}
+            <div className="flex flex-col items-center justify-center shrink-0 mx-2 gap-4">
+              <div className="flex flex-col items-center">
+                <div className="text-center mb-1">
+                  <div className="text-xs text-gold uppercase tracking-wider font-bold font-heading whitespace-nowrap">
+                    &#127942; {ROUND_LABELS.final}
+                  </div>
+                  <div className="text-[10px] text-gray-500">{ROUND_POINTS.final} pts</div>
+                </div>
+                <div className="border border-gold/30 rounded-lg p-1 bg-gold/5">
+                  <MatchCard
+                    homeCode={derivedTeams.get("final_1")?.home ?? null}
+                    awayCode={derivedTeams.get("final_1")?.away ?? null}
+                    selectedWinner={picksMap.get("final_1") ?? null}
+                    onPick={(winner) => handlePick("final", 1, winner)}
+                    disabled={disabled}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="text-center mb-1">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium whitespace-nowrap">
+                    {ROUND_LABELS.third_place}
+                  </div>
+                  <div className="text-[10px] text-gray-600">{ROUND_POINTS.third_place} pts</div>
+                </div>
                 <MatchCard
-                  homeCode={derivedTeams.get("final_1")?.home ?? null}
-                  awayCode={derivedTeams.get("final_1")?.away ?? null}
-                  selectedWinner={picksMap.get("final_1") ?? null}
-                  onPick={(winner) => handlePick("final", 1, winner)}
+                  homeCode={derivedTeams.get("third_place_1")?.home ?? null}
+                  awayCode={derivedTeams.get("third_place_1")?.away ?? null}
+                  selectedWinner={picksMap.get("third_place_1") ?? null}
+                  onPick={(winner) => handlePick("third_place", 1, winner)}
                   disabled={disabled}
                 />
               </div>
             </div>
-            <div className="w-px h-6 bg-white/10" />
-            <div className="flex flex-col items-center">
-              <div className="text-center mb-1">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
-                  {ROUND_LABELS.third_place}
-                </div>
-                <div className="text-[10px] text-gray-600">{ROUND_POINTS.third_place} pts</div>
-              </div>
-              <MatchCard
-                homeCode={derivedTeams.get("third_place_1")?.home ?? null}
-                awayCode={derivedTeams.get("third_place_1")?.away ?? null}
-                selectedWinner={picksMap.get("third_place_1") ?? null}
-                onPick={(winner) => handlePick("third_place", 1, winner)}
-                disabled={disabled}
-              />
-            </div>
-          </div>
 
-          {/* === RIGHT BRACKET (mirrored) === */}
-          <RoundColumn
-            round="semi"
-            matchNumbers={rightSF}
-            derivedTeams={derivedTeams}
-            picksMap={picksMap}
-            onPick={handlePick}
-            disabled={disabled}
-            label={ROUND_LABELS.semi}
-            points={ROUND_POINTS.semi}
-          />
-          <ConnectorColumn pairCount={1} side="right" slotH={SLOT_HEIGHTS.quarter} />
-          <RoundColumn
-            round="quarter"
-            matchNumbers={rightQF}
-            derivedTeams={derivedTeams}
-            picksMap={picksMap}
-            onPick={handlePick}
-            disabled={disabled}
-            label={ROUND_LABELS.quarter}
-            points={ROUND_POINTS.quarter}
-          />
-          <ConnectorColumn pairCount={2} side="right" slotH={SLOT_HEIGHTS.round_of_16} />
-          <RoundColumn
-            round="round_of_16"
-            matchNumbers={rightR16}
-            derivedTeams={derivedTeams}
-            picksMap={picksMap}
-            onPick={handlePick}
-            disabled={disabled}
-            label={ROUND_LABELS.round_of_16}
-            points={ROUND_POINTS.round_of_16}
-          />
-          <ConnectorColumn pairCount={4} side="right" slotH={r32SlotH} />
-          <RoundColumn
-            round="round_of_32"
-            matchNumbers={rightR32}
-            derivedTeams={derivedTeams}
-            picksMap={picksMap}
-            onPick={handlePick}
-            disabled={disabled}
-            label={ROUND_LABELS.round_of_32}
-            points={ROUND_POINTS.round_of_32}
-          />
+            {/* === RIGHT BRACKET (mirrored) === */}
+            <RoundColumn
+              round="semi"
+              matchNumbers={rightSF}
+              derivedTeams={derivedTeams}
+              picksMap={picksMap}
+              onPick={handlePick}
+              disabled={disabled}
+            />
+            <ConnectorColumn pairCount={1} side="right" />
+            <RoundColumn
+              round="quarter"
+              matchNumbers={rightQF}
+              derivedTeams={derivedTeams}
+              picksMap={picksMap}
+              onPick={handlePick}
+              disabled={disabled}
+            />
+            <ConnectorColumn pairCount={2} side="right" />
+            <RoundColumn
+              round="round_of_16"
+              matchNumbers={rightR16}
+              derivedTeams={derivedTeams}
+              picksMap={picksMap}
+              onPick={handlePick}
+              disabled={disabled}
+            />
+            <ConnectorColumn pairCount={4} side="right" />
+            <RoundColumn
+              round="round_of_32"
+              matchNumbers={rightR32}
+              derivedTeams={derivedTeams}
+              picksMap={picksMap}
+              onPick={handlePick}
+              disabled={disabled}
+            />
+          </div>
         </div>
       </div>
     </div>
