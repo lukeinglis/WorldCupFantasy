@@ -413,7 +413,7 @@ function Tier2Section({
         </div>
 
         {/* Golden Ball */}
-        <div className="max-w-2xl">
+        <div className="max-w-2xl mx-auto">
           <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-gold mb-2">
             Tier 2 Bonus Pick
           </h2>
@@ -440,7 +440,7 @@ function Tier2Section({
         </div>
 
         {/* Submit */}
-        <div className="max-w-2xl">
+        <div className="max-w-2xl mx-auto">
           <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white mb-4">
             Submit Tier 2
           </h2>
