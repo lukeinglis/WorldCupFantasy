@@ -66,8 +66,7 @@ const BRACKET_PATH: Record<string, { round: string; matchNumber: number; slot: "
   "semi_2": { round: "final", matchNumber: 1, slot: "away" },
 };
 
-// Slot height: each R32 match occupies one slot. Later rounds double.
-const SLOT_H = 58;
+const SLOT_H = 64;
 const CARD_WIDTHS: Record<string, number> = {
   round_of_32: 108,
   round_of_16: 116,
@@ -93,15 +92,15 @@ function BracketMatchCard({ home, away, date, width, size }: {
   home: string | null; away: string | null; date?: string; width: number; size: "sm" | "md" | "lg";
 }) {
   return (
-    <div className="shrink-0 flex flex-col items-center">
+    <div className="border border-white/15 rounded bg-navy-light/60 overflow-hidden shrink-0" style={{ width: `${width}px` }}>
       {date && (
-        <div className="text-[9px] text-gray-600 text-center mb-0.5 font-medium">{date}</div>
+        <div className="text-[9px] text-gray-500 text-center py-0.5 bg-white/[0.03] border-b border-white/10 font-medium">
+          {date}
+        </div>
       )}
-      <div className="border border-white/15 rounded bg-navy-light/60 overflow-hidden" style={{ width: `${width}px` }}>
-        <BracketTeamRow code={home} size={size} />
-        <div className="border-t border-white/10" />
-        <BracketTeamRow code={away} size={size} />
-      </div>
+      <BracketTeamRow code={home} size={size} />
+      <div className="border-t border-white/10" />
+      <BracketTeamRow code={away} size={size} />
     </div>
   );
 }
@@ -136,21 +135,6 @@ function BracketRoundCol({ matchNumbers, allTeams, round, dates }: {
   );
 }
 
-function ConnectorCol({ pairCount, slotH }: { pairCount: number; slotH: number }) {
-  return (
-    <div className="flex flex-col shrink-0" style={{ paddingTop: "16px" }}>
-      {Array.from({ length: pairCount }, (_, i) => (
-        <div key={i} className="flex items-center" style={{ height: `${slotH * 2}px` }}>
-          <div className="w-3 flex flex-col h-full">
-            <div className="flex-1 border-t border-r border-white/20" />
-            <div className="flex-1 border-b border-r border-white/20" />
-          </div>
-          <div className="w-3 border-t border-white/20" />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function HomepageBracket() {
   const allMatches = getAllKnockoutMatches();
@@ -174,11 +158,11 @@ function HomepageBracket() {
       <div className="flex items-start justify-center gap-0 min-w-fit py-4">
         {/* Left half */}
         <BracketRoundCol round="round_of_32" matchNumbers={leftR32} allTeams={allTeams} dates={dates} />
-        <ConnectorCol pairCount={4} slotH={SLOT_H} />
+
         <BracketRoundCol round="round_of_16" matchNumbers={[1, 2, 5, 6]} allTeams={allTeams} dates={dates} />
-        <ConnectorCol pairCount={2} slotH={SLOT_H * 2} />
+
         <BracketRoundCol round="quarter" matchNumbers={[1, 2]} allTeams={allTeams} dates={dates} />
-        <ConnectorCol pairCount={1} slotH={SLOT_H * 4} />
+
         <BracketRoundCol round="semi" matchNumbers={[1]} allTeams={allTeams} dates={dates} />
 
         {/* Center: Final */}
@@ -197,11 +181,11 @@ function HomepageBracket() {
 
         {/* Right half */}
         <BracketRoundCol round="semi" matchNumbers={[2]} allTeams={allTeams} dates={dates} />
-        <ConnectorCol pairCount={1} slotH={SLOT_H * 4} />
+
         <BracketRoundCol round="quarter" matchNumbers={[3, 4]} allTeams={allTeams} dates={dates} />
-        <ConnectorCol pairCount={2} slotH={SLOT_H * 2} />
+
         <BracketRoundCol round="round_of_16" matchNumbers={[3, 4, 7, 8]} allTeams={allTeams} dates={dates} />
-        <ConnectorCol pairCount={4} slotH={SLOT_H} />
+
         <BracketRoundCol round="round_of_32" matchNumbers={rightR32} allTeams={allTeams} dates={dates} />
       </div>
     </div>
