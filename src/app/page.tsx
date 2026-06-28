@@ -317,24 +317,26 @@ export default async function Home() {
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
               {ranked.map((p) => (
-                <Card key={p.id} hover className="text-center snap-start min-w-[140px] flex-shrink-0">
-                  <CardBody className="py-4">
-                    <div className="mb-1">
-                      {p.rank <= 3 ? (
-                        <span className="text-2xl">{getMedalEmoji(p.rank)}</span>
-                      ) : (
-                        <span className="font-heading text-lg font-bold text-gray-500">{p.rank}</span>
-                      )}
-                    </div>
-                    <p className="font-heading text-sm font-bold text-white truncate">
-                      {p.name}
-                    </p>
-                    <p className="font-heading text-2xl font-bold text-accent mt-1">
-                      {p.total}
-                    </p>
-                    <p className="text-xs text-gray-500">points</p>
-                  </CardBody>
-                </Card>
+                <Link key={p.id} href={`/leaderboard/${p.id}`}>
+                  <Card hover className="text-center snap-start min-w-[140px] flex-shrink-0">
+                    <CardBody className="py-4">
+                      <div className="mb-1">
+                        {p.rank <= 3 ? (
+                          <span className="text-2xl">{getMedalEmoji(p.rank)}</span>
+                        ) : (
+                          <span className="font-heading text-lg font-bold text-gray-500">{p.rank}</span>
+                        )}
+                      </div>
+                      <p className="font-heading text-sm font-bold text-white truncate">
+                        {p.name}
+                      </p>
+                      <p className="font-heading text-2xl font-bold text-accent mt-1">
+                        {p.total}
+                      </p>
+                      <p className="text-xs text-gray-500">points</p>
+                    </CardBody>
+                  </Card>
+                </Link>
               ))}
             </div>
           </Container>
