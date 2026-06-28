@@ -58,13 +58,12 @@ function getNextRoundSlot(
   }
 }
 
-// Each match card is 52px tall. The slot height doubles per round so matches align.
-const MATCH_H = 52;
+const MATCH_H = 40;
 const SLOT_HEIGHTS: Record<string, number> = {
-  round_of_32: MATCH_H + 4,   // 56px per slot
-  round_of_16: (MATCH_H + 4) * 2, // 112px
-  quarter: (MATCH_H + 4) * 4,      // 224px
-  semi: (MATCH_H + 4) * 8,         // 448px
+  round_of_32: MATCH_H + 4,
+  round_of_16: (MATCH_H + 4) * 2,
+  quarter: (MATCH_H + 4) * 4,
+  semi: (MATCH_H + 4) * 8,
 };
 
 function MatchCard({
@@ -86,12 +85,12 @@ function MatchCard({
   const awaySelected = !!awayCode && selectedWinner === awayCode;
 
   return (
-    <div className="rounded border border-white/10 bg-navy-lighter/50 overflow-hidden w-[136px]">
+    <div className="rounded border border-white/10 bg-navy-lighter/50 overflow-hidden w-[112px]">
       <button
         type="button"
         onClick={() => homeCode && onPick(homeCode)}
         disabled={!homeCode || disabled}
-        className={`w-full flex items-center justify-between gap-1 px-2 h-[25px] text-left transition-colors text-xs ${
+        className={`w-full flex items-center justify-between gap-1 px-1.5 h-[19px] text-left transition-colors text-xs ${
           homeSelected
             ? "bg-gold/20 text-gold"
             : !homeCode
@@ -110,7 +109,7 @@ function MatchCard({
         type="button"
         onClick={() => awayCode && onPick(awayCode)}
         disabled={!awayCode || disabled}
-        className={`w-full flex items-center justify-between gap-1 px-2 h-[25px] text-left transition-colors text-xs ${
+        className={`w-full flex items-center justify-between gap-1 px-1.5 h-[19px] text-left transition-colors text-xs ${
           awaySelected
             ? "bg-gold/20 text-gold"
             : !awayCode
