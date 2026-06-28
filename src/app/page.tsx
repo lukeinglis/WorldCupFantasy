@@ -66,7 +66,7 @@ const BRACKET_PATH: Record<string, { round: string; matchNumber: number; slot: "
   "semi_2": { round: "final", matchNumber: 1, slot: "away" },
 };
 
-const SLOT_H = 64;
+const SLOT_H = 78;
 const CARD_WIDTHS: Record<string, number> = {
   round_of_32: 108,
   round_of_16: 116,
