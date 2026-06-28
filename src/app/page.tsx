@@ -572,36 +572,6 @@ export default async function Home() {
         </Container>
       </section>
 
-      {/* How It Works */}
-      <section className="py-12 sm:py-16 border-t border-white/10 bg-navy-light/20">
-        <Container>
-          <div className="text-center mb-10">
-            <h2 className="font-heading text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
-              How It Works
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
-            {[
-              { step: "1", title: "Predict Groups", desc: "Before the tournament, predict the finishing order for all 12 groups plus bonus picks.", icon: "📊" },
-              { step: "2", title: "Watch Groups", desc: "Follow the group stage and see how your predictions hold up in real time.", icon: "📺" },
-              { step: "3", title: "Fill Your Bracket", desc: "Once the knockout bracket is set, predict winners for every match from R32 to the Final.", icon: "🏆" },
-              { step: "4", title: "Claim Victory", desc: "Total points from both tiers determine the champion. Tiebreaker: predicted final score.", icon: "👑" },
-            ].map((item) => (
-              <Card key={item.step} hover>
-                <CardBody className="text-center py-8">
-                  <span className="text-3xl mb-3 block" aria-hidden>{item.icon}</span>
-                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-pitch/20 text-accent font-heading font-bold text-sm mb-3">
-                    {item.step}
-                  </div>
-                  <h3 className="font-heading text-lg font-bold text-white">{item.title}</h3>
-                  <p className="mt-2 text-sm text-gray-400">{item.desc}</p>
-                </CardBody>
-              </Card>
-            ))}
-          </div>
-        </Container>
-      </section>
-
       {/* Mini Games */}
       <MiniGames />
 
