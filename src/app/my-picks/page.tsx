@@ -374,15 +374,28 @@ function Tier2Section({
     <>
       {showConfetti && <ConfettiBurst />}
       <div className="space-y-8">
+        {/* Submissions not open yet */}
+        {new Date() < new Date("2026-06-28T06:00:00Z") && (
+          <div className="rounded-lg bg-navy-lighter border-2 border-gold/30 px-6 py-5 text-center">
+            <span className="text-3xl block mb-2" aria-hidden>🔒</span>
+            <p className="text-lg text-gold font-heading font-bold uppercase tracking-wide mb-1">
+              Knockout Picks Not Open Yet
+            </p>
+            <p className="text-sm text-gray-400">
+              Submissions open at 2:00 AM EST on June 28 after the bracket is finalized.
+              You can browse the bracket below but cannot submit until then.
+            </p>
+          </div>
+        )}
         {/* Deadline warning */}
-        {isPastDeadline && (
+        {new Date() >= new Date("2026-06-28T06:00:00Z") && isPastDeadline && (
           <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3">
             <p className="text-sm text-red-400 font-medium">
               The deadline has passed. You can still submit, but late submissions will receive reduced points for games already played.
             </p>
           </div>
         )}
-        {!isPastDeadline && (
+        {new Date() >= new Date("2026-06-28T06:00:00Z") && !isPastDeadline && (
           <div className="rounded-lg bg-gold/10 border border-gold/20 px-4 py-3">
             <p className="text-sm text-gold font-medium">
               Deadline: June 28, 2026 at 3:00 PM EST. Once submitted, your picks are final and cannot be edited.
