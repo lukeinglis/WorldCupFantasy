@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: "/groups", label: "Standings" },
       { href: "/groups?tab=picks", label: "Picks" },
       { href: "/groups?tab=schedule", label: "Schedule" },
+      { href: "/groups?tab=knockout", label: "Knockout" },
     ],
   },
   { href: "/rules", label: "Rules" },
