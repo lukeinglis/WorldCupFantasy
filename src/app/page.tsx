@@ -18,6 +18,7 @@ import {
   actualGroupResults,
 } from "@/data/scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
+import { R32_MATCHES, getAllKnockoutMatches } from "@/data/knockout-bracket";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
@@ -29,6 +30,152 @@ import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-types";
 
 export const dynamic = "force-dynamic";
+
+// ── Read-only bracket display for homepage ──
+
+const BRACKET_PATH: Record<string, { round: string; matchNumber: number; slot: "home" | "away" }> = {
+  "round_of_32_4": { round: "round_of_16", matchNumber: 1, slot: "home" },
+  "round_of_32_6": { round: "round_of_16", matchNumber: 1, slot: "away" },
+  "round_of_32_1": { round: "round_of_16", matchNumber: 2, slot: "home" },
+  "round_of_32_2": { round: "round_of_16", matchNumber: 2, slot: "away" },
+  "round_of_32_3": { round: "round_of_16", matchNumber: 3, slot: "home" },
+  "round_of_32_5": { round: "round_of_16", matchNumber: 3, slot: "away" },
+  "round_of_32_7": { round: "round_of_16", matchNumber: 4, slot: "home" },
+  "round_of_32_9": { round: "round_of_16", matchNumber: 4, slot: "away" },
+  "round_of_32_11": { round: "round_of_16", matchNumber: 5, slot: "home" },
+  "round_of_32_12": { round: "round_of_16", matchNumber: 5, slot: "away" },
+  "round_of_32_8": { round: "round_of_16", matchNumber: 6, slot: "home" },
+  "round_of_32_10": { round: "round_of_16", matchNumber: 6, slot: "away" },
+  "round_of_32_15": { round: "round_of_16", matchNumber: 7, slot: "home" },
+  "round_of_32_14": { round: "round_of_16", matchNumber: 7, slot: "away" },
+  "round_of_32_13": { round: "round_of_16", matchNumber: 8, slot: "home" },
+  "round_of_32_16": { round: "round_of_16", matchNumber: 8, slot: "away" },
+  "round_of_16_1": { round: "quarter", matchNumber: 1, slot: "home" },
+  "round_of_16_2": { round: "quarter", matchNumber: 1, slot: "away" },
+  "round_of_16_5": { round: "quarter", matchNumber: 2, slot: "home" },
+  "round_of_16_6": { round: "quarter", matchNumber: 2, slot: "away" },
+  "round_of_16_3": { round: "quarter", matchNumber: 3, slot: "home" },
+  "round_of_16_4": { round: "quarter", matchNumber: 3, slot: "away" },
+  "round_of_16_7": { round: "quarter", matchNumber: 4, slot: "home" },
+  "round_of_16_8": { round: "quarter", matchNumber: 4, slot: "away" },
+  "quarter_1": { round: "semi", matchNumber: 1, slot: "home" },
+  "quarter_2": { round: "semi", matchNumber: 1, slot: "away" },
+  "quarter_3": { round: "semi", matchNumber: 2, slot: "home" },
+  "quarter_4": { round: "semi", matchNumber: 2, slot: "away" },
+  "semi_1": { round: "final", matchNumber: 1, slot: "home" },
+  "semi_2": { round: "final", matchNumber: 1, slot: "away" },
+};
+
+function BracketTeamSlot({ code, date }: { code: string | null; date?: string }) {
+  const team = code ? getTeamByCode(code) : null;
+  return (
+    <div className={`flex items-center gap-1 px-1.5 py-1 ${code ? "" : "opacity-30"}`}>
+      <span className="text-sm leading-none">{team?.flag ?? "🏳️"}</span>
+      <span className="text-[10px] font-semibold text-gray-300 truncate">{team?.code ?? ""}</span>
+      {date && (
+        <span className="text-[8px] text-gray-600 ml-auto whitespace-nowrap">{date}</span>
+      )}
+    </div>
+  );
+}
+
+function BracketMatchSlot({ home, away, date }: { home: string | null; away: string | null; date?: string }) {
+  return (
+    <div className="w-[72px] border border-white/10 rounded bg-navy/80 overflow-hidden shrink-0">
+      <BracketTeamSlot code={home} date={date} />
+      <div className="border-t border-white/10" />
+      <BracketTeamSlot code={away} />
+    </div>
+  );
+}
+
+function BracketRoundColumn({ matchNumbers, allTeams, round, dates }: {
+  matchNumbers: number[];
+  allTeams: Map<string, { home: string | null; away: string | null }>;
+  round: string;
+  dates: Map<string, string>;
+}) {
+  const roundIdx = ["round_of_32", "round_of_16", "quarter", "semi"].indexOf(round);
+  const gap = roundIdx === 0 ? 2 : roundIdx === 1 ? 10 : roundIdx === 2 ? 26 : 58;
+  const label = round === "round_of_32" ? "R32" : round === "round_of_16" ? "R16" : round === "quarter" ? "QF" : "SF";
+
+  return (
+    <div className="flex flex-col items-center justify-center shrink-0" style={{ gap: `${gap}px` }}>
+      <div className="text-[8px] text-gray-600 font-semibold uppercase tracking-wider mb-0.5">{label}</div>
+      {matchNumbers.map((mn) => {
+        const key = `${round}_${mn}`;
+        const teams = allTeams.get(key);
+        const date = dates.get(key);
+        return <BracketMatchSlot key={key} home={teams?.home ?? null} away={teams?.away ?? null} date={date} />;
+      })}
+    </div>
+  );
+}
+
+function BracketConnectors({ pairCount }: { pairCount: number }) {
+  const h = pairCount === 4 ? 44 : pairCount === 2 ? 56 : pairCount === 1 ? 88 : 44;
+  return (
+    <div className="flex flex-col items-center justify-center shrink-0" style={{ gap: "0px" }}>
+      {Array.from({ length: pairCount }, (_, i) => (
+        <div key={i} className="flex items-center" style={{ height: `${h}px` }}>
+          <div className="w-1.5 flex flex-col h-full">
+            <div className="flex-1 border-t border-r border-white/10 rounded-tr-sm" />
+            <div className="flex-1 border-b border-r border-white/10 rounded-br-sm" />
+          </div>
+          <div className="w-1.5 border-t border-white/10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HomepageBracket() {
+  const allMatches = getAllKnockoutMatches();
+  const allTeams = new Map<string, { home: string | null; away: string | null }>();
+  const dates = new Map<string, string>();
+
+  for (const m of allMatches) {
+    const key = `${m.round}_${m.matchNumber}`;
+    allTeams.set(key, { home: m.homeTeam, away: m.awayTeam });
+    if (m.utcDate) {
+      const d = new Date(m.utcDate);
+      dates.set(key, d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+    }
+  }
+
+  const leftR32 = [4, 6, 1, 2, 11, 12, 8, 10];
+  const rightR32 = [3, 5, 7, 9, 15, 14, 13, 16];
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex items-center justify-center gap-px min-w-fit py-2">
+        <BracketRoundColumn round="round_of_32" matchNumbers={leftR32} allTeams={allTeams} dates={dates} />
+        <BracketConnectors pairCount={4} />
+        <BracketRoundColumn round="round_of_16" matchNumbers={[1, 2, 5, 6]} allTeams={allTeams} dates={dates} />
+        <BracketConnectors pairCount={2} />
+        <BracketRoundColumn round="quarter" matchNumbers={[1, 2]} allTeams={allTeams} dates={dates} />
+        <BracketConnectors pairCount={1} />
+        <BracketRoundColumn round="semi" matchNumbers={[1]} allTeams={allTeams} dates={dates} />
+
+        <div className="flex flex-col items-center justify-center mx-2 shrink-0">
+          <div className="text-[8px] text-gold font-bold uppercase tracking-wider mb-1">Final</div>
+          <BracketMatchSlot
+            home={allTeams.get("final_1")?.home ?? null}
+            away={allTeams.get("final_1")?.away ?? null}
+          />
+        </div>
+
+        <BracketRoundColumn round="semi" matchNumbers={[2]} allTeams={allTeams} dates={dates} />
+        <BracketConnectors pairCount={1} />
+        <BracketRoundColumn round="quarter" matchNumbers={[3, 4]} allTeams={allTeams} dates={dates} />
+        <BracketConnectors pairCount={2} />
+        <BracketRoundColumn round="round_of_16" matchNumbers={[3, 4, 7, 8]} allTeams={allTeams} dates={dates} />
+        <BracketConnectors pairCount={4} />
+        <BracketRoundColumn round="round_of_32" matchNumbers={rightR32} allTeams={allTeams} dates={dates} />
+      </div>
+    </div>
+  );
+}
 
 function TierCard({
   tier,
@@ -495,6 +642,21 @@ export default async function Home() {
           </Container>
         </section>
       )}
+
+      {/* Knockout Bracket */}
+      <section className="py-10 border-b border-white/10 bg-navy-light/20">
+        <Container>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white">
+              Knockout Bracket
+            </h2>
+            <Link href="/my-picks" className="text-sm text-gold hover:text-yellow-300 transition-colors">
+              Make Your Picks →
+            </Link>
+          </div>
+          <HomepageBracket />
+        </Container>
+      </section>
 
       {/* Top Scorers (if tournament has started) */}
       {topScorers.length > 0 && (
