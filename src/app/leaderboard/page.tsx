@@ -14,14 +14,12 @@ import {
 } from "@/data/participants";
 import {
   calculateAllPoints,
-  setActualGroupResults,
   setActualBonusResults,
   setActualKnockoutResults,
   setKnockoutMatchSchedule,
 } from "@/data/scoring";
 import { isApiConfigured, getScorers, getStandings, getMatches } from "@/lib/football-api";
 import {
-  getLiveGroupResults,
   getLiveBonusResults,
   getLiveKnockoutResults,
   getLiveTournamentStatus,
@@ -64,16 +62,16 @@ export default async function LeaderboardPage() {
     participants = buildParticipantsFromKv(kvData);
   }
 
-  // Try to inject live results before scoring
-  let hasGroupScoring = false;
+  // Group results are hardcoded in scoring.ts (group stage complete).
+  // Still call API for Golden Boot (dynamic), knockout results, and tournament status.
+  let hasGroupScoring = true;
   let hasLiveMatches = false;
-  let isTournamentActive = false;
+  let isTournamentActive = true;
   let scorersData: import("@/lib/football-api-types").TransformedScorer[] = [];
   let teamStatsData: { teamTla: string; goalsScored: number; goalsConceded: number; matchesPlayed: number }[] = [];
 
   if (isApiConfigured()) {
-    const [groupResults, bonusResults, knockoutResults, tournamentStatus, scorersResult, matchesData] = await Promise.all([
-      getLiveGroupResults(),
+    const [bonusResults, knockoutResults, tournamentStatus, scorersResult, matchesData] = await Promise.all([
       getLiveBonusResults(),
       getLiveKnockoutResults(),
       getLiveTournamentStatus(),
@@ -83,13 +81,8 @@ export default async function LeaderboardPage() {
 
     scorersData = scorersResult ?? [];
 
-    if (groupResults) {
-      setActualGroupResults(groupResults.groups);
-      hasGroupScoring = true;
-    }
-
     if (bonusResults) {
-      setActualBonusResults(bonusResults);
+      setActualBonusResults({ goldenBoot: bonusResults.goldenBoot });
     }
 
     if (knockoutResults) {

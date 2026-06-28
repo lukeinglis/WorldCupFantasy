@@ -12,7 +12,6 @@ import {
 } from "@/data/participants";
 import {
   calculateAllPoints,
-  setActualGroupResults,
   setActualBonusResults,
   setActualKnockoutResults,
   setKnockoutMatchSchedule,
@@ -22,7 +21,6 @@ import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import {
-  getLiveGroupResults,
   getLiveBonusResults,
   getLiveKnockoutResults,
 } from "@/lib/live-scoring";
@@ -108,13 +106,11 @@ export default async function Home() {
 
   // Inject live scoring for leaderboard preview
   if (apiReady) {
-    const [groupResults, bonusResults, knockoutResults] = await Promise.all([
-      getLiveGroupResults(),
+    const [bonusResults, knockoutResults] = await Promise.all([
       getLiveBonusResults(),
       getLiveKnockoutResults(),
     ]);
-    if (groupResults) setActualGroupResults(groupResults.groups);
-    if (bonusResults) setActualBonusResults(bonusResults);
+    if (bonusResults) setActualBonusResults({ goldenBoot: bonusResults.goldenBoot });
     if (knockoutResults) setActualKnockoutResults(knockoutResults.results);
     if (matches) {
       const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];

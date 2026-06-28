@@ -7,14 +7,13 @@ import { getUserById, getPicks, getAllUsersWithPicks, isKvConfigured } from "@/l
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import {
   calculateAllPoints,
-  setActualGroupResults,
   setActualBonusResults,
   setActualKnockoutResults,
   setKnockoutMatchSchedule,
   actualGroupResults,
 } from "@/data/scoring";
 import { isApiConfigured, getMatches } from "@/lib/football-api";
-import { getLiveGroupResults, getLiveBonusResults, getLiveKnockoutResults } from "@/lib/live-scoring";
+import { getLiveBonusResults, getLiveKnockoutResults } from "@/lib/live-scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import {
   TIER1_MAX,
@@ -82,19 +81,14 @@ export default async function ParticipantDetailPage({
   const kvData = await getAllUsersWithPicks();
   const participants = buildParticipantsFromKv(kvData);
 
-  let hasGroupScoring = false;
+  const hasGroupScoring = true;
   if (isApiConfigured()) {
-    const [groupResults, bonusResults, knockoutResults, matchesData] = await Promise.all([
-      getLiveGroupResults(),
+    const [bonusResults, knockoutResults, matchesData] = await Promise.all([
       getLiveBonusResults(),
       getLiveKnockoutResults(),
       getMatches(),
     ]);
-    if (groupResults) {
-      setActualGroupResults(groupResults.groups);
-      hasGroupScoring = true;
-    }
-    if (bonusResults) setActualBonusResults(bonusResults);
+    if (bonusResults) setActualBonusResults({ goldenBoot: bonusResults.goldenBoot });
     if (knockoutResults) setActualKnockoutResults(knockoutResults.results);
     if (matchesData) {
       const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
