@@ -58,7 +58,10 @@ function getNextRoundSlot(
   }
 }
 
-const BRACKET_H = 384;
+const MATCH_H = 40;
+const GAP = 4;
+const SLOT = MATCH_H + GAP;
+const BRACKET_H = 8 * SLOT;
 
 function MatchCard({
   homeCode,
@@ -79,7 +82,10 @@ function MatchCard({
   const awaySelected = !!awayCode && selectedWinner === awayCode;
 
   return (
-    <div className="rounded border border-white/10 bg-navy-lighter/50 overflow-hidden w-[112px]">
+    <div
+      className="rounded border border-white/10 bg-navy-lighter/50 overflow-hidden w-[112px] shrink-0"
+      style={{ height: `${MATCH_H}px` }}
+    >
       <button
         type="button"
         onClick={() => homeCode && onPick(homeCode)}
@@ -121,6 +127,83 @@ function MatchCard({
   );
 }
 
+function Connector({
+  pairHeight,
+  side,
+}: {
+  pairHeight: number;
+  side: "left" | "right";
+}) {
+  const border = side === "left" ? "border-r" : "border-l";
+  return (
+    <div className="flex flex-col w-3 shrink-0" style={{ height: `${pairHeight}px` }}>
+      <div className={`flex-1 ${border} border-t border-white/15`} />
+      <div className={`flex-1 ${border} border-b border-white/15`} />
+    </div>
+  );
+}
+
+function RoundColumn({
+  round,
+  matches,
+  slotsPerMatch,
+  derivedTeams,
+  picksMap,
+  onPick,
+  disabled,
+}: {
+  round: string;
+  matches: number[];
+  slotsPerMatch: number;
+  derivedTeams: Map<string, { home: string | null; away: string | null }>;
+  picksMap: Map<string, string>;
+  onPick: (round: string, matchNumber: number, winner: string) => void;
+  disabled: boolean;
+}) {
+  const wrapperH = slotsPerMatch * SLOT;
+  return (
+    <div className="flex flex-col shrink-0">
+      {matches.map((matchNumber) => {
+        const matchKey = `${round}_${matchNumber}`;
+        const derived = derivedTeams.get(matchKey);
+        return (
+          <div
+            key={matchKey}
+            className="flex items-center justify-center"
+            style={{ height: `${wrapperH}px` }}
+          >
+            <MatchCard
+              homeCode={derived?.home ?? null}
+              awayCode={derived?.away ?? null}
+              selectedWinner={picksMap.get(matchKey) ?? null}
+              onPick={(winner) => onPick(round, matchNumber, winner)}
+              disabled={disabled}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ConnectorColumn({
+  count,
+  pairHeight,
+  side,
+}: {
+  count: number;
+  pairHeight: number;
+  side: "left" | "right";
+}) {
+  return (
+    <div className="flex flex-col shrink-0">
+      {Array.from({ length: count }, (_, i) => (
+        <Connector key={i} pairHeight={pairHeight} side={side} />
+      ))}
+    </div>
+  );
+}
+
 function BracketHalf({
   side,
   r32Matches,
@@ -142,77 +225,34 @@ function BracketHalf({
   onPick: (round: string, matchNumber: number, winner: string) => void;
   disabled: boolean;
 }) {
-  const borderSide = side === "left" ? "border-r" : "border-l";
+  const commonProps = { derivedTeams, picksMap, onPick, disabled };
 
-  const rounds: { round: string; matches: number[]; span: number }[] = [
-    { round: "round_of_32", matches: r32Matches, span: 2 },
-    { round: "round_of_16", matches: r16Matches, span: 4 },
-    { round: "quarter", matches: qfMatches, span: 8 },
-    { round: "semi", matches: [sfMatch], span: 16 },
-  ];
+  const r32Col = (
+    <RoundColumn round="round_of_32" matches={r32Matches} slotsPerMatch={1} {...commonProps} />
+  );
+  const r32r16Conn = <ConnectorColumn count={4} pairHeight={2 * SLOT} side={side} />;
+  const r16Col = (
+    <RoundColumn round="round_of_16" matches={r16Matches} slotsPerMatch={2} {...commonProps} />
+  );
+  const r16qfConn = <ConnectorColumn count={2} pairHeight={4 * SLOT} side={side} />;
+  const qfCol = (
+    <RoundColumn round="quarter" matches={qfMatches} slotsPerMatch={4} {...commonProps} />
+  );
+  const qfsfConn = <ConnectorColumn count={1} pairHeight={8 * SLOT} side={side} />;
+  const sfCol = (
+    <RoundColumn round="semi" matches={[sfMatch]} slotsPerMatch={8} {...commonProps} />
+  );
 
-  const orderedRounds = side === "left" ? rounds : [...rounds].reverse();
+  const columns =
+    side === "left"
+      ? [r32Col, r32r16Conn, r16Col, r16qfConn, qfCol, qfsfConn, sfCol]
+      : [sfCol, qfsfConn, qfCol, r16qfConn, r16Col, r32r16Conn, r32Col];
 
   return (
-    <div
-      className="grid"
-      style={{
-        gridTemplateColumns: orderedRounds
-          .map((_, i) => (i < orderedRounds.length - 1 ? "auto 12px" : "auto"))
-          .join(" "),
-        gridTemplateRows: "repeat(16, 24px)",
-        alignItems: "center",
-      }}
-    >
-      {orderedRounds.map((rd, colIdx) => {
-        const gridCol = colIdx * 2 + 1;
-        const connectorCol = gridCol + 1;
-
-        return (
-          <div key={rd.round + colIdx} className="contents">
-            {rd.matches.map((matchNumber, i) => {
-              const matchKey = `${rd.round}_${matchNumber}`;
-              const derived = derivedTeams.get(matchKey);
-              const rowStart = i * rd.span + 1;
-              const rowEnd = rowStart + rd.span;
-              return (
-                <div
-                  key={matchKey}
-                  style={{ gridColumn: gridCol, gridRow: `${rowStart} / ${rowEnd}` }}
-                  className="flex items-center px-0.5"
-                >
-                  <MatchCard
-                    homeCode={derived?.home ?? null}
-                    awayCode={derived?.away ?? null}
-                    selectedWinner={picksMap.get(matchKey) ?? null}
-                    onPick={(winner) => onPick(rd.round, matchNumber, winner)}
-                    disabled={disabled}
-                  />
-                </div>
-              );
-            })}
-
-            {colIdx < orderedRounds.length - 1 && (() => {
-              const pairs = rd.matches.length / 2;
-              const pairSpan = rd.span * 2;
-              return Array.from({ length: Math.max(pairs, 1) }, (_, i) => {
-                const rowStart = i * pairSpan + 1;
-                const rowEnd = rowStart + pairSpan;
-                return (
-                  <div
-                    key={`conn-${colIdx}-${i}`}
-                    style={{ gridColumn: connectorCol, gridRow: `${rowStart} / ${rowEnd}` }}
-                    className="h-full flex flex-col"
-                  >
-                    <div className={`flex-1 ${borderSide} border-t border-white/15`} />
-                    <div className={`flex-1 ${borderSide} border-b border-white/15`} />
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        );
-      })}
+    <div className="flex items-start" style={{ height: `${BRACKET_H}px` }}>
+      {columns.map((col, i) => (
+        <div key={i}>{col}</div>
+      ))}
     </div>
   );
 }
@@ -330,12 +370,10 @@ export default function BracketPicker({
   const leftR32 = [1, 2, 3, 4, 5, 6, 7, 8];
   const leftR16 = [1, 2, 3, 4];
   const leftQF = [1, 2];
-  const leftSF = [1];
 
   const rightR32 = [9, 10, 11, 12, 13, 14, 15, 16];
   const rightR16 = [5, 6, 7, 8];
   const rightQF = [3, 4];
-  const rightSF = [2];
 
   const roundHeaders = [
     { label: ROUND_LABELS.round_of_32, points: ROUND_POINTS.round_of_32, span: "col-span-2" },
@@ -397,7 +435,7 @@ export default function BracketPicker({
           </div>
 
           {/* Bracket body */}
-          <div className="flex items-stretch" style={{ height: `${BRACKET_H}px` }}>
+          <div className="flex items-start">
             {/* === LEFT BRACKET === */}
             <BracketHalf
               side="left"
@@ -412,7 +450,10 @@ export default function BracketPicker({
             />
 
             {/* === CENTER: Final + Third Place === */}
-            <div className="flex flex-col items-center justify-center shrink-0 mx-2 gap-4">
+            <div
+              className="flex flex-col items-center justify-center shrink-0 mx-2 gap-4"
+              style={{ height: `${BRACKET_H}px` }}
+            >
               <div className="flex flex-col items-center">
                 <div className="text-center mb-1">
                   <div className="text-xs text-gold uppercase tracking-wider font-bold font-heading whitespace-nowrap">
