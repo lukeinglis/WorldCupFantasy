@@ -42,21 +42,49 @@ const ROUND_POINTS: Record<string, number> = {
   final: 10,
 };
 
+// FIFA 2026 bracket paths: maps each match to its next-round slot
+const BRACKET_PATH: Record<string, { round: string; matchNumber: number; slot: "home" | "away" }> = {
+  // R32 -> R16
+  "round_of_32_4":  { round: "round_of_16", matchNumber: 1, slot: "home" },
+  "round_of_32_6":  { round: "round_of_16", matchNumber: 1, slot: "away" },
+  "round_of_32_1":  { round: "round_of_16", matchNumber: 2, slot: "home" },
+  "round_of_32_2":  { round: "round_of_16", matchNumber: 2, slot: "away" },
+  "round_of_32_3":  { round: "round_of_16", matchNumber: 3, slot: "home" },
+  "round_of_32_5":  { round: "round_of_16", matchNumber: 3, slot: "away" },
+  "round_of_32_7":  { round: "round_of_16", matchNumber: 4, slot: "home" },
+  "round_of_32_9":  { round: "round_of_16", matchNumber: 4, slot: "away" },
+  "round_of_32_11": { round: "round_of_16", matchNumber: 5, slot: "home" },
+  "round_of_32_12": { round: "round_of_16", matchNumber: 5, slot: "away" },
+  "round_of_32_8":  { round: "round_of_16", matchNumber: 6, slot: "home" },
+  "round_of_32_10": { round: "round_of_16", matchNumber: 6, slot: "away" },
+  "round_of_32_15": { round: "round_of_16", matchNumber: 7, slot: "home" },
+  "round_of_32_14": { round: "round_of_16", matchNumber: 7, slot: "away" },
+  "round_of_32_13": { round: "round_of_16", matchNumber: 8, slot: "home" },
+  "round_of_32_16": { round: "round_of_16", matchNumber: 8, slot: "away" },
+  // R16 -> QF
+  "round_of_16_1": { round: "quarter", matchNumber: 1, slot: "home" },
+  "round_of_16_2": { round: "quarter", matchNumber: 1, slot: "away" },
+  "round_of_16_5": { round: "quarter", matchNumber: 2, slot: "home" },
+  "round_of_16_6": { round: "quarter", matchNumber: 2, slot: "away" },
+  "round_of_16_3": { round: "quarter", matchNumber: 3, slot: "home" },
+  "round_of_16_4": { round: "quarter", matchNumber: 3, slot: "away" },
+  "round_of_16_7": { round: "quarter", matchNumber: 4, slot: "home" },
+  "round_of_16_8": { round: "quarter", matchNumber: 4, slot: "away" },
+  // QF -> SF
+  "quarter_1": { round: "semi", matchNumber: 1, slot: "home" },
+  "quarter_2": { round: "semi", matchNumber: 1, slot: "away" },
+  "quarter_3": { round: "semi", matchNumber: 2, slot: "home" },
+  "quarter_4": { round: "semi", matchNumber: 2, slot: "away" },
+  // SF -> Final
+  "semi_1": { round: "final", matchNumber: 1, slot: "home" },
+  "semi_2": { round: "final", matchNumber: 1, slot: "away" },
+};
+
 function getNextRoundSlot(
   round: string,
   matchNumber: number
 ): { round: string; matchNumber: number; slot: "home" | "away" } | null {
-  const roundIdx = ROUND_ORDER.indexOf(round);
-  if (roundIdx === -1 || roundIdx >= ROUND_ORDER.length - 1) return null;
-  const nextRound = ROUND_ORDER[roundIdx + 1];
-  const currentMatchCount = knockoutRoundMatchCounts[round] ?? 0;
-  const halfCount = Math.floor(currentMatchCount / 2);
-
-  if (matchNumber <= halfCount) {
-    return { round: nextRound, matchNumber, slot: "home" };
-  } else {
-    return { round: nextRound, matchNumber: matchNumber - halfCount, slot: "away" };
-  }
+  return BRACKET_PATH[`${round}_${matchNumber}`] ?? null;
 }
 
 // ── Compact team row for bracket view ──
@@ -356,13 +384,14 @@ export default function BracketPicker({
     0
   );
 
-  // Split matches into top half and bottom half for bracket view
-  const topR32 = [1, 2, 3, 4, 5, 6, 7, 8];
-  const bottomR32 = [9, 10, 11, 12, 13, 14, 15, 16];
-  const topR16 = [1, 2, 3, 4];
-  const bottomR16 = [5, 6, 7, 8];
-  const topQF = [1, 2];
-  const bottomQF = [3, 4];
+  // Split matches by bracket side (based on FIFA bracket paths)
+  // Left side flows to SF1, right side flows to SF2
+  const leftR32 = [4, 6, 1, 2, 11, 12, 8, 10];
+  const rightR32 = [3, 5, 7, 9, 15, 14, 13, 16];
+  const leftR16 = [1, 2, 5, 6];
+  const rightR16 = [3, 4, 7, 8];
+  const leftQF = [1, 2];
+  const rightQF = [3, 4];
 
   return (
     <div className="space-y-6">
@@ -388,11 +417,11 @@ export default function BracketPicker({
       {/* ── BRACKET VIEW (desktop) ── */}
       <div className="hidden lg:block overflow-x-auto -mx-8 px-4">
         <div className="flex items-center justify-center gap-0.5 mb-4 min-w-fit">
-          <BracketColumn round="round_of_32" matchNumbers={topR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketColumn round="round_of_32" matchNumbers={leftR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
           <ConnectorColumn matchCount={8} />
-          <BracketColumn round="round_of_16" matchNumbers={topR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketColumn round="round_of_16" matchNumbers={leftR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
           <ConnectorColumn matchCount={4} />
-          <BracketColumn round="quarter" matchNumbers={topQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketColumn round="quarter" matchNumbers={leftQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
           <ConnectorColumn matchCount={2} />
           <BracketColumn round="semi" matchNumbers={[1]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
 
@@ -422,11 +451,11 @@ export default function BracketPicker({
 
           <BracketColumn round="semi" matchNumbers={[2]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
           <ConnectorColumn matchCount={2} />
-          <BracketColumn round="quarter" matchNumbers={bottomQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketColumn round="quarter" matchNumbers={rightQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
           <ConnectorColumn matchCount={4} />
-          <BracketColumn round="round_of_16" matchNumbers={bottomR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketColumn round="round_of_16" matchNumbers={rightR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
           <ConnectorColumn matchCount={8} />
-          <BracketColumn round="round_of_32" matchNumbers={bottomR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketColumn round="round_of_32" matchNumbers={rightR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
         </div>
       </div>
 
