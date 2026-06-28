@@ -26,7 +26,7 @@ const ROUND_LABELS: Record<string, string> = {
   round_of_16: "Round of 16",
   quarter: "Quarterfinals",
   semi: "Semifinals",
-  third_place: "Third Place",
+  third_place: "Third Place Playoff",
   final: "Final",
 };
 
@@ -41,6 +41,9 @@ const ROUND_POINTS: Record<string, number> = {
   final: 10,
 };
 
+// Map R32 match numbers to R16 match numbers (winners feed into the next round)
+// R32 matches 1&9 -> R16 match 1, R32 2&10 -> R16 2, etc.
+// This uses a standard bracket structure: each pair of adjacent R32 matches feeds one R16 match
 function getNextRoundSlot(
   round: string,
   matchNumber: number
@@ -51,6 +54,8 @@ function getNextRoundSlot(
   const currentMatchCount = knockoutRoundMatchCounts[round] ?? 0;
   const halfCount = Math.floor(currentMatchCount / 2);
 
+  // Matches 1..halfCount are the "top half", halfCount+1..currentMatchCount are the "bottom half"
+  // Match i and (i + halfCount) feed into nextRound match i
   if (matchNumber <= halfCount) {
     return { round: nextRound, matchNumber, slot: "home" };
   } else {
@@ -58,202 +63,47 @@ function getNextRoundSlot(
   }
 }
 
-const MATCH_H = 40;
-const GAP = 4;
-const SLOT = MATCH_H + GAP;
-const BRACKET_H = 8 * SLOT;
-
-function MatchCard({
-  homeCode,
-  awayCode,
-  selectedWinner,
-  onPick,
+function TeamButton({
+  teamCode,
+  isSelected,
+  onClick,
   disabled,
 }: {
-  homeCode: string | null;
-  awayCode: string | null;
-  selectedWinner: string | null;
-  onPick: (winner: string) => void;
+  teamCode: string | null;
+  isSelected: boolean;
+  onClick: () => void;
   disabled: boolean;
 }) {
-  const homeTeam = homeCode ? getTeamByCode(homeCode) : null;
-  const awayTeam = awayCode ? getTeamByCode(awayCode) : null;
-  const homeSelected = !!homeCode && selectedWinner === homeCode;
-  const awaySelected = !!awayCode && selectedWinner === awayCode;
+  const team = teamCode ? getTeamByCode(teamCode) : null;
+  const displayName = team?.name ?? teamCode ?? "TBD";
+  const flag = team?.flag ?? "";
+  const isTbd = !teamCode;
 
   return (
-    <div
-      className="rounded border border-white/10 bg-navy-lighter/50 overflow-hidden w-[112px] shrink-0"
-      style={{ height: `${MATCH_H}px` }}
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || isTbd}
+      className={`flex-1 flex items-center gap-2 px-3 py-3 rounded-lg text-left transition-all duration-200 active:scale-[0.98] min-w-0 ${
+        isSelected
+          ? "bg-gold/15 border-2 border-gold/50 shadow-sm shadow-gold/10"
+          : isTbd
+          ? "bg-white/[0.02] border border-white/5 cursor-not-allowed"
+          : "bg-navy-lighter/40 border border-white/10 hover:bg-white/5 hover:border-white/20"
+      } ${disabled && !isTbd ? "opacity-50 cursor-not-allowed" : ""}`}
     >
-      <button
-        type="button"
-        onClick={() => homeCode && onPick(homeCode)}
-        disabled={!homeCode || disabled}
-        className={`w-full flex items-center justify-between gap-1 px-1.5 h-[19px] text-left transition-colors text-xs ${
-          homeSelected
-            ? "bg-gold/20 text-gold"
-            : !homeCode
-            ? "text-gray-700 cursor-default"
-            : "text-gray-300 hover:bg-white/5"
-        } ${disabled && homeCode ? "opacity-50 cursor-not-allowed" : ""}`}
+      {flag && <span className="text-lg leading-none shrink-0">{flag}</span>}
+      <span
+        className={`text-sm font-medium truncate ${
+          isSelected ? "text-gold" : isTbd ? "text-gray-700" : "text-gray-300"
+        }`}
       >
-        <span className="flex items-center gap-1 truncate">
-          {homeTeam?.flag && <span className="text-sm leading-none">{homeTeam.flag}</span>}
-          <span className="font-medium truncate">{homeCode ?? "TBD"}</span>
-        </span>
-        {homeSelected && <span className="text-gold shrink-0">&#10003;</span>}
-      </button>
-      <div className="border-t border-white/5" />
-      <button
-        type="button"
-        onClick={() => awayCode && onPick(awayCode)}
-        disabled={!awayCode || disabled}
-        className={`w-full flex items-center justify-between gap-1 px-1.5 h-[19px] text-left transition-colors text-xs ${
-          awaySelected
-            ? "bg-gold/20 text-gold"
-            : !awayCode
-            ? "text-gray-700 cursor-default"
-            : "text-gray-300 hover:bg-white/5"
-        } ${disabled && awayCode ? "opacity-50 cursor-not-allowed" : ""}`}
-      >
-        <span className="flex items-center gap-1 truncate">
-          {awayTeam?.flag && <span className="text-sm leading-none">{awayTeam.flag}</span>}
-          <span className="font-medium truncate">{awayCode ?? "TBD"}</span>
-        </span>
-        {awaySelected && <span className="text-gold shrink-0">&#10003;</span>}
-      </button>
-    </div>
-  );
-}
-
-function Connector({
-  pairHeight,
-  side,
-}: {
-  pairHeight: number;
-  side: "left" | "right";
-}) {
-  const border = side === "left" ? "border-r" : "border-l";
-  return (
-    <div className="flex flex-col w-3 shrink-0" style={{ height: `${pairHeight}px` }}>
-      <div className={`flex-1 ${border} border-t border-white/15`} />
-      <div className={`flex-1 ${border} border-b border-white/15`} />
-    </div>
-  );
-}
-
-function RoundColumn({
-  round,
-  matches,
-  slotsPerMatch,
-  derivedTeams,
-  picksMap,
-  onPick,
-  disabled,
-}: {
-  round: string;
-  matches: number[];
-  slotsPerMatch: number;
-  derivedTeams: Map<string, { home: string | null; away: string | null }>;
-  picksMap: Map<string, string>;
-  onPick: (round: string, matchNumber: number, winner: string) => void;
-  disabled: boolean;
-}) {
-  const wrapperH = slotsPerMatch * SLOT;
-  return (
-    <div className="flex flex-col shrink-0">
-      {matches.map((matchNumber) => {
-        const matchKey = `${round}_${matchNumber}`;
-        const derived = derivedTeams.get(matchKey);
-        return (
-          <div
-            key={matchKey}
-            className="flex items-center justify-center"
-            style={{ height: `${wrapperH}px` }}
-          >
-            <MatchCard
-              homeCode={derived?.home ?? null}
-              awayCode={derived?.away ?? null}
-              selectedWinner={picksMap.get(matchKey) ?? null}
-              onPick={(winner) => onPick(round, matchNumber, winner)}
-              disabled={disabled}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ConnectorColumn({
-  count,
-  pairHeight,
-  side,
-}: {
-  count: number;
-  pairHeight: number;
-  side: "left" | "right";
-}) {
-  return (
-    <div className="flex flex-col shrink-0">
-      {Array.from({ length: count }, (_, i) => (
-        <Connector key={i} pairHeight={pairHeight} side={side} />
-      ))}
-    </div>
-  );
-}
-
-function BracketHalf({
-  side,
-  r32Matches,
-  r16Matches,
-  qfMatches,
-  sfMatch,
-  derivedTeams,
-  picksMap,
-  onPick,
-  disabled,
-}: {
-  side: "left" | "right";
-  r32Matches: number[];
-  r16Matches: number[];
-  qfMatches: number[];
-  sfMatch: number;
-  derivedTeams: Map<string, { home: string | null; away: string | null }>;
-  picksMap: Map<string, string>;
-  onPick: (round: string, matchNumber: number, winner: string) => void;
-  disabled: boolean;
-}) {
-  const commonProps = { derivedTeams, picksMap, onPick, disabled };
-
-  const r32Col = (
-    <RoundColumn round="round_of_32" matches={r32Matches} slotsPerMatch={1} {...commonProps} />
-  );
-  const r32r16Conn = <ConnectorColumn count={4} pairHeight={2 * SLOT} side={side} />;
-  const r16Col = (
-    <RoundColumn round="round_of_16" matches={r16Matches} slotsPerMatch={2} {...commonProps} />
-  );
-  const r16qfConn = <ConnectorColumn count={2} pairHeight={4 * SLOT} side={side} />;
-  const qfCol = (
-    <RoundColumn round="quarter" matches={qfMatches} slotsPerMatch={4} {...commonProps} />
-  );
-  const qfsfConn = <ConnectorColumn count={1} pairHeight={8 * SLOT} side={side} />;
-  const sfCol = (
-    <RoundColumn round="semi" matches={[sfMatch]} slotsPerMatch={8} {...commonProps} />
-  );
-
-  const columns =
-    side === "left"
-      ? [r32Col, r32r16Conn, r16Col, r16qfConn, qfCol, qfsfConn, sfCol]
-      : [sfCol, qfsfConn, qfCol, r16qfConn, r16Col, r32r16Conn, r32Col];
-
-  return (
-    <div className="flex items-start" style={{ height: `${BRACKET_H}px` }}>
-      {columns.map((col, i) => (
-        <div key={i}>{col}</div>
-      ))}
-    </div>
+        {displayName}
+      </span>
+      {isSelected && (
+        <span className="ml-auto text-gold text-xs font-bold shrink-0">W</span>
+      )}
+    </button>
   );
 }
 
@@ -263,6 +113,7 @@ export default function BracketPicker({
   onPicksChange,
   disabled = false,
 }: BracketPickerProps) {
+  // Index picks for fast lookup
   const picksMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const pick of picks) {
@@ -271,6 +122,7 @@ export default function BracketPicker({
     return map;
   }, [picks]);
 
+  // Compute derived teams for R16+ based on user's picks
   const derivedTeams = useMemo(() => {
     const derived = new Map<string, { home: string | null; away: string | null }>();
 
@@ -279,6 +131,7 @@ export default function BracketPicker({
       for (let m = 1; m <= matchCount; m++) {
         const key = `${round}_${m}`;
         if (!derived.has(key)) {
+          // Initialize from API data
           const apiMatch = knockoutMatches.find(
             (km) => km.round === round && km.matchNumber === m
           );
@@ -290,6 +143,7 @@ export default function BracketPicker({
       }
     }
 
+    // Propagate winners into next round slots
     for (const round of ROUND_ORDER) {
       if (round === "third_place") continue;
       const matchCount = knockoutRoundMatchCounts[round] ?? 0;
@@ -309,6 +163,7 @@ export default function BracketPicker({
       }
     }
 
+    // Derive third-place match teams from semifinal losers
     const thirdPlaceTeams: { home: string | null; away: string | null } =
       derived.get("third_place_1") ?? { home: null, away: null };
 
@@ -329,20 +184,24 @@ export default function BracketPicker({
     return derived;
   }, [knockoutMatches, picksMap]);
 
+  // When user picks a winner, cascade: clear any downstream picks that referenced the old winner
   const handlePick = useCallback(
     (round: string, matchNumber: number, winner: string) => {
       const key = `${round}_${matchNumber}`;
       const currentWinner = picksMap.get(key);
 
+      // If clicking the same winner, deselect
       if (currentWinner === winner) {
         const newPicks = picks.filter(
           (p) => !(p.round === round && p.matchNumber === matchNumber)
         );
+        // Also clear downstream picks that depend on this winner
         const cleared = clearDownstreamPicks(newPicks, round, matchNumber, winner);
         onPicksChange(cleared);
         return;
       }
 
+      // Set this pick
       let newPicks = picks.filter(
         (p) => !(p.round === round && p.matchNumber === matchNumber)
       );
@@ -352,6 +211,7 @@ export default function BracketPicker({
         winner,
       });
 
+      // If there was a previous winner, clear downstream picks that referenced it
       if (currentWinner) {
         newPicks = clearDownstreamPicks(newPicks, round, matchNumber, currentWinner);
       }
@@ -361,35 +221,24 @@ export default function BracketPicker({
     [picks, picksMap, onPicksChange]
   );
 
+  // Count picks per round
+  const pickCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const round of ROUND_ORDER) {
+      counts[round] = picks.filter((p) => p.round === round).length;
+    }
+    return counts;
+  }, [picks]);
+
   const totalPicks = picks.length;
   const totalMatches = ROUND_ORDER.reduce(
     (sum, r) => sum + (knockoutRoundMatchCounts[r] ?? 0),
     0
   );
 
-  const leftR32 = [1, 2, 3, 4, 5, 6, 7, 8];
-  const leftR16 = [1, 2, 3, 4];
-  const leftQF = [1, 2];
-
-  const rightR32 = [9, 10, 11, 12, 13, 14, 15, 16];
-  const rightR16 = [5, 6, 7, 8];
-  const rightQF = [3, 4];
-
-  const roundHeaders = [
-    { label: ROUND_LABELS.round_of_32, points: ROUND_POINTS.round_of_32, span: "col-span-2" },
-    { label: ROUND_LABELS.round_of_16, points: ROUND_POINTS.round_of_16, span: "col-span-2" },
-    { label: ROUND_LABELS.quarter, points: ROUND_POINTS.quarter, span: "col-span-2" },
-    { label: ROUND_LABELS.semi, points: ROUND_POINTS.semi, span: "col-span-1" },
-    { label: "Final / 3rd", points: null, span: "col-span-1" },
-    { label: ROUND_LABELS.semi, points: ROUND_POINTS.semi, span: "col-span-1" },
-    { label: ROUND_LABELS.quarter, points: ROUND_POINTS.quarter, span: "col-span-2" },
-    { label: ROUND_LABELS.round_of_16, points: ROUND_POINTS.round_of_16, span: "col-span-2" },
-    { label: ROUND_LABELS.round_of_32, points: ROUND_POINTS.round_of_32, span: "col-span-2" },
-  ];
-
   return (
-    <div className="space-y-4">
-      {/* Progress bar */}
+    <div className="space-y-8">
+      {/* Progress summary */}
       <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-gray-400">
@@ -412,101 +261,97 @@ export default function BracketPicker({
         </div>
       </div>
 
-      {/* Mobile scroll hint */}
-      <p className="text-xs text-gray-600 lg:hidden text-center">
-        Scroll horizontally to see the full bracket &rarr;
-      </p>
+      {/* Round-by-round list */}
+      {ROUND_ORDER.map((round) => {
+        const matchCount = knockoutRoundMatchCounts[round] ?? 0;
+        const roundPicks = pickCounts[round] ?? 0;
+        const isComplete = roundPicks === matchCount;
+        const points = ROUND_POINTS[round] ?? 0;
 
-      {/* Bracket */}
-      <div className="overflow-x-auto pb-4 -mx-4 px-4">
-        <div className="min-w-[1100px]">
-          {/* Round headers */}
-          <div className="grid grid-cols-[repeat(15,auto)] mb-1">
-            {roundHeaders.map((h, i) => (
-              <div key={i} className={`${h.span} text-center`}>
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium whitespace-nowrap px-1">
-                  {h.label}
-                  {h.points != null && (
-                    <span className="text-gray-600 ml-1">({h.points}pts)</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Bracket body */}
-          <div className="flex items-start">
-            {/* === LEFT BRACKET === */}
-            <BracketHalf
-              side="left"
-              r32Matches={leftR32}
-              r16Matches={leftR16}
-              qfMatches={leftQF}
-              sfMatch={1}
-              derivedTeams={derivedTeams}
-              picksMap={picksMap}
-              onPick={handlePick}
-              disabled={disabled}
-            />
-
-            {/* === CENTER: Final + Third Place === */}
-            <div
-              className="flex flex-col items-center justify-center shrink-0 mx-2 gap-4"
-              style={{ height: `${BRACKET_H}px` }}
-            >
-              <div className="flex flex-col items-center">
-                <div className="text-center mb-1">
-                  <div className="text-xs text-gold uppercase tracking-wider font-bold font-heading whitespace-nowrap">
-                    &#127942; {ROUND_LABELS.final}
-                  </div>
-                  <div className="text-[10px] text-gray-500">{ROUND_POINTS.final} pts</div>
-                </div>
-                <div className="border border-gold/30 rounded-lg p-1 bg-gold/5">
-                  <MatchCard
-                    homeCode={derivedTeams.get("final_1")?.home ?? null}
-                    awayCode={derivedTeams.get("final_1")?.away ?? null}
-                    selectedWinner={picksMap.get("final_1") ?? null}
-                    onPick={(winner) => handlePick("final", 1, winner)}
-                    disabled={disabled}
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col items-center">
-                <div className="text-center mb-1">
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium whitespace-nowrap">
-                    {ROUND_LABELS.third_place}
-                  </div>
-                  <div className="text-[10px] text-gray-600">{ROUND_POINTS.third_place} pts</div>
-                </div>
-                <MatchCard
-                  homeCode={derivedTeams.get("third_place_1")?.home ?? null}
-                  awayCode={derivedTeams.get("third_place_1")?.away ?? null}
-                  selectedWinner={picksMap.get("third_place_1") ?? null}
-                  onPick={(winner) => handlePick("third_place", 1, winner)}
-                  disabled={disabled}
-                />
+        return (
+          <div key={round}>
+            {/* Round header */}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
+                {ROUND_LABELS[round] ?? round}
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">
+                  {points} pts each
+                </span>
+                <span
+                  className={`text-xs font-medium ${
+                    isComplete ? "text-gold" : "text-gray-600"
+                  }`}
+                >
+                  {roundPicks}/{matchCount}
+                </span>
               </div>
             </div>
 
-            {/* === RIGHT BRACKET (mirrored) === */}
-            <BracketHalf
-              side="right"
-              r32Matches={rightR32}
-              r16Matches={rightR16}
-              qfMatches={rightQF}
-              sfMatch={2}
-              derivedTeams={derivedTeams}
-              picksMap={picksMap}
-              onPick={handlePick}
-              disabled={disabled}
-            />
+            {/* Match cards */}
+            <div className="space-y-3">
+              {Array.from({ length: matchCount }, (_, i) => i + 1).map(
+                (matchNumber) => {
+                  const matchKey = `${round}_${matchNumber}`;
+                  const derived = derivedTeams.get(matchKey);
+                  const homeTeam = derived?.home ?? null;
+                  const awayTeam = derived?.away ?? null;
+                  const selectedWinner = picksMap.get(matchKey) ?? null;
+
+                  return (
+                    <div
+                      key={matchKey}
+                      className={`rounded-xl border overflow-hidden transition-all duration-200 ${
+                        disabled
+                          ? "border-white/5 bg-navy-light/40 opacity-60"
+                          : selectedWinner
+                          ? "border-gold/30 bg-navy-light/80"
+                          : "border-white/10 bg-navy-light/60"
+                      }`}
+                    >
+                      <div className="px-3 py-1.5 border-b border-white/5 flex items-center justify-between">
+                        <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">
+                          Match {matchNumber}
+                        </span>
+                        {selectedWinner ? (
+                          <span className="text-[10px] text-gold font-medium">
+                            Picked
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="p-3 flex gap-2">
+                        <TeamButton
+                          teamCode={homeTeam}
+                          isSelected={selectedWinner === homeTeam && !!homeTeam}
+                          onClick={() => homeTeam && handlePick(round, matchNumber, homeTeam)}
+                          disabled={!homeTeam || disabled}
+                        />
+                        <div className="flex items-center px-1">
+                          <span className="text-xs text-gray-700 font-bold">
+                            vs
+                          </span>
+                        </div>
+                        <TeamButton
+                          teamCode={awayTeam}
+                          isSelected={selectedWinner === awayTeam && !!awayTeam}
+                          onClick={() => awayTeam && handlePick(round, matchNumber, awayTeam)}
+                          disabled={!awayTeam || disabled}
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }
 
+// Clear all downstream picks that reference a specific team
 function clearDownstreamPicks(
   picks: KnockoutPick[],
   fromRound: string,
@@ -516,11 +361,14 @@ function clearDownstreamPicks(
   const next = getNextRoundSlot(fromRound, fromMatchNumber);
   if (!next) return picks;
 
+  // Check if the team was picked to win the next match
+  const nextKey = `${next.round}_${next.matchNumber}`;
   const nextPick = picks.find(
     (p) => p.round === next.round && p.matchNumber === next.matchNumber
   );
 
   if (nextPick && nextPick.winner === teamCode) {
+    // Remove this pick and recurse deeper
     picks = picks.filter(
       (p) => !(p.round === next.round && p.matchNumber === next.matchNumber)
     );
