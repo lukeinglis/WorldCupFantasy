@@ -116,7 +116,7 @@ function BracketMatchCard({
   disabled: boolean;
 }) {
   return (
-    <div className="w-[120px] border border-white/10 rounded-md overflow-hidden bg-navy/80 shrink-0">
+    <div className="w-[88px] border border-white/10 rounded-md overflow-hidden bg-navy/80 shrink-0">
       <TeamRow
         teamCode={homeTeam}
         isSelected={selectedWinner === homeTeam && !!homeTeam}
@@ -154,7 +154,7 @@ function BracketColumn({
   disabled: boolean;
 }) {
   const roundIdx = BRACKET_ROUNDS.indexOf(round);
-  const gap = roundIdx === 0 ? 8 : roundIdx === 1 ? 24 : roundIdx === 2 ? 56 : 120;
+  const gap = roundIdx === 0 ? 4 : roundIdx === 1 ? 16 : roundIdx === 2 ? 40 : 88;
 
   return (
     <div
@@ -190,12 +190,12 @@ function ConnectorColumn({ matchCount }: { matchCount: number }) {
   return (
     <div className="flex flex-col items-center justify-center shrink-0" style={{ gap: "0px" }}>
       {Array.from({ length: pairs }, (_, i) => (
-        <div key={i} className="flex items-center" style={{ height: `${matchCount === 16 ? 80 : matchCount === 8 ? 112 : matchCount === 4 ? 176 : 304}px` }}>
-          <div className="w-3 flex flex-col h-full">
+        <div key={i} className="flex items-center" style={{ height: `${matchCount === 16 ? 60 : matchCount === 8 ? 80 : matchCount === 4 ? 128 : 224}px` }}>
+          <div className="w-2 flex flex-col h-full">
             <div className="flex-1 border-t border-r border-white/15 rounded-tr-sm" />
             <div className="flex-1 border-b border-r border-white/15 rounded-br-sm" />
           </div>
-          <div className="w-3 border-t border-white/15" />
+          <div className="w-2 border-t border-white/15" />
         </div>
       ))}
     </div>
@@ -386,9 +386,8 @@ export default function BracketPicker({
       </div>
 
       {/* ── BRACKET VIEW (desktop) ── */}
-      <div className="hidden lg:block overflow-x-auto">
-        {/* Top half: R32(1-8) → R16(1-4) → QF(1-2) → SF1 */}
-        <div className="flex items-center justify-center gap-1 mb-4">
+      <div className="hidden lg:block overflow-x-auto -mx-8 px-4">
+        <div className="flex items-center justify-center gap-0.5 mb-4 min-w-fit">
           <BracketColumn round="round_of_32" matchNumbers={topR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
           <ConnectorColumn matchCount={8} />
           <BracketColumn round="round_of_16" matchNumbers={topR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
@@ -398,7 +397,7 @@ export default function BracketPicker({
           <BracketColumn round="semi" matchNumbers={[1]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
 
           {/* Center: Final */}
-          <div className="flex flex-col items-center justify-center mx-4 shrink-0">
+          <div className="flex flex-col items-center justify-center mx-2 shrink-0">
             <div className="text-[10px] text-gold font-bold uppercase tracking-wider mb-2">
               Final <span className="text-gold/60">({ROUND_POINTS.final}pt)</span>
             </div>
