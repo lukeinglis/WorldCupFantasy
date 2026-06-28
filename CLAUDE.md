@@ -44,8 +44,12 @@
 ## Data Model
 - `UserRecord` in KV: id, name, email, emailLower, createdAt
 - `PicksRecord` in KV: participantId, groupPredictions, bonus picks, tiebreaker, knockout picks
-- Scoring: Group exact position = 3 pts, right bucket = 1 pt. Bonuses = 10 pts each. Knockout: R32=2, R16=4, QF=6, SF=8, F=10 pts.
-- Max points: Tier 1 = 174 (144 groups + 30 bonus), Tier 2 = 124 (114 bracket + 10 Golden Ball), Overall = 298
+- Scoring: Group exact position = 3 pts, right bucket = 1 pt. Bonuses = 10 pts each. Knockout: R32=2, R16=4, QF=6, SF=8, 3rd=8, F=10 pts.
+- Max points: Tier 1 = 174 (144 groups + 30 bonus), Tier 2 = 132 (122 bracket + 10 Golden Ball), Overall = 306
+- Group results hardcoded in scoring.ts (group stage complete)
+- Bonus ties: all tied teams count (FRA/GER/NED for most goals, ESP/MEX for fewest conceded)
+- Late Tier 2 submissions: 0 pts for played matches, half pts for tainted teams in future rounds
+- R32 matchups hardcoded in knockout-bracket.ts
 
 ## Pick Visibility
 - Tier 1 picks hidden from others until tournament starts (June 11, 2026). Each user sees only their own.

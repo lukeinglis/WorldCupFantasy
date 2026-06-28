@@ -57,17 +57,49 @@ export function fuzzyPlayerMatch(pick: string, actual: string): boolean {
  * Right bucket (advance/exit correct but wrong position): 1 pt per team
  */
 
-// Static fallback results (null = tournament hasn't happened yet)
-// When live API data is available, these are overridden by live-scoring.ts
-export let actualGroupResults: Record<string, [string, string, string, string]> | null = null;
+// Final group stage standings (all 48 group matches completed June 27, 2026)
+export const actualGroupResults: Record<string, [string, string, string, string]> = {
+  A: ["MEX", "RSA", "KOR", "CZE"],
+  B: ["SUI", "CAN", "BIH", "QAT"],
+  C: ["BRA", "MAR", "SCO", "HAI"],
+  D: ["USA", "AUS", "PAR", "TUR"],
+  E: ["GER", "CIV", "ECU", "CUR"],
+  F: ["NED", "JPN", "SWE", "TUN"],
+  G: ["BEL", "EGY", "IRN", "NZL"],
+  H: ["ESP", "CPV", "URY", "KSA"],
+  I: ["FRA", "NOR", "SEN", "IRQ"],
+  J: ["ARG", "AUT", "ALG", "JOR"],
+  K: ["COL", "POR", "COD", "UZB"],
+  L: ["ENG", "CRO", "GHA", "PAN"],
+};
 
-/** Update group results from live data (called from server components) */
-export function setActualGroupResults(
-  results: Record<string, [string, string, string, string]> | null
+// Knockout results: key = "{round}_{matchNumber}", value = winning team TLA
+// Updated as knockout matches finish (null = no results yet)
+export let actualKnockoutResults: Record<string, string> | null = null;
+
+export function setActualKnockoutResults(
+  results: Record<string, string> | null
 ): void {
-  const groupCount = results ? Object.keys(results).length : 0;
-  logger.info({ groupCount, hasResults: results !== null }, "group results updated");
-  actualGroupResults = results;
+  const matchCount = results ? Object.keys(results).length : 0;
+  logger.info({ matchCount, hasResults: results !== null }, "knockout results updated");
+  actualKnockoutResults = results;
+}
+
+// Knockout match schedule for late-submission penalty calculation
+export interface KnockoutMatchInfo {
+  round: string;
+  matchNumber: number;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  utcDate: string;
+  status: string;
+}
+
+export let knockoutMatchSchedule: KnockoutMatchInfo[] | null = null;
+
+export function setKnockoutMatchSchedule(schedule: KnockoutMatchInfo[] | null): void {
+  logger.info({ matchCount: schedule?.length ?? 0 }, "knockout match schedule updated");
+  knockoutMatchSchedule = schedule;
 }
 
 export function scoreGroupPrediction(
@@ -115,31 +147,27 @@ export function scoreTier1Groups(participant: Participant): number {
   return total;
 }
 
-// Static bonus results (overridden by live-scoring when available)
+// Hardcoded group-stage bonus results (ties: all tied teams count)
+const MOST_GOALS_TEAMS = ["FRA", "GER", "NED"]; // all 10 goals
+const FEWEST_CONCEDED_TEAMS = ["ESP", "MEX"]; // both 0 goals conceded
+
+// Dynamic bonus results (Golden Boot and Golden Ball updated from API as tournament progresses)
 export let actualBonusResults: {
   goldenBoot: string | null;
-  mostGoalsTeam: string | null;
-  fewestConcededTeam: string | null;
   goldenBall: string | null;
 } = {
   goldenBoot: null,
-  mostGoalsTeam: null,
-  fewestConcededTeam: null,
   goldenBall: null,
 };
 
-/** Update bonus results from live data */
+/** Update dynamic bonus results from live data (Golden Boot scorer) */
 export function setActualBonusResults(results: {
   goldenBoot: string | null;
-  mostGoalsTeam: string | null;
-  fewestConcededTeam: string | null;
 }): void {
-  logger.info({ goldenBoot: results.goldenBoot, mostGoalsTeam: results.mostGoalsTeam, fewestConcededTeam: results.fewestConcededTeam }, "bonus results updated");
+  logger.info({ goldenBoot: results.goldenBoot }, "bonus results updated");
   actualBonusResults = {
     ...actualBonusResults,
     goldenBoot: results.goldenBoot,
-    mostGoalsTeam: results.mostGoalsTeam,
-    fewestConcededTeam: results.fewestConcededTeam,
   };
 }
 
@@ -148,10 +176,10 @@ export function scoreTier1Bonus(participant: Participant): number {
   if (actualBonusResults.goldenBoot && fuzzyPlayerMatch(participant.bonusPicks.goldenBoot, actualBonusResults.goldenBoot)) {
     points += 10;
   }
-  if (actualBonusResults.mostGoalsTeam && participant.bonusPicks.mostGoalsTeam === actualBonusResults.mostGoalsTeam) {
+  if (MOST_GOALS_TEAMS.includes(participant.bonusPicks.mostGoalsTeam)) {
     points += 10;
   }
-  if (actualBonusResults.fewestConcededTeam && participant.bonusPicks.fewestConcededTeam === actualBonusResults.fewestConcededTeam) {
+  if (FEWEST_CONCEDED_TEAMS.includes(participant.bonusPicks.fewestConcededTeam)) {
     points += 10;
   }
   logger.debug({ participantId: participant.id, tier1Bonus: points }, "tier 1 bonus scored");
@@ -159,12 +187,51 @@ export function scoreTier1Bonus(participant: Participant): number {
 }
 
 export function scoreTier2Bracket(participant: Participant): number {
-  const points = 0;
-  for (const pick of participant.knockoutPicks) {
-    const roundPts = knockoutRoundPoints[pick.round] ?? 0;
-    void roundPts;
+  if (!actualKnockoutResults) {
+    logger.debug({ participantId: participant.id }, "no knockout results available, returning 0");
+    return 0;
   }
-  logger.debug({ participantId: participant.id, knockoutPicks: participant.knockoutPicks.length, tier2Bracket: points }, "tier 2 bracket scored");
+
+  const taintedTeams = new Set<string>();
+  const missedMatches = new Set<string>();
+
+  const KNOCKOUT_DEADLINE = new Date("2026-06-28T19:00:00Z");
+  const submittedAt = participant.tier2SubmittedAt ? new Date(participant.tier2SubmittedAt) : null;
+  const isLate = submittedAt && submittedAt > KNOCKOUT_DEADLINE;
+
+  if (isLate && knockoutMatchSchedule) {
+    for (const match of knockoutMatchSchedule) {
+      const matchDate = new Date(match.utcDate);
+      if (match.status === "FINISHED" || matchDate < submittedAt) {
+        missedMatches.add(`${match.round}_${match.matchNumber}`);
+        if (match.homeTeam) taintedTeams.add(match.homeTeam);
+        if (match.awayTeam) taintedTeams.add(match.awayTeam);
+      }
+    }
+    logger.info(
+      { participantId: participant.id, missedCount: missedMatches.size, taintedCount: taintedTeams.size },
+      "late submission penalty applied"
+    );
+  }
+
+  let points = 0;
+  for (const pick of participant.knockoutPicks) {
+    const key = `${pick.round}_${pick.matchNumber}`;
+    const actualWinner = actualKnockoutResults[key];
+
+    if (!actualWinner || pick.winner !== actualWinner) continue;
+
+    const roundPts = knockoutRoundPoints[pick.round] ?? 0;
+
+    if (missedMatches.has(key)) {
+      continue;
+    } else if (taintedTeams.has(pick.winner)) {
+      points += Math.floor(roundPts / 2);
+    } else {
+      points += roundPts;
+    }
+  }
+  logger.debug({ participantId: participant.id, knockoutPicks: participant.knockoutPicks.length, tier2Bracket: points, isLate: !!isLate }, "tier 2 bracket scored");
   return points;
 }
 

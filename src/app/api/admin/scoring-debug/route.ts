@@ -4,14 +4,15 @@ import { isAdmin } from "@/lib/auth";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import { isApiConfigured } from "@/lib/football-api";
 import {
-  getLiveGroupResults,
   getLiveBonusResults,
+  getLiveKnockoutResults,
   getLiveTournamentStatus,
 } from "@/lib/live-scoring";
 import {
   calculateAllPoints,
-  setActualGroupResults,
   setActualBonusResults,
+  setActualKnockoutResults,
+  actualGroupResults,
   fuzzyPlayerMatch,
 } from "@/data/scoring";
 import { getLogger } from "@/lib/logger";
@@ -38,14 +39,14 @@ export async function GET(request: Request) {
   const apiConfigured = isApiConfigured();
   const kvConfigured = isKvConfigured();
 
-  let groupResults = null;
   let bonusResults = null;
+  let knockoutResults = null;
   let tournamentStatus = null;
 
   if (apiConfigured) {
-    [groupResults, bonusResults, tournamentStatus] = await Promise.all([
-      getLiveGroupResults(),
+    [bonusResults, knockoutResults, tournamentStatus] = await Promise.all([
       getLiveBonusResults(),
+      getLiveKnockoutResults(),
       getLiveTournamentStatus(),
     ]);
   }
@@ -55,8 +56,8 @@ export async function GET(request: Request) {
     const kvData = await getAllUsersWithPicks();
     const participants = buildParticipantsFromKv(kvData);
 
-    if (groupResults) setActualGroupResults(groupResults.groups);
-    if (bonusResults) setActualBonusResults(bonusResults);
+    if (bonusResults) setActualBonusResults({ goldenBoot: bonusResults.goldenBoot });
+    if (knockoutResults) setActualKnockoutResults(knockoutResults.results);
 
     const withPoints = calculateAllPoints(participants);
 
@@ -69,9 +70,7 @@ export async function GET(request: Request) {
         ? fuzzyPlayerMatch(p.bonusPicks.goldenBoot, bonusResults.goldenBoot)
         : null,
       mostGoalsTeamPick: p.bonusPicks.mostGoalsTeam,
-      mostGoalsTeamActual: bonusResults?.mostGoalsTeam ?? null,
       fewestConcededTeamPick: p.bonusPicks.fewestConcededTeam,
-      fewestConcededTeamActual: bonusResults?.fewestConcededTeam ?? null,
       points: p.calculatedPoints,
     }));
   }
@@ -79,8 +78,9 @@ export async function GET(request: Request) {
   return NextResponse.json({
     apiConfigured,
     kvConfigured,
-    groupResults,
+    groupResults: actualGroupResults,
     bonusResults,
+    knockoutResults,
     tournamentStatus,
     scoredParticipants,
   });

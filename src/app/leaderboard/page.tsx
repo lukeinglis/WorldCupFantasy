@@ -11,13 +11,14 @@ import {
 } from "@/data/participants";
 import {
   calculateAllPoints,
-  setActualGroupResults,
   setActualBonusResults,
+  setActualKnockoutResults,
+  setKnockoutMatchSchedule,
 } from "@/data/scoring";
 import { isApiConfigured } from "@/lib/football-api";
 import {
-  getLiveGroupResults,
   getLiveBonusResults,
+  getLiveKnockoutResults,
   getLiveTournamentStatus,
 } from "@/lib/live-scoring";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
@@ -62,21 +63,23 @@ export default async function LeaderboardPage() {
   let hasLiveMatches = false;
   let isTournamentActive = false;
 
+  // Group results are hardcoded in scoring.ts, so Tier 1 always scores correctly.
+  // We still call the API for Golden Boot (dynamic), knockout results, and tournament status.
+  hasLiveScoring = true;
+
   if (isApiConfigured()) {
-    const [groupResults, bonusResults, tournamentStatus] = await Promise.all([
-      getLiveGroupResults(),
+    const [bonusResults, knockoutResults, tournamentStatus] = await Promise.all([
       getLiveBonusResults(),
+      getLiveKnockoutResults(),
       getLiveTournamentStatus(),
     ]);
 
-    if (groupResults) {
-      setActualGroupResults(groupResults.groups);
-      hasLiveScoring = true;
+    if (bonusResults) {
+      setActualBonusResults({ goldenBoot: bonusResults.goldenBoot });
     }
 
-    if (bonusResults) {
-      setActualBonusResults(bonusResults);
-      hasLiveScoring = true;
+    if (knockoutResults) {
+      setActualKnockoutResults(knockoutResults.results);
     }
 
     if (tournamentStatus) {
