@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { getAllUsersWithPicks, getPicks, isKvConfigured } from "@/lib/storage";
 import { getLogger } from "@/lib/logger";
 
-// Tournament start: picks are hidden until the first match kicks off
 const TOURNAMENT_START = new Date("2026-06-11T19:00:00Z");
-const KNOCKOUT_START = new Date("2026-06-28T19:00:00Z");
 
-// GET /api/participants - Get all participants with their picks (for leaderboard/picks display)
 export async function GET(request: Request) {
   const requestId = request.headers.get("x-request-id") || "unknown";
   const log = getLogger("api/participants").child({ requestId });
@@ -21,34 +18,43 @@ export async function GET(request: Request) {
 
     const now = new Date();
     const tier1Revealed = now >= TOURNAMENT_START;
-    const tier2Revealed = now >= KNOCKOUT_START;
 
     const data = await getAllUsersWithPicks();
 
+    // Check if the requesting user has submitted Tier 2 picks
+    let requesterHasTier2 = false;
+    if (requestingUserId) {
+      const requesterPicks = await getPicks(requestingUserId);
+      requesterHasTier2 = !!requesterPicks?.tier2Submitted;
+    }
+
     const participants = data.map(({ user, picks }) => {
-      // Before tournament start, only show a user's own picks
       const isOwnPicks = requestingUserId === user.id;
       const showPicks = tier1Revealed || isOwnPicks;
+      const showKnockout = requesterHasTier2 || isOwnPicks;
 
       return {
         id: user.id,
         name: user.name,
         hasPicks: !!picks,
+        hasTier2: !!picks?.tier2Submitted,
         picks: picks && showPicks
           ? {
               groupPredictions: picks.groupPredictions,
               goldenBoot: picks.goldenBoot,
               mostGoalsTeam: picks.mostGoalsTeam,
               fewestConcededTeam: picks.fewestConcededTeam,
-              goldenBall: tier2Revealed ? picks.goldenBall : "",
+              goldenBall: showKnockout ? picks.goldenBall : "",
               tiebreaker: picks.tiebreaker,
               submittedAt: picks.submittedAt,
+              knockoutPicks: showKnockout ? (picks.knockoutPicks ?? []) : [],
+              tier2Submitted: picks.tier2Submitted ?? false,
             }
           : null,
       };
     });
 
-    return NextResponse.json({ participants, kvConfigured: true });
+    return NextResponse.json({ participants, kvConfigured: true, requesterHasTier2 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch participants";
     log.error({ err: message }, "Get participants error");
