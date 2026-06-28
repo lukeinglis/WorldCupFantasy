@@ -128,7 +128,12 @@ function TeamRow({
   );
 }
 
-// ── Match card for bracket view ──
+// ── Slot-based bracket layout (matches homepage) ──
+
+const PICKER_SLOT_H = 52;
+const PICKER_WIDTHS: Record<string, number> = {
+  round_of_32: 100, round_of_16: 108, quarter: 116, semi: 124, final: 136, third_place: 124,
+};
 
 function BracketMatchCard({
   homeTeam,
@@ -136,15 +141,17 @@ function BracketMatchCard({
   selectedWinner,
   onPick,
   disabled,
+  width,
 }: {
   homeTeam: string | null;
   awayTeam: string | null;
   selectedWinner: string | null;
   onPick: (winner: string) => void;
   disabled: boolean;
+  width?: number;
 }) {
   return (
-    <div className="w-[88px] border border-white/10 rounded-md overflow-hidden bg-navy/80 shrink-0">
+    <div className="border border-white/15 rounded-md overflow-hidden bg-navy/80 shrink-0" style={width ? { width: `${width}px` } : { width: "88px" }}>
       <TeamRow
         teamCode={homeTeam}
         isSelected={selectedWinner === homeTeam && !!homeTeam}
@@ -164,9 +171,7 @@ function BracketMatchCard({
   );
 }
 
-// ── Bracket column: renders all matches in a round with proper spacing ──
-
-function BracketColumn({
+function BracketSlotColumn({
   round,
   matchNumbers,
   derivedTeams,
@@ -182,50 +187,31 @@ function BracketColumn({
   disabled: boolean;
 }) {
   const roundIdx = BRACKET_ROUNDS.indexOf(round);
-  const gap = roundIdx === 0 ? 4 : roundIdx === 1 ? 16 : roundIdx === 2 ? 40 : 88;
+  const slotH = PICKER_SLOT_H * Math.pow(2, roundIdx);
+  const width = PICKER_WIDTHS[round] ?? 100;
 
   return (
-    <div
-      className="flex flex-col items-center justify-center shrink-0"
-      style={{ gap: `${gap}px` }}
-    >
-      <div className="text-[10px] text-gray-600 font-semibold uppercase tracking-wider mb-1">
-        {ROUND_LABELS[round]} <span className="text-gray-700">({ROUND_POINTS[round]}pt)</span>
+    <div className="flex flex-col shrink-0">
+      <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center mb-1">
+        {ROUND_LABELS[round]} <span className="text-gray-600">({ROUND_POINTS[round]}pt)</span>
       </div>
       {matchNumbers.map((matchNumber) => {
         const key = `${round}_${matchNumber}`;
         const teams = derivedTeams.get(key);
         const winner = picksMap.get(key) ?? null;
         return (
-          <BracketMatchCard
-            key={key}
-            homeTeam={teams?.home ?? null}
-            awayTeam={teams?.away ?? null}
-            selectedWinner={winner}
-            onPick={(w) => onPick(round, matchNumber, w)}
-            disabled={disabled}
-          />
+          <div key={key} className="flex items-center justify-center" style={{ height: `${slotH}px` }}>
+            <BracketMatchCard
+              homeTeam={teams?.home ?? null}
+              awayTeam={teams?.away ?? null}
+              selectedWinner={winner}
+              onPick={(w) => onPick(round, matchNumber, w)}
+              disabled={disabled}
+              width={width}
+            />
+          </div>
         );
       })}
-    </div>
-  );
-}
-
-// ── Connector lines between rounds ──
-
-function ConnectorColumn({ matchCount }: { matchCount: number }) {
-  const pairs = matchCount / 2;
-  return (
-    <div className="flex flex-col items-center justify-center shrink-0" style={{ gap: "0px" }}>
-      {Array.from({ length: pairs }, (_, i) => (
-        <div key={i} className="flex items-center" style={{ height: `${matchCount === 16 ? 60 : matchCount === 8 ? 80 : matchCount === 4 ? 128 : 224}px` }}>
-          <div className="w-2 flex flex-col h-full">
-            <div className="flex-1 border-t border-r border-white/15 rounded-tr-sm" />
-            <div className="flex-1 border-b border-r border-white/15 rounded-br-sm" />
-          </div>
-          <div className="w-2 border-t border-white/15" />
-        </div>
-      ))}
     </div>
   );
 }
@@ -415,47 +401,49 @@ export default function BracketPicker({
       </div>
 
       {/* ── BRACKET VIEW (desktop) ── */}
-      <div className="hidden lg:block overflow-x-auto -mx-8 px-4">
-        <div className="flex items-center justify-center gap-0.5 mb-4 min-w-fit">
-          <BracketColumn round="round_of_32" matchNumbers={leftR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <ConnectorColumn matchCount={8} />
-          <BracketColumn round="round_of_16" matchNumbers={leftR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <ConnectorColumn matchCount={4} />
-          <BracketColumn round="quarter" matchNumbers={leftQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <ConnectorColumn matchCount={2} />
-          <BracketColumn round="semi" matchNumbers={[1]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+      <div className="hidden lg:block overflow-x-auto -mx-8 px-2">
+        <div className="flex items-start justify-center gap-2 min-w-fit py-4">
+          <BracketSlotColumn round="round_of_32" matchNumbers={leftR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="round_of_16" matchNumbers={leftR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="quarter" matchNumbers={leftQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="semi" matchNumbers={[1]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
 
-          {/* Center: Final */}
-          <div className="flex flex-col items-center justify-center mx-2 shrink-0">
-            <div className="text-[10px] text-gold font-bold uppercase tracking-wider mb-2">
+          {/* Center: Final + 3rd Place */}
+          <div className="flex flex-col shrink-0 mx-2">
+            <div className="text-xs text-gold font-bold uppercase tracking-widest text-center mb-1">
               Final <span className="text-gold/60">({ROUND_POINTS.final}pt)</span>
             </div>
-            <BracketMatchCard
-              homeTeam={derivedTeams.get("final_1")?.home ?? null}
-              awayTeam={derivedTeams.get("final_1")?.away ?? null}
-              selectedWinner={picksMap.get("final_1") ?? null}
-              onPick={(w) => handlePick("final", 1, w)}
-              disabled={disabled}
-            />
-            <div className="mt-4 text-[10px] text-gray-600 font-semibold uppercase tracking-wider mb-2">
-              3rd Place <span className="text-gray-700">({ROUND_POINTS.third_place}pt)</span>
+            <div className="flex items-center justify-center" style={{ height: `${PICKER_SLOT_H * 8}px` }}>
+              <div className="flex flex-col items-center gap-6">
+                <BracketMatchCard
+                  homeTeam={derivedTeams.get("final_1")?.home ?? null}
+                  awayTeam={derivedTeams.get("final_1")?.away ?? null}
+                  selectedWinner={picksMap.get("final_1") ?? null}
+                  onPick={(w) => handlePick("final", 1, w)}
+                  disabled={disabled}
+                  width={PICKER_WIDTHS.final}
+                />
+                <div>
+                  <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center mb-1">
+                    3rd Place <span className="text-gray-600">({ROUND_POINTS.third_place}pt)</span>
+                  </div>
+                  <BracketMatchCard
+                    homeTeam={derivedTeams.get("third_place_1")?.home ?? null}
+                    awayTeam={derivedTeams.get("third_place_1")?.away ?? null}
+                    selectedWinner={picksMap.get("third_place_1") ?? null}
+                    onPick={(w) => handlePick("third_place", 1, w)}
+                    disabled={disabled}
+                    width={PICKER_WIDTHS.third_place}
+                  />
+                </div>
+              </div>
             </div>
-            <BracketMatchCard
-              homeTeam={derivedTeams.get("third_place_1")?.home ?? null}
-              awayTeam={derivedTeams.get("third_place_1")?.away ?? null}
-              selectedWinner={picksMap.get("third_place_1") ?? null}
-              onPick={(w) => handlePick("third_place", 1, w)}
-              disabled={disabled}
-            />
           </div>
 
-          <BracketColumn round="semi" matchNumbers={[2]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <ConnectorColumn matchCount={2} />
-          <BracketColumn round="quarter" matchNumbers={rightQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <ConnectorColumn matchCount={4} />
-          <BracketColumn round="round_of_16" matchNumbers={rightR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <ConnectorColumn matchCount={8} />
-          <BracketColumn round="round_of_32" matchNumbers={rightR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="semi" matchNumbers={[2]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="quarter" matchNumbers={rightQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="round_of_16" matchNumbers={rightR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="round_of_32" matchNumbers={rightR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
         </div>
       </div>
 
