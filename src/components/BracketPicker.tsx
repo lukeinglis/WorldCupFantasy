@@ -121,59 +121,98 @@ function MatchCard({
   );
 }
 
-function RoundColumn({
-  round,
-  matchNumbers,
+function BracketHalf({
+  side,
+  r32Matches,
+  r16Matches,
+  qfMatches,
+  sfMatch,
   derivedTeams,
   picksMap,
   onPick,
   disabled,
 }: {
-  round: string;
-  matchNumbers: number[];
+  side: "left" | "right";
+  r32Matches: number[];
+  r16Matches: number[];
+  qfMatches: number[];
+  sfMatch: number;
   derivedTeams: Map<string, { home: string | null; away: string | null }>;
   picksMap: Map<string, string>;
   onPick: (round: string, matchNumber: number, winner: string) => void;
   disabled: boolean;
 }) {
+  const borderSide = side === "left" ? "border-r" : "border-l";
+
+  const rounds: { round: string; matches: number[]; span: number }[] = [
+    { round: "round_of_32", matches: r32Matches, span: 2 },
+    { round: "round_of_16", matches: r16Matches, span: 4 },
+    { round: "quarter", matches: qfMatches, span: 8 },
+    { round: "semi", matches: [sfMatch], span: 16 },
+  ];
+
+  const orderedRounds = side === "left" ? rounds : [...rounds].reverse();
+
   return (
-    <div className="flex flex-col justify-around shrink-0">
-      {matchNumbers.map((matchNumber) => {
-        const matchKey = `${round}_${matchNumber}`;
-        const derived = derivedTeams.get(matchKey);
+    <div
+      className="grid"
+      style={{
+        gridTemplateColumns: orderedRounds
+          .map((_, i) => (i < orderedRounds.length - 1 ? "auto 12px" : "auto"))
+          .join(" "),
+        gridTemplateRows: "repeat(16, 24px)",
+        alignItems: "center",
+      }}
+    >
+      {orderedRounds.map((rd, colIdx) => {
+        const gridCol = colIdx * 2 + 1;
+        const connectorCol = gridCol + 1;
+
         return (
-          <div key={matchKey} className="flex items-center justify-center px-0.5">
-            <MatchCard
-              homeCode={derived?.home ?? null}
-              awayCode={derived?.away ?? null}
-              selectedWinner={picksMap.get(matchKey) ?? null}
-              onPick={(winner) => onPick(round, matchNumber, winner)}
-              disabled={disabled}
-            />
+          <div key={rd.round + colIdx} className="contents">
+            {rd.matches.map((matchNumber, i) => {
+              const matchKey = `${rd.round}_${matchNumber}`;
+              const derived = derivedTeams.get(matchKey);
+              const rowStart = i * rd.span + 1;
+              const rowEnd = rowStart + rd.span;
+              return (
+                <div
+                  key={matchKey}
+                  style={{ gridColumn: gridCol, gridRow: `${rowStart} / ${rowEnd}` }}
+                  className="flex items-center px-0.5"
+                >
+                  <MatchCard
+                    homeCode={derived?.home ?? null}
+                    awayCode={derived?.away ?? null}
+                    selectedWinner={picksMap.get(matchKey) ?? null}
+                    onPick={(winner) => onPick(rd.round, matchNumber, winner)}
+                    disabled={disabled}
+                  />
+                </div>
+              );
+            })}
+
+            {colIdx < orderedRounds.length - 1 && (() => {
+              const pairs = rd.matches.length / 2;
+              const pairSpan = rd.span * 2;
+              return Array.from({ length: Math.max(pairs, 1) }, (_, i) => {
+                const rowStart = i * pairSpan + 1;
+                const rowEnd = rowStart + pairSpan;
+                return (
+                  <div
+                    key={`conn-${colIdx}-${i}`}
+                    style={{ gridColumn: connectorCol, gridRow: `${rowStart} / ${rowEnd}` }}
+                    className="h-full flex flex-col"
+                  >
+                    <div className={`flex-1 ${borderSide} border-t border-white/15`} />
+                    <div className={`flex-1 ${borderSide} border-b border-white/15`} />
+                  </div>
+                );
+              });
+            })()}
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function ConnectorColumn({
-  pairCount,
-  side,
-}: {
-  pairCount: number;
-  side: "left" | "right";
-}) {
-  const borderSide = side === "left" ? "border-r" : "border-l";
-
-  return (
-    <div className="flex flex-col justify-around shrink-0 w-3">
-      {Array.from({ length: pairCount }, (_, i) => (
-        <div key={i} className="flex-1 flex flex-col">
-          <div className={`${borderSide} border-t border-white/15 flex-1`} />
-          <div className={`${borderSide} border-b border-white/15 flex-1`} />
-        </div>
-      ))}
     </div>
   );
 }
@@ -360,36 +399,12 @@ export default function BracketPicker({
           {/* Bracket body */}
           <div className="flex items-stretch" style={{ height: `${BRACKET_H}px` }}>
             {/* === LEFT BRACKET === */}
-            <RoundColumn
-              round="round_of_32"
-              matchNumbers={leftR32}
-              derivedTeams={derivedTeams}
-              picksMap={picksMap}
-              onPick={handlePick}
-              disabled={disabled}
-            />
-            <ConnectorColumn pairCount={4} side="left" />
-            <RoundColumn
-              round="round_of_16"
-              matchNumbers={leftR16}
-              derivedTeams={derivedTeams}
-              picksMap={picksMap}
-              onPick={handlePick}
-              disabled={disabled}
-            />
-            <ConnectorColumn pairCount={2} side="left" />
-            <RoundColumn
-              round="quarter"
-              matchNumbers={leftQF}
-              derivedTeams={derivedTeams}
-              picksMap={picksMap}
-              onPick={handlePick}
-              disabled={disabled}
-            />
-            <ConnectorColumn pairCount={1} side="left" />
-            <RoundColumn
-              round="semi"
-              matchNumbers={leftSF}
+            <BracketHalf
+              side="left"
+              r32Matches={leftR32}
+              r16Matches={leftR16}
+              qfMatches={leftQF}
+              sfMatch={1}
               derivedTeams={derivedTeams}
               picksMap={picksMap}
               onPick={handlePick}
@@ -433,36 +448,12 @@ export default function BracketPicker({
             </div>
 
             {/* === RIGHT BRACKET (mirrored) === */}
-            <RoundColumn
-              round="semi"
-              matchNumbers={rightSF}
-              derivedTeams={derivedTeams}
-              picksMap={picksMap}
-              onPick={handlePick}
-              disabled={disabled}
-            />
-            <ConnectorColumn pairCount={1} side="right" />
-            <RoundColumn
-              round="quarter"
-              matchNumbers={rightQF}
-              derivedTeams={derivedTeams}
-              picksMap={picksMap}
-              onPick={handlePick}
-              disabled={disabled}
-            />
-            <ConnectorColumn pairCount={2} side="right" />
-            <RoundColumn
-              round="round_of_16"
-              matchNumbers={rightR16}
-              derivedTeams={derivedTeams}
-              picksMap={picksMap}
-              onPick={handlePick}
-              disabled={disabled}
-            />
-            <ConnectorColumn pairCount={4} side="right" />
-            <RoundColumn
-              round="round_of_32"
-              matchNumbers={rightR32}
+            <BracketHalf
+              side="right"
+              r32Matches={rightR32}
+              r16Matches={rightR16}
+              qfMatches={rightQF}
+              sfMatch={2}
               derivedTeams={derivedTeams}
               picksMap={picksMap}
               onPick={handlePick}
