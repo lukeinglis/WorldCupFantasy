@@ -155,7 +155,7 @@ function HomepageBracket() {
 
   return (
     <div className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-2">
-      <div className="flex items-start justify-center gap-0 min-w-fit py-4">
+      <div className="flex items-start justify-center gap-2 min-w-fit py-4">
         {/* Left half */}
         <BracketRoundCol round="round_of_32" matchNumbers={leftR32} allTeams={allTeams} dates={dates} />
 
