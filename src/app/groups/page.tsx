@@ -8,6 +8,7 @@ import { getTeamsByGroup, getTeamByCode, groupLabels, type Team } from "@/data/t
 import { getStandings, getMatches, isApiConfigured } from "@/lib/football-api";
 import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
 import { schedule, venues, stageLabels, parseLocalDate } from "@/data/schedule";
+import { R32_MATCHES } from "@/data/knockout-bracket";
 import type { TransformedGroupStandings, TransformedMatch } from "@/lib/football-api-types";
 import GroupsPageTabs from "@/components/GroupsPageTabs";
 import PicksTabContent from "@/components/groups/PicksTabContent";
@@ -31,6 +32,32 @@ export default async function GroupsPage() {
       getStandings(),
       getMatches(),
     ]);
+  }
+
+  // Patch R32 matches with hardcoded team data where the API returns TBD
+  if (liveMatches) {
+    const r32ByDate = new Map<string, typeof R32_MATCHES[number]>();
+    for (const hm of R32_MATCHES) {
+      r32ByDate.set(hm.utcDate, hm);
+    }
+    for (const m of liveMatches) {
+      if (m.stage !== "round_of_32") continue;
+      const hardcoded = r32ByDate.get(m.utcDate);
+      if (!hardcoded) continue;
+      const isTbd = (name: string) => !name || name === "TBD" || name === "???";
+      if (isTbd(m.homeTeam.tla) && hardcoded.homeTeam) {
+        const team = getTeamByCode(hardcoded.homeTeam);
+        if (team) {
+          m.homeTeam = { ...m.homeTeam, tla: team.code, name: team.name, shortName: team.name };
+        }
+      }
+      if (isTbd(m.awayTeam.tla) && hardcoded.awayTeam) {
+        const team = getTeamByCode(hardcoded.awayTeam);
+        if (team) {
+          m.awayTeam = { ...m.awayTeam, tla: team.code, name: team.name, shortName: team.name };
+        }
+      }
+    }
   }
 
   const standingsMap = new Map<string, TransformedGroupStandings>();
