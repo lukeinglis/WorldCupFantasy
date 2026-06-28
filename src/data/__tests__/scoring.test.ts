@@ -8,7 +8,6 @@ import {
   calculatePoints,
   calculateAllPoints,
   calculatePotentialPoints,
-  setActualGroupResults,
   setActualBonusResults,
   setActualKnockoutResults,
   actualBonusResults,
@@ -98,44 +97,33 @@ describe("scoreGroupPrediction", () => {
 });
 
 describe("scoreTier1Groups", () => {
-  beforeEach(() => {
-    setActualGroupResults(null);
-  });
-
-  it("returns 0 when no actual results exist", () => {
+  it("scores perfect prediction for group A (MEX, RSA, KOR, CZE)", () => {
     const p = makeParticipant({
-      groupPredictions: [{ group: "A", order: ["USA", "MEX", "CAN", "JPN"] }],
+      groupPredictions: [{ group: "A", order: ["MEX", "RSA", "KOR", "CZE"] }],
     });
-    expect(scoreTier1Groups(p)).toBe(0);
+    expect(scoreTier1Groups(p)).toBe(12);
   });
 
-  it("scores all groups correctly", () => {
-    setActualGroupResults({
-      A: ["USA", "MEX", "CAN", "JPN"],
-      B: ["BRA", "ARG", "FRA", "GER"],
-    });
+  it("scores partial match against hardcoded group results", () => {
     const p = makeParticipant({
       groupPredictions: [
-        { group: "A", order: ["USA", "MEX", "CAN", "JPN"] },
-        { group: "B", order: ["BRA", "ARG", "FRA", "GER"] },
+        { group: "A", order: ["MEX", "RSA", "KOR", "CZE"] },
+        { group: "B", order: ["SUI", "CAN", "BIH", "QAT"] },
       ],
     });
     expect(scoreTier1Groups(p)).toBe(24);
   });
 
-  it("ignores groups without actual results", () => {
-    setActualGroupResults({ A: ["USA", "MEX", "CAN", "JPN"] });
+  it("ignores groups that don't exist in results (e.g. group Z)", () => {
     const p = makeParticipant({
       groupPredictions: [
-        { group: "A", order: ["USA", "MEX", "CAN", "JPN"] },
-        { group: "B", order: ["BRA", "ARG", "FRA", "GER"] },
+        { group: "Z", order: ["AAA", "BBB", "CCC", "DDD"] },
       ],
     });
-    expect(scoreTier1Groups(p)).toBe(12);
+    expect(scoreTier1Groups(p)).toBe(0);
   });
 
   it("returns 0 for empty groupPredictions array", () => {
-    setActualGroupResults({ A: ["USA", "MEX", "CAN", "JPN"] });
     const p = makeParticipant({ groupPredictions: [] });
     expect(scoreTier1Groups(p)).toBe(0);
   });
@@ -182,11 +170,7 @@ describe("fuzzyPlayerMatch", () => {
 
 describe("scoreTier1Bonus", () => {
   beforeEach(() => {
-    setActualBonusResults({
-      goldenBoot: null,
-      mostGoalsTeam: null,
-      fewestConcededTeam: null,
-    });
+    setActualBonusResults({ goldenBoot: null });
   });
 
   it("returns 0 when no actual bonus results", () => {
@@ -197,7 +181,7 @@ describe("scoreTier1Bonus", () => {
   });
 
   it("scores 10 for correct golden boot", () => {
-    setActualBonusResults({ goldenBoot: "Mbappe", mostGoalsTeam: null, fewestConcededTeam: null });
+    setActualBonusResults({ goldenBoot: "Mbappe" });
     const p = makeParticipant({
       bonusPicks: { goldenBoot: "Mbappe", mostGoalsTeam: "BRA", fewestConcededTeam: "ITA", goldenBall: "" },
     });
@@ -205,7 +189,7 @@ describe("scoreTier1Bonus", () => {
   });
 
   it("scores 10 for golden boot with accent mismatch", () => {
-    setActualBonusResults({ goldenBoot: "Kylian Mbappé", mostGoalsTeam: null, fewestConcededTeam: null });
+    setActualBonusResults({ goldenBoot: "Kylian Mbappé" });
     const p = makeParticipant({
       bonusPicks: { goldenBoot: "Kylian Mbappe", mostGoalsTeam: "BRA", fewestConcededTeam: "ITA", goldenBall: "" },
     });
@@ -213,7 +197,7 @@ describe("scoreTier1Bonus", () => {
   });
 
   it("scores 10 for golden boot with last name only", () => {
-    setActualBonusResults({ goldenBoot: "Lionel Messi", mostGoalsTeam: null, fewestConcededTeam: null });
+    setActualBonusResults({ goldenBoot: "Lionel Messi" });
     const p = makeParticipant({
       bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "BRA", fewestConcededTeam: "ITA", goldenBall: "" },
     });
@@ -221,31 +205,31 @@ describe("scoreTier1Bonus", () => {
   });
 
   it("scores 10 for correct most goals team", () => {
-    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: "GER", fewestConcededTeam: null });
+    setActualBonusResults({ goldenBoot: null });
     const p = makeParticipant({
       bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "GER", fewestConcededTeam: "ITA", goldenBall: "" },
     });
     expect(scoreTier1Bonus(p)).toBe(10);
   });
 
-  it("scores 10 for correct fewest conceded team", () => {
-    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: null, fewestConcededTeam: "FRA" });
+  it("scores 10 for correct fewest conceded team (ESP or MEX)", () => {
+    setActualBonusResults({ goldenBoot: null });
     const p = makeParticipant({
-      bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "BRA", fewestConcededTeam: "FRA", goldenBall: "" },
+      bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "BRA", fewestConcededTeam: "ESP", goldenBall: "" },
     });
     expect(scoreTier1Bonus(p)).toBe(10);
   });
 
-  it("scores 30 for all three correct", () => {
-    setActualBonusResults({ goldenBoot: "Kane", mostGoalsTeam: "ENG", fewestConcededTeam: "ESP" });
+  it("scores 30 for golden boot + both team bonuses correct", () => {
+    setActualBonusResults({ goldenBoot: "Kane" });
     const p = makeParticipant({
-      bonusPicks: { goldenBoot: "Kane", mostGoalsTeam: "ENG", fewestConcededTeam: "ESP", goldenBall: "" },
+      bonusPicks: { goldenBoot: "Kane", mostGoalsTeam: "FRA", fewestConcededTeam: "MEX", goldenBall: "" },
     });
     expect(scoreTier1Bonus(p)).toBe(30);
   });
 
   it("scores 0 for all wrong", () => {
-    setActualBonusResults({ goldenBoot: "Kane", mostGoalsTeam: "ENG", fewestConcededTeam: "ESP" });
+    setActualBonusResults({ goldenBoot: "Kane" });
     const p = makeParticipant({
       bonusPicks: { goldenBoot: "Messi", mostGoalsTeam: "BRA", fewestConcededTeam: "FRA", goldenBall: "" },
     });
@@ -300,8 +284,7 @@ describe("scoreTier2Bonus", () => {
 
 describe("calculatePoints", () => {
   beforeEach(() => {
-    setActualGroupResults(null);
-    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: null, fewestConcededTeam: null });
+    setActualBonusResults({ goldenBoot: null });
     actualBonusResults.goldenBall = null;
   });
 
@@ -316,11 +299,10 @@ describe("calculatePoints", () => {
   });
 
   it("calculates total as sum of all components", () => {
-    setActualGroupResults({ A: ["USA", "MEX", "CAN", "JPN"] });
-    setActualBonusResults({ goldenBoot: "Kane", mostGoalsTeam: null, fewestConcededTeam: null });
+    setActualBonusResults({ goldenBoot: "Kane" });
     const p = makeParticipant({
-      groupPredictions: [{ group: "A", order: ["USA", "MEX", "CAN", "JPN"] }],
-      bonusPicks: { goldenBoot: "Kane", mostGoalsTeam: "BRA", fewestConcededTeam: "FRA", goldenBall: "" },
+      groupPredictions: [{ group: "A", order: ["MEX", "RSA", "KOR", "CZE"] }],
+      bonusPicks: { goldenBoot: "Kane", mostGoalsTeam: "BRA", fewestConcededTeam: "ITA", goldenBall: "" },
     });
     const pts = calculatePoints(p);
     expect(pts.tier1Groups).toBe(12);
@@ -331,8 +313,7 @@ describe("calculatePoints", () => {
 
 describe("calculateAllPoints", () => {
   beforeEach(() => {
-    setActualGroupResults(null);
-    setActualBonusResults({ goldenBoot: null, mostGoalsTeam: null, fewestConcededTeam: null });
+    setActualBonusResults({ goldenBoot: null });
     actualBonusResults.goldenBall = null;
   });
 
@@ -428,26 +409,17 @@ describe("scoreTier2Bracket with knockout results", () => {
 
 describe("calculatePotentialPoints", () => {
   afterEach(() => {
-    setActualGroupResults(null);
     setActualKnockoutResults(null);
     // Reset bonus results
-    setActualBonusResults({
-      goldenBoot: null,
-      mostGoalsTeam: null,
-      fewestConcededTeam: null,
-    });
+    setActualBonusResults({ goldenBoot: null });
   });
 
-  it("returns full remaining when no results exist", () => {
+  it("calculates remaining with hardcoded group results", () => {
     const p = makeParticipant({
-      groupPredictions: [
-        { group: "A", order: ["USA", "MEX", "URU", "MAR"] },
-        { group: "B", order: ["ENG", "ESP", "CRO", "TUN"] },
-      ],
       bonusPicks: {
         goldenBoot: "Mbappe",
         mostGoalsTeam: "GER",
-        fewestConcededTeam: "FRA",
+        fewestConcededTeam: "ITA",
         goldenBall: "Messi",
       },
       knockoutPicks: [
@@ -456,48 +428,28 @@ describe("calculatePotentialPoints", () => {
       ],
     });
     const result = calculatePotentialPoints(p);
-    // 2 groups x 12 = 24, 3 bonuses x 10 = 30, R32(2) + Final(10) = 12, Golden Ball = 10
-    expect(result.earned).toBe(0);
-    expect(result.remaining).toBe(24 + 30 + 12 + 10);
-    expect(result.maximum).toBe(76);
+    // Groups are all hardcoded (0 remaining), GER is in MOST_GOALS_TEAMS (10 earned)
+    // Golden Boot undecided (10 remaining), R32+Final undecided (12 remaining), Golden Ball (10 remaining)
+    expect(result.remaining).toBe(10 + 12 + 10); // 32
   });
 
-  it("reduces remaining as group results come in", () => {
-    setActualGroupResults({
-      A: ["USA", "MEX", "URU", "MAR"],
-    });
-    const p = makeParticipant({
-      groupPredictions: [
-        { group: "A", order: ["USA", "MEX", "URU", "MAR"] },
-        { group: "B", order: ["ENG", "ESP", "CRO", "TUN"] },
-      ],
-    });
-    const result = calculatePotentialPoints(p);
-    // Group A decided (earned 12 exact), Group B undecided (12 remaining)
-    expect(result.earned).toBe(12);
-    expect(result.remaining).toBe(12);
-  });
-
-  it("reduces remaining as bonus results come in", () => {
-    setActualBonusResults({
-      goldenBoot: "Kane",
-      mostGoalsTeam: null,
-      fewestConcededTeam: null,
-    });
+  it("returns 0 remaining for golden boot when decided", () => {
+    setActualBonusResults({ goldenBoot: "Kane" });
     const p = makeParticipant({
       bonusPicks: {
-        goldenBoot: "Mbappe", // wrong, but decided
+        goldenBoot: "Mbappe",
         mostGoalsTeam: "GER",
-        fewestConcededTeam: "FRA",
+        fewestConcededTeam: "ESP",
         goldenBall: "",
       },
     });
     const result = calculatePotentialPoints(p);
     // goldenBoot decided (wrong, 0 earned, 0 remaining)
-    // mostGoalsTeam undecided (10 remaining)
-    // fewestConcededTeam undecided (10 remaining)
+    // mostGoalsTeam hardcoded correct (10 earned)
+    // fewestConcededTeam hardcoded correct (10 earned)
     // goldenBall empty pick (0 remaining)
-    expect(result.remaining).toBe(20);
+    expect(result.earned).toBe(20);
+    expect(result.remaining).toBe(0);
   });
 
   it("reduces remaining as knockout results come in", () => {
@@ -521,14 +473,7 @@ describe("calculatePotentialPoints", () => {
   });
 
   it("returns 0 remaining when all results are in", () => {
-    setActualGroupResults({
-      A: ["USA", "MEX", "URU", "MAR"],
-    });
-    setActualBonusResults({
-      goldenBoot: "Mbappe",
-      mostGoalsTeam: "GER",
-      fewestConcededTeam: "FRA",
-    });
+    setActualBonusResults({ goldenBoot: "Mbappe" });
     setActualKnockoutResults({
       "round_of_32_1": "GER",
     });

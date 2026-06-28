@@ -57,18 +57,21 @@ export function fuzzyPlayerMatch(pick: string, actual: string): boolean {
  * Right bucket (advance/exit correct but wrong position): 1 pt per team
  */
 
-// Static fallback results (null = tournament hasn't happened yet)
-// When live API data is available, these are overridden by live-scoring.ts
-export let actualGroupResults: Record<string, [string, string, string, string]> | null = null;
-
-/** Update group results from live data (called from server components) */
-export function setActualGroupResults(
-  results: Record<string, [string, string, string, string]> | null
-): void {
-  const groupCount = results ? Object.keys(results).length : 0;
-  logger.info({ groupCount, hasResults: results !== null }, "group results updated");
-  actualGroupResults = results;
-}
+// Final group stage standings (all 48 group matches completed June 27, 2026)
+export const actualGroupResults: Record<string, [string, string, string, string]> = {
+  A: ["MEX", "RSA", "KOR", "CZE"],
+  B: ["SUI", "CAN", "BIH", "QAT"],
+  C: ["BRA", "MAR", "SCO", "HAI"],
+  D: ["USA", "AUS", "PAR", "TUR"],
+  E: ["GER", "CIV", "ECU", "CUR"],
+  F: ["NED", "JPN", "SWE", "TUN"],
+  G: ["BEL", "EGY", "IRN", "NZL"],
+  H: ["ESP", "CPV", "URY", "KSA"],
+  I: ["FRA", "NOR", "SEN", "IRQ"],
+  J: ["ARG", "AUT", "ALG", "JOR"],
+  K: ["COL", "POR", "COD", "UZB"],
+  L: ["ENG", "CRO", "GHA", "PAN"],
+};
 
 // Map knockout match results: key = "{round}_{matchNumber}", value = winning team TLA
 export let actualKnockoutResults: Record<string, string> | null = null;
@@ -135,31 +138,27 @@ export function scoreTier1Groups(participant: Participant): number {
   return total;
 }
 
-// Static bonus results (overridden by live-scoring when available)
+// Hardcoded group-stage bonus results (ties: all tied teams count)
+const MOST_GOALS_TEAMS = ["FRA", "GER", "NED"]; // all 10 goals in group stage
+const FEWEST_CONCEDED_TEAMS = ["ESP", "MEX"]; // both 0 goals conceded in group stage
+
+// Dynamic bonus results (Golden Boot and Golden Ball updated from API as tournament progresses)
 export let actualBonusResults: {
   goldenBoot: string | null;
-  mostGoalsTeam: string | null;
-  fewestConcededTeam: string | null;
   goldenBall: string | null;
 } = {
   goldenBoot: null,
-  mostGoalsTeam: null,
-  fewestConcededTeam: null,
   goldenBall: null,
 };
 
-/** Update bonus results from live data */
+/** Update dynamic bonus results from live data (Golden Boot scorer) */
 export function setActualBonusResults(results: {
   goldenBoot: string | null;
-  mostGoalsTeam: string | null;
-  fewestConcededTeam: string | null;
 }): void {
-  logger.info({ goldenBoot: results.goldenBoot, mostGoalsTeam: results.mostGoalsTeam, fewestConcededTeam: results.fewestConcededTeam }, "bonus results updated");
+  logger.info({ goldenBoot: results.goldenBoot }, "bonus results updated");
   actualBonusResults = {
     ...actualBonusResults,
     goldenBoot: results.goldenBoot,
-    mostGoalsTeam: results.mostGoalsTeam,
-    fewestConcededTeam: results.fewestConcededTeam,
   };
 }
 
@@ -168,10 +167,10 @@ export function scoreTier1Bonus(participant: Participant): number {
   if (actualBonusResults.goldenBoot && fuzzyPlayerMatch(participant.bonusPicks.goldenBoot, actualBonusResults.goldenBoot)) {
     points += 10;
   }
-  if (actualBonusResults.mostGoalsTeam && participant.bonusPicks.mostGoalsTeam === actualBonusResults.mostGoalsTeam) {
+  if (MOST_GOALS_TEAMS.includes(participant.bonusPicks.mostGoalsTeam)) {
     points += 10;
   }
-  if (actualBonusResults.fewestConcededTeam && participant.bonusPicks.fewestConcededTeam === actualBonusResults.fewestConcededTeam) {
+  if (FEWEST_CONCEDED_TEAMS.includes(participant.bonusPicks.fewestConcededTeam)) {
     points += 10;
   }
   logger.debug({ participantId: participant.id, tier1Bonus: points }, "tier 1 bonus scored");
@@ -262,14 +261,9 @@ export function calculatePotentialPoints(participant: Participant): PotentialPoi
     }
   }
 
-  // Tier 1 bonuses: 10 pts each if undecided and participant made a pick
+  // Tier 1 bonuses: Golden Boot is dynamic (10 pts if undecided)
+  // Most Goals Team and Fewest Conceded are hardcoded (always decided)
   if (!actualBonusResults.goldenBoot && participant.bonusPicks.goldenBoot) {
-    remaining += 10;
-  }
-  if (!actualBonusResults.mostGoalsTeam && participant.bonusPicks.mostGoalsTeam) {
-    remaining += 10;
-  }
-  if (!actualBonusResults.fewestConcededTeam && participant.bonusPicks.fewestConcededTeam) {
     remaining += 10;
   }
 
