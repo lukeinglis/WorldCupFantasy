@@ -805,7 +805,7 @@ export default function MyPicksPage() {
         {/* Tier 2 Section (shown first when tournament is underway) */}
         {showTier2 && (
           <section className="py-10 sm:py-14">
-            <Container><div className="max-w-4xl mx-auto">
+            <Container>
               <div className="flex items-center gap-3 mb-8">
                 <span className="text-3xl" aria-hidden>🏆</span>
                 <div>
@@ -817,6 +817,8 @@ export default function MyPicksPage() {
                   </p>
                 </div>
               </div>
+            </Container>
+            <div className="px-4 sm:px-6 lg:px-8">
               <Tier2Section
                 user={user!}
                 existingKnockoutPicks={existingKnockoutPicks}
@@ -824,7 +826,6 @@ export default function MyPicksPage() {
                 tier2Submitted={existingTier2Submitted}
               />
             </div>
-            </Container>
           </section>
         )}
 
@@ -959,7 +960,7 @@ export default function MyPicksPage() {
             </Container>
 
             {/* Tier 2 bracket */}
-            <Container><div className="max-w-4xl mx-auto">
+            <Container>
               <div className="flex items-center gap-3 mb-8">
                 <span className="text-3xl" aria-hidden>🏆</span>
                 <div>
@@ -971,6 +972,8 @@ export default function MyPicksPage() {
                   </p>
                 </div>
               </div>
+            </Container>
+            <div className="px-4 sm:px-6 lg:px-8">
               <Tier2Section
                 user={user!}
                 existingKnockoutPicks={existingKnockoutPicks}
@@ -978,7 +981,6 @@ export default function MyPicksPage() {
                 tier2Submitted={existingTier2Submitted}
               />
             </div>
-            </Container>
           </section>
         </>
       );
