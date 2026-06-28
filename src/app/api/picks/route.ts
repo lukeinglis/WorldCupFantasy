@@ -163,6 +163,16 @@ async function handleTier1Submission(body: any, userId: string, log: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleTier2Submission(body: any, userId: string, log: any) {
+  // Temporary hold: picks open at 2am EST (6am UTC) June 28, 2026
+  const TIER2_OPENS = new Date("2026-06-28T06:00:00Z");
+  if (new Date() < TIER2_OPENS) {
+    log.warn({ userId }, "Tier 2 picks rejected: submissions not yet open");
+    return NextResponse.json(
+      { error: "Knockout bracket picks are not open yet. Submissions open at 2:00 AM EST on June 28." },
+      { status: 403 }
+    );
+  }
+
   const existing = await getPicks(userId);
 
   if (existing?.tier2Submitted) {
