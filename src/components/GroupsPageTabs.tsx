@@ -5,9 +5,9 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
 const TABS = [
-  { id: "standings", label: "Standings", icon: "📊" },
-  { id: "picks", label: "Picks", icon: "📋" },
   { id: "schedule", label: "Schedule", icon: "📅" },
+  { id: "standings", label: "Group Standings", icon: "📊" },
+  { id: "picks", label: "Group Picks", icon: "📋" },
   { id: "knockout", label: "Knockout", icon: "🏆" },
 ] as const;
 
@@ -26,7 +26,7 @@ function TabContent({
 }) {
   const searchParams = useSearchParams();
   const rawTab = searchParams.get("tab");
-  const activeTab: TabId = TABS.some((t) => t.id === rawTab) ? (rawTab as TabId) : "standings";
+  const activeTab: TabId = TABS.some((t) => t.id === rawTab) ? (rawTab as TabId) : "schedule";
 
   const content: Record<TabId, ReactNode> = {
     standings: standingsContent,
@@ -41,7 +41,7 @@ function TabContent({
         {TABS.map((tab) => (
           <Link
             key={tab.id}
-            href={tab.id === "standings" ? "/groups" : `/groups?tab=${tab.id}`}
+            href={tab.id === "schedule" ? "/groups" : `/groups?tab=${tab.id}`}
             scroll={false}
             className={`font-heading rounded-lg px-4 py-2.5 text-sm font-semibold uppercase tracking-wide transition-all ${
               activeTab === tab.id

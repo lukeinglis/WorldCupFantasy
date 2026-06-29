@@ -16,11 +16,11 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/leaderboard", label: "Leaderboard" },
   {
     href: "/groups",
-    label: "Groups",
+    label: "Tournament",
     children: [
-      { href: "/groups", label: "Standings" },
-      { href: "/groups?tab=picks", label: "Picks" },
       { href: "/groups?tab=schedule", label: "Schedule" },
+      { href: "/groups", label: "Group Standings" },
+      { href: "/groups?tab=picks", label: "Group Picks" },
       { href: "/groups?tab=knockout", label: "Knockout" },
     ],
   },
