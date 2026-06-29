@@ -20,6 +20,7 @@ interface BracketPickerProps {
   onPicksChange: (picks: KnockoutPick[]) => void;
   disabled?: boolean;
   readOnly?: boolean;
+  results?: Record<string, string>;
 }
 
 const ROUND_LABELS: Record<string, string> = {
@@ -96,18 +97,24 @@ function TeamRow({
   onClick,
   disabled,
   position,
+  pickResult,
 }: {
   teamCode: string | null;
   isSelected: boolean;
   onClick: () => void;
   disabled: boolean;
   position: "top" | "bottom";
+  pickResult?: "correct" | "wrong" | null;
 }) {
   const team = teamCode ? getTeamByCode(teamCode) : null;
   const code = team?.code ?? teamCode ?? "TBD";
   const flag = team?.flag ?? "";
   const isTbd = !teamCode;
   const borderRadius = position === "top" ? "rounded-t-md" : "rounded-b-md";
+
+  let selectedStyle = "bg-gold/20 text-gold";
+  if (isSelected && pickResult === "correct") selectedStyle = "bg-green-500/20 text-green-400";
+  else if (isSelected && pickResult === "wrong") selectedStyle = "bg-red-500/20 text-red-400";
 
   return (
     <button
@@ -116,7 +123,7 @@ function TeamRow({
       disabled={disabled || isTbd}
       className={`w-full flex items-center gap-1.5 px-2 py-1.5 text-left transition-all duration-150 ${borderRadius} ${
         isSelected
-          ? "bg-gold/20 text-gold"
+          ? selectedStyle
           : isTbd
           ? "bg-white/[0.02] text-gray-700"
           : "bg-navy-lighter/60 text-gray-300 hover:bg-white/5"
@@ -124,7 +131,9 @@ function TeamRow({
     >
       {flag && <span className="text-xs leading-none shrink-0">{flag}</span>}
       <span className="text-xs font-semibold truncate flex-1">{code}</span>
-      {isSelected && <span className="text-[10px] text-gold font-bold shrink-0">✓</span>}
+      {isSelected && pickResult === "correct" && <span className="text-[10px] text-green-400 font-bold shrink-0">✓</span>}
+      {isSelected && pickResult === "wrong" && <span className="text-[10px] text-red-400 font-bold shrink-0">✗</span>}
+      {isSelected && !pickResult && <span className="text-[10px] text-gold font-bold shrink-0">✓</span>}
     </button>
   );
 }
@@ -143,6 +152,7 @@ function BracketMatchCard({
   onPick,
   disabled,
   width,
+  pickResult,
 }: {
   homeTeam: string | null;
   awayTeam: string | null;
@@ -150,15 +160,21 @@ function BracketMatchCard({
   onPick: (winner: string) => void;
   disabled: boolean;
   width?: number;
+  pickResult?: "correct" | "wrong" | null;
 }) {
+  let borderColor = "border-white/15";
+  if (pickResult === "correct") borderColor = "border-green-500/40";
+  else if (pickResult === "wrong") borderColor = "border-red-500/40";
+
   return (
-    <div className="border border-white/15 rounded-md overflow-hidden bg-navy/80 shrink-0" style={width ? { width: `${width}px` } : { width: "88px" }}>
+    <div className={`${borderColor} border rounded-md overflow-hidden bg-navy/80 shrink-0`} style={width ? { width: `${width}px` } : { width: "88px" }}>
       <TeamRow
         teamCode={homeTeam}
         isSelected={selectedWinner === homeTeam && !!homeTeam}
         onClick={() => homeTeam && onPick(homeTeam)}
         disabled={disabled || !homeTeam}
         position="top"
+        pickResult={selectedWinner === homeTeam && !!homeTeam ? pickResult : undefined}
       />
       <div className="border-t border-white/10" />
       <TeamRow
@@ -167,6 +183,7 @@ function BracketMatchCard({
         onClick={() => awayTeam && onPick(awayTeam)}
         disabled={disabled || !awayTeam}
         position="bottom"
+        pickResult={selectedWinner === awayTeam && !!awayTeam ? pickResult : undefined}
       />
     </div>
   );
@@ -179,6 +196,7 @@ function BracketSlotColumn({
   picksMap,
   onPick,
   disabled,
+  results,
 }: {
   round: string;
   matchNumbers: number[];
@@ -186,6 +204,7 @@ function BracketSlotColumn({
   picksMap: Map<string, string>;
   onPick: (round: string, matchNumber: number, winner: string) => void;
   disabled: boolean;
+  results?: Record<string, string>;
 }) {
   const roundIdx = BRACKET_ROUNDS.indexOf(round);
   const slotH = PICKER_SLOT_H * Math.pow(2, roundIdx);
@@ -200,6 +219,8 @@ function BracketSlotColumn({
         const key = `${round}_${matchNumber}`;
         const teams = derivedTeams.get(key);
         const winner = picksMap.get(key) ?? null;
+        const actual = results?.[key];
+        const pickResult = winner && actual ? (winner === actual ? "correct" as const : "wrong" as const) : null;
         return (
           <div key={key} className="flex items-center justify-center" style={{ height: `${slotH}px` }}>
             <BracketMatchCard
@@ -209,6 +230,7 @@ function BracketSlotColumn({
               onPick={(w) => onPick(round, matchNumber, w)}
               disabled={disabled}
               width={width}
+              pickResult={pickResult}
             />
           </div>
         );
@@ -224,16 +246,31 @@ function TeamButton({
   isSelected,
   onClick,
   disabled,
+  pickResult,
 }: {
   teamCode: string | null;
   isSelected: boolean;
   onClick: () => void;
   disabled: boolean;
+  pickResult?: "correct" | "wrong" | null;
 }) {
   const team = teamCode ? getTeamByCode(teamCode) : null;
   const displayName = team?.name ?? teamCode ?? "TBD";
   const flag = team?.flag ?? "";
   const isTbd = !teamCode;
+
+  let selectedStyle = "bg-gold/15 border-2 border-gold/50 shadow-sm shadow-gold/10";
+  let textColor = "text-gold";
+  let badge = "W";
+  if (isSelected && pickResult === "correct") {
+    selectedStyle = "bg-green-500/15 border-2 border-green-500/50 shadow-sm shadow-green-500/10";
+    textColor = "text-green-400";
+    badge = "✓";
+  } else if (isSelected && pickResult === "wrong") {
+    selectedStyle = "bg-red-500/15 border-2 border-red-500/50 shadow-sm shadow-red-500/10";
+    textColor = "text-red-400";
+    badge = "✗";
+  }
 
   return (
     <button
@@ -242,17 +279,17 @@ function TeamButton({
       disabled={disabled || isTbd}
       className={`flex-1 flex items-center gap-2 px-3 py-3 rounded-lg text-left transition-all duration-200 active:scale-[0.98] min-w-0 ${
         isSelected
-          ? "bg-gold/15 border-2 border-gold/50 shadow-sm shadow-gold/10"
+          ? selectedStyle
           : isTbd
           ? "bg-white/[0.02] border border-white/5 cursor-not-allowed"
           : "bg-navy-lighter/40 border border-white/10 hover:bg-white/5 hover:border-white/20"
       } ${disabled && !isTbd ? "opacity-50 cursor-not-allowed" : ""}`}
     >
       {flag && <span className="text-lg leading-none shrink-0">{flag}</span>}
-      <span className={`text-sm font-medium truncate ${isSelected ? "text-gold" : isTbd ? "text-gray-700" : "text-gray-300"}`}>
+      <span className={`text-sm font-medium truncate ${isSelected ? textColor : isTbd ? "text-gray-700" : "text-gray-300"}`}>
         {displayName}
       </span>
-      {isSelected && <span className="ml-auto text-gold text-xs font-bold shrink-0">W</span>}
+      {isSelected && <span className={`ml-auto ${textColor} text-xs font-bold shrink-0`}>{badge}</span>}
     </button>
   );
 }
@@ -265,6 +302,7 @@ export default function BracketPicker({
   onPicksChange,
   disabled = false,
   readOnly = false,
+  results,
 }: BracketPickerProps) {
   const picksMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -407,10 +445,10 @@ export default function BracketPicker({
       {/* ── BRACKET VIEW (desktop) ── */}
       <div className="hidden lg:block overflow-x-auto -mx-8 px-2">
         <div className="flex items-start justify-center gap-2 min-w-fit py-4">
-          <BracketSlotColumn round="round_of_32" matchNumbers={leftR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <BracketSlotColumn round="round_of_16" matchNumbers={leftR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <BracketSlotColumn round="quarter" matchNumbers={leftQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <BracketSlotColumn round="semi" matchNumbers={[1]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="round_of_32" matchNumbers={leftR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
+          <BracketSlotColumn round="round_of_16" matchNumbers={leftR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
+          <BracketSlotColumn round="quarter" matchNumbers={leftQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
+          <BracketSlotColumn round="semi" matchNumbers={[1]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
 
           {/* Center: Final + 3rd Place */}
           <div className="flex flex-col shrink-0 mx-2">
@@ -419,35 +457,39 @@ export default function BracketPicker({
             </div>
             <div className="flex items-center justify-center" style={{ height: `${PICKER_SLOT_H * 8}px` }}>
               <div className="flex flex-col items-center gap-6">
+                {(() => { const w = picksMap.get("final_1") ?? null; const a = results?.["final_1"]; const pr = w && a ? (w === a ? "correct" as const : "wrong" as const) : null; return (
                 <BracketMatchCard
                   homeTeam={derivedTeams.get("final_1")?.home ?? null}
                   awayTeam={derivedTeams.get("final_1")?.away ?? null}
-                  selectedWinner={picksMap.get("final_1") ?? null}
+                  selectedWinner={w}
                   onPick={(w) => handlePick("final", 1, w)}
                   disabled={disabled}
                   width={PICKER_WIDTHS.final}
-                />
+                  pickResult={pr}
+                />); })()}
                 <div>
                   <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center mb-1">
                     3rd Place <span className="text-gray-600">({ROUND_POINTS.third_place}pt)</span>
                   </div>
+                  {(() => { const w = picksMap.get("third_place_1") ?? null; const a = results?.["third_place_1"]; const pr = w && a ? (w === a ? "correct" as const : "wrong" as const) : null; return (
                   <BracketMatchCard
                     homeTeam={derivedTeams.get("third_place_1")?.home ?? null}
                     awayTeam={derivedTeams.get("third_place_1")?.away ?? null}
-                    selectedWinner={picksMap.get("third_place_1") ?? null}
+                    selectedWinner={w}
                     onPick={(w) => handlePick("third_place", 1, w)}
                     disabled={disabled}
                     width={PICKER_WIDTHS.third_place}
-                  />
+                    pickResult={pr}
+                  />); })()}
                 </div>
               </div>
             </div>
           </div>
 
-          <BracketSlotColumn round="semi" matchNumbers={[2]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <BracketSlotColumn round="quarter" matchNumbers={rightQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <BracketSlotColumn round="round_of_16" matchNumbers={rightR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
-          <BracketSlotColumn round="round_of_32" matchNumbers={rightR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} />
+          <BracketSlotColumn round="semi" matchNumbers={[2]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
+          <BracketSlotColumn round="quarter" matchNumbers={rightQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
+          <BracketSlotColumn round="round_of_16" matchNumbers={rightR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
+          <BracketSlotColumn round="round_of_32" matchNumbers={rightR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
         </div>
       </div>
 
@@ -484,21 +526,28 @@ export default function BracketPicker({
                   const homeTeam = derived?.home ?? null;
                   const awayTeam = derived?.away ?? null;
                   const selectedWinner = picksMap.get(matchKey) ?? null;
+                  const actual = results?.[matchKey];
+                  const pickResult = selectedWinner && actual ? (selectedWinner === actual ? "correct" as const : "wrong" as const) : null;
+
+                  let cardBorder = selectedWinner ? "border-gold/30 bg-navy-light/80" : "border-white/10 bg-navy-light/60";
+                  let pickedLabel = "Picked";
+                  let pickedColor = "text-gold";
+                  if (pickResult === "correct") { cardBorder = "border-green-500/30 bg-navy-light/80"; pickedLabel = "Correct"; pickedColor = "text-green-400"; }
+                  else if (pickResult === "wrong") { cardBorder = "border-red-500/30 bg-navy-light/80"; pickedLabel = "Wrong"; pickedColor = "text-red-400"; }
 
                   return (
                     <div
                       key={matchKey}
                       className={`rounded-xl border overflow-hidden transition-all duration-200 ${
                         disabled ? "border-white/5 bg-navy-light/40 opacity-60"
-                          : selectedWinner ? "border-gold/30 bg-navy-light/80"
-                          : "border-white/10 bg-navy-light/60"
+                          : cardBorder
                       }`}
                     >
                       <div className="px-3 py-1.5 border-b border-white/5 flex items-center justify-between">
                         <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">
                           Match {matchNumber}
                         </span>
-                        {selectedWinner && <span className="text-[10px] text-gold font-medium">Picked</span>}
+                        {selectedWinner && <span className={`text-[10px] ${pickedColor} font-medium`}>{pickedLabel}</span>}
                       </div>
                       <div className="p-3 flex gap-2">
                         <TeamButton
@@ -506,6 +555,7 @@ export default function BracketPicker({
                           isSelected={selectedWinner === homeTeam && !!homeTeam}
                           onClick={() => homeTeam && handlePick(round, matchNumber, homeTeam)}
                           disabled={!homeTeam || disabled}
+                          pickResult={selectedWinner === homeTeam && !!homeTeam ? pickResult : undefined}
                         />
                         <div className="flex items-center px-1">
                           <span className="text-xs text-gray-700 font-bold">vs</span>
@@ -515,6 +565,7 @@ export default function BracketPicker({
                           isSelected={selectedWinner === awayTeam && !!awayTeam}
                           onClick={() => awayTeam && handlePick(round, matchNumber, awayTeam)}
                           disabled={!awayTeam || disabled}
+                          pickResult={selectedWinner === awayTeam && !!awayTeam ? pickResult : undefined}
                         />
                       </div>
                     </div>
