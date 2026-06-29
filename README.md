@@ -92,6 +92,18 @@ Tier 2 picks submitted after the knockout deadline (June 28, 3:00 PM EST):
 
 ## Architecture
 
+## Updating Knockout Results
+
+The live API handles scoring automatically, but a hardcoded fallback prevents zero scores during API rate limiting. Run after each day's matches:
+
+```bash
+./scripts/update-knockout-results.sh
+git diff src/data/scoring.ts                # review
+git add src/data/scoring.ts && git commit -s -m 'Update hardcoded knockout results' && git push origin main
+```
+
+The script fetches finished knockout matches from the production API and updates the fallback in `src/data/scoring.ts`.
+
 ### Data Sources
 - **Group stage results**: Hardcoded in `src/data/scoring.ts` (group stage complete)
 - **R32 matchups**: Hardcoded in `src/data/knockout-bracket.ts` (from FIFA bracket)
