@@ -136,7 +136,7 @@ function BracketRoundCol({ matchNumbers, allTeams, round, dates }: {
 }
 
 
-function HomepageBracket() {
+function HomepageBracket({ knockoutResults }: { knockoutResults?: Record<string, string> }) {
   const allMatches = getAllKnockoutMatches();
   const allTeams = new Map<string, { home: string | null; away: string | null }>();
   const dates = new Map<string, string>();
@@ -147,6 +147,24 @@ function HomepageBracket() {
     if (m.utcDate) {
       const d = new Date(m.utcDate);
       dates.set(key, d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+    }
+  }
+
+  // Propagate winners into next-round slots using the bracket path
+  if (knockoutResults) {
+    const ROUNDS = ["round_of_32", "round_of_16", "quarter", "semi"];
+    for (const round of ROUNDS) {
+      const matchCount = round === "round_of_32" ? 16 : round === "round_of_16" ? 8 : round === "quarter" ? 4 : 2;
+      for (let m = 1; m <= matchCount; m++) {
+        const key = `${round}_${m}`;
+        const winner = knockoutResults[key];
+        if (!winner) continue;
+        const next = BRACKET_PATH[key];
+        if (!next) continue;
+        const nextKey = `${next.round}_${next.matchNumber}`;
+        const current = allTeams.get(nextKey) ?? { home: null, away: null };
+        allTeams.set(nextKey, { ...current, [next.slot]: winner });
+      }
     }
   }
 
@@ -268,13 +286,17 @@ export default async function Home() {
   const kvParticipants = kvData.length > 0 ? buildParticipantsFromKv(kvData) : [];
 
   // Inject live scoring for leaderboard preview
+  let liveKnockoutResults: Record<string, string> | undefined;
   if (apiReady) {
     const [bonusResults, knockoutResults] = await Promise.all([
       getLiveBonusResults(),
       getLiveKnockoutResults(),
     ]);
     if (bonusResults) setActualBonusResults({ goldenBoot: bonusResults.goldenBoot });
-    if (knockoutResults) setActualKnockoutResults(knockoutResults.results);
+    if (knockoutResults) {
+      setActualKnockoutResults(knockoutResults.results);
+      liveKnockoutResults = knockoutResults.results;
+    }
     if (matches) {
       const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
       const knockoutSchedule = matches
@@ -669,7 +691,7 @@ export default async function Home() {
               Make Your Picks →
             </Link>
           </div>
-          <HomepageBracket />
+          <HomepageBracket knockoutResults={liveKnockoutResults} />
         </Container>
       </section>
 
