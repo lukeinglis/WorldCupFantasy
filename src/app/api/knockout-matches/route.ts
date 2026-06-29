@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getLogger } from "@/lib/logger";
 import { getAllKnockoutMatches } from "@/data/knockout-bracket";
 import { getTeamByCode } from "@/data/teams";
+import { getLiveKnockoutResults } from "@/lib/live-scoring";
+import { actualKnockoutResults, setActualKnockoutResults } from "@/data/scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -33,5 +35,9 @@ export async function GET() {
     status: m.status,
   }));
 
-  return NextResponse.json({ matches: result });
+  const liveResults = await getLiveKnockoutResults();
+  if (liveResults) setActualKnockoutResults(liveResults.results);
+  const results = actualKnockoutResults ?? {};
+
+  return NextResponse.json({ matches: result, results });
 }

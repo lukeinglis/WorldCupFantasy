@@ -294,6 +294,7 @@ function Tier2Section({
   const [knockoutPicks, setKnockoutPicks] = useState<KnockoutPick[]>(existingKnockoutPicks);
   const [goldenBall, setGoldenBall] = useState(existingGoldenBall);
   const [knockoutMatches, setKnockoutMatches] = useState<KnockoutMatch[]>([]);
+  const [knockoutResults, setKnockoutResults] = useState<Record<string, string>>({});
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(tier2Submitted);
@@ -306,6 +307,7 @@ function Tier2Section({
         const res = await fetch("/api/knockout-matches");
         const data = await res.json();
         setKnockoutMatches(data.matches ?? []);
+        setKnockoutResults(data.results ?? {});
       } catch {
         // Use placeholder structure if API fails
       }
@@ -366,6 +368,7 @@ function Tier2Section({
           knockoutPicks={knockoutPicks}
           goldenBall={goldenBall}
           knockoutMatches={knockoutMatches}
+          knockoutResults={knockoutResults}
         />
       </>
     );
@@ -514,10 +517,12 @@ function Tier2SubmittedSummary({
   knockoutPicks,
   goldenBall,
   knockoutMatches,
+  knockoutResults,
 }: {
   knockoutPicks: KnockoutPick[];
   goldenBall: string;
   knockoutMatches: KnockoutMatch[];
+  knockoutResults: Record<string, string>;
 }) {
   return (
     <div className="space-y-6">
@@ -544,6 +549,7 @@ function Tier2SubmittedSummary({
         onPicksChange={() => {}}
         disabled
         readOnly
+        results={knockoutResults}
       />
 
       {/* Golden Ball */}
