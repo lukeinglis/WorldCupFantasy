@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { usePicksData } from "@/hooks/usePicksData";
 import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamByCode } from "@/data/teams";
-import { knockoutRoundPoints } from "@/data/participants";
+import { knockoutRoundPoints, knockoutRoundMatchCounts } from "@/data/participants";
 import { R32_MATCHES } from "@/data/knockout-bracket";
 
 const ROUND_LABELS: Record<string, string> = {
@@ -16,6 +17,15 @@ const ROUND_LABELS: Record<string, string> = {
   final: "Final",
 };
 
+const ROUND_SHORT: Record<string, string> = {
+  round_of_32: "R32",
+  round_of_16: "R16",
+  quarter: "QF",
+  semi: "SF",
+  third_place: "3rd",
+  final: "F",
+};
+
 const ROUND_ORDER = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
 
 interface KnockoutPick {
@@ -24,9 +34,30 @@ interface KnockoutPick {
   winner: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ParticipantData = any;
+const getPicks = (p: ParticipantData) => p.picks as ParticipantData;
+const getKO = (p: ParticipantData): KnockoutPick[] => (getPicks(p)?.knockoutPicks ?? []) as KnockoutPick[];
+
+function getMatchLabel(round: string, matchNumber: number): string {
+  if (round === "round_of_32") {
+    const r32 = R32_MATCHES.find((m) => m.matchNumber === matchNumber);
+    if (r32) {
+      const h = getTeamByCode(r32.homeTeam ?? "");
+      const a = getTeamByCode(r32.awayTeam ?? "");
+      return `${h?.flag ?? ""} ${r32.homeTeam} vs ${a?.flag ?? ""} ${r32.awayTeam}`;
+    }
+  }
+  return `Match ${matchNumber}`;
+}
+
+type ViewMode = "matches" | "participant" | "table";
+
 export default function KnockoutBracketSection() {
   const { user } = useAuth();
   const { participantsList, loading } = usePicksData();
+  const [viewMode, setViewMode] = useState<ViewMode>("matches");
+  const [selectedParticipant, setSelectedParticipant] = useState<string>("");
 
   if (loading) {
     return (
@@ -35,9 +66,6 @@ export default function KnockoutBracketSection() {
       </div>
     );
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getPicks = (p: typeof participantsList[number]) => p.picks as any;
 
   const currentUser = user ? participantsList.find((p) => p.id === user.id) : null;
   const currentUserHasTier2 = currentUser ? !!getPicks(currentUser)?.tier2Submitted : false;
@@ -76,15 +104,61 @@ export default function KnockoutBracketSection() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-3 text-center">
         <p className="text-sm text-gold font-medium">
           {withTier2.length} participant{withTier2.length !== 1 ? "s have" : " has"} submitted knockout picks
         </p>
       </div>
 
+      {/* View mode tabs */}
+      <div className="flex flex-wrap gap-2">
+        {([
+          { id: "matches" as ViewMode, label: "By Match", icon: "⚽" },
+          { id: "participant" as ViewMode, label: "By Participant", icon: "👤" },
+          { id: "table" as ViewMode, label: "Table", icon: "📊" },
+        ]).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setViewMode(tab.id)}
+            className={`font-heading rounded-lg px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-all ${
+              viewMode === tab.id
+                ? "bg-gold/20 text-gold border border-gold/30"
+                : "text-gray-400 hover:bg-white/5 hover:text-white border border-transparent"
+            }`}
+          >
+            <span className="mr-1.5" aria-hidden>{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {viewMode === "matches" && (
+        <MatchFocusView withTier2={withTier2} />
+      )}
+      {viewMode === "participant" && (
+        <ParticipantBrowser
+          withTier2={withTier2}
+          selectedId={selectedParticipant}
+          onSelect={setSelectedParticipant}
+        />
+      )}
+      {viewMode === "table" && (
+        <TableView withTier2={withTier2} />
+      )}
+    </div>
+  );
+}
+
+// ── View 1: Match Focus Cards ──
+
+function MatchFocusView({ withTier2 }: { withTier2: ParticipantData[] }) {
+  const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-8">
       {ROUND_ORDER.map((round) => {
-        const matchCount = round === "round_of_32" ? 16 : round === "round_of_16" ? 8 : round === "quarter" ? 4 : round === "semi" ? 2 : 1;
+        const matchCount = knockoutRoundMatchCounts[round] ?? 0;
         const pts = knockoutRoundPoints[round] ?? 0;
 
         return (
@@ -93,58 +167,66 @@ export default function KnockoutBracketSection() {
               {ROUND_LABELS[round]}{" "}
               <span className="text-sm font-normal text-gray-500">({pts} pts each)</span>
             </h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {Array.from({ length: matchCount }, (_, i) => i + 1).map((matchNumber) => {
-                const r32 = round === "round_of_32" ? R32_MATCHES.find((m) => m.matchNumber === matchNumber) : null;
-                const homeTeam = r32?.homeTeam ? getTeamByCode(r32.homeTeam) : null;
-                const awayTeam = r32?.awayTeam ? getTeamByCode(r32.awayTeam) : null;
+                const key = `${round}_${matchNumber}`;
+                const isExpanded = expandedMatch === key;
+                const picksByTeam: Record<string, string[]> = {};
 
-                const pickCounts: Record<string, { count: number; names: string[] }> = {};
                 for (const p of withTier2) {
-                  const ko = (getPicks(p).knockoutPicks ?? []) as KnockoutPick[];
+                  const ko = getKO(p);
                   const pick = ko.find((k) => k.round === round && k.matchNumber === matchNumber);
                   if (pick) {
-                    if (!pickCounts[pick.winner]) pickCounts[pick.winner] = { count: 0, names: [] };
-                    pickCounts[pick.winner].count++;
-                    pickCounts[pick.winner].names.push(p.name);
+                    if (!picksByTeam[pick.winner]) picksByTeam[pick.winner] = [];
+                    picksByTeam[pick.winner].push(p.name);
                   }
                 }
 
-                const sortedPicks = Object.entries(pickCounts).sort((a, b) => b[1].count - a[1].count);
+                const sorted = Object.entries(picksByTeam).sort((a, b) => b[1].length - a[1].length);
+                const label = getMatchLabel(round, matchNumber);
 
                 return (
-                  <Card key={`${round}_${matchNumber}`}>
-                    <CardHeader className="py-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
-                          Match {matchNumber}
-                        </span>
-                        {r32 && (
-                          <span className="text-xs text-gray-400">
-                            {homeTeam?.flag} {r32.homeTeam} vs {awayTeam?.flag} {r32.awayTeam}
-                          </span>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardBody className="py-2 space-y-1">
-                      {sortedPicks.length === 0 ? (
-                        <p className="text-xs text-gray-600 italic">No picks</p>
-                      ) : (
-                        sortedPicks.map(([teamCode, { count }]) => {
-                          const team = getTeamByCode(teamCode);
-                          const pct = Math.round((count / withTier2.length) * 100);
-                          return (
-                            <div key={teamCode} className="flex items-center gap-2">
-                              <span className="text-sm">{team?.flag ?? "🏳️"}</span>
-                              <span className="text-xs font-bold text-gray-200">{teamCode}</span>
-                              <div className="flex-1 h-1.5 bg-navy-lighter rounded-full overflow-hidden">
+                  <Card key={key}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedMatch(isExpanded ? null : key)}
+                      className="w-full text-left"
+                    >
+                      <CardHeader className="py-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-300 font-medium">{label}</span>
+                          <span className="text-[10px] text-gray-600">{isExpanded ? "▲" : "▼"}</span>
+                        </div>
+                      </CardHeader>
+                    </button>
+                    <CardBody className="py-2 space-y-2">
+                      {sorted.map(([teamCode, names]) => {
+                        const team = getTeamByCode(teamCode);
+                        const pct = Math.round((names.length / withTier2.length) * 100);
+                        return (
+                          <div key={teamCode}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{team?.flag ?? "🏳️"}</span>
+                              <span className="text-sm font-bold text-gray-200">{team?.name ?? teamCode}</span>
+                              <div className="flex-1 h-2 bg-navy-lighter rounded-full overflow-hidden">
                                 <div className="h-full bg-gold/60 rounded-full" style={{ width: `${pct}%` }} />
                               </div>
-                              <span className="text-[10px] text-gray-500 w-8 text-right">{count}</span>
+                              <span className="text-xs text-gray-400 font-medium w-12 text-right">
+                                {names.length} ({pct}%)
+                              </span>
                             </div>
-                          );
-                        })
-                      )}
+                            {isExpanded && (
+                              <div className="ml-7 mt-1 flex flex-wrap gap-1 mb-2">
+                                {names.sort().map((name) => (
+                                  <span key={name} className="text-[10px] bg-white/5 text-gray-400 rounded px-1.5 py-0.5">
+                                    {name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </CardBody>
                   </Card>
                 );
@@ -153,6 +235,160 @@ export default function KnockoutBracketSection() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── View 2: Participant Browser ──
+
+function ParticipantBrowser({
+  withTier2,
+  selectedId,
+  onSelect,
+}: {
+  withTier2: ParticipantData[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const selected = withTier2.find((p) => p.id === selectedId) ?? withTier2[0];
+
+  return (
+    <div className="space-y-6">
+      <select
+        value={selected?.id ?? ""}
+        onChange={(e) => onSelect(e.target.value)}
+        className="w-full sm:w-auto bg-navy-lighter border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-medium focus:border-gold/50 focus:outline-none"
+      >
+        {withTier2.map((p) => (
+          <option key={p.id} value={p.id}>{p.name}</option>
+        ))}
+      </select>
+
+      {selected && (
+        <div className="space-y-6">
+          {/* Golden Ball */}
+          <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-3">
+            <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Golden Ball Pick</span>
+            <p className="text-sm text-gold font-bold mt-1">{getPicks(selected)?.goldenBall || "None"}</p>
+          </div>
+
+          {ROUND_ORDER.map((round) => {
+            const matchCount = knockoutRoundMatchCounts[round] ?? 0;
+            const ko = getKO(selected);
+            const roundPicks = ko.filter((k) => k.round === round).sort((a, b) => a.matchNumber - b.matchNumber);
+
+            if (roundPicks.length === 0) return null;
+
+            return (
+              <div key={round}>
+                <h3 className="font-heading text-base font-bold uppercase tracking-wide text-white mb-2">
+                  {ROUND_LABELS[round]}
+                </h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+                  {Array.from({ length: matchCount }, (_, i) => i + 1).map((matchNumber) => {
+                    const pick = roundPicks.find((k) => k.matchNumber === matchNumber);
+                    const team = pick ? getTeamByCode(pick.winner) : null;
+                    return (
+                      <div
+                        key={matchNumber}
+                        className="border border-white/10 rounded-lg bg-navy-light/60 px-3 py-2 text-center"
+                      >
+                        <div className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">M{matchNumber}</div>
+                        {team ? (
+                          <>
+                            <span className="text-xl block">{team.flag}</span>
+                            <span className="text-xs font-bold text-gray-200 block mt-0.5">{team.code}</span>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-600">No pick</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── View 3: Table Grid ──
+
+function TableView({ withTier2 }: { withTier2: ParticipantData[] }) {
+  // Build all match keys in order
+  const matchKeys: { round: string; matchNumber: number; label: string }[] = [];
+  for (const round of ROUND_ORDER) {
+    const count = knockoutRoundMatchCounts[round] ?? 0;
+    for (let i = 1; i <= count; i++) {
+      matchKeys.push({
+        round,
+        matchNumber: i,
+        label: `${ROUND_SHORT[round]}${count > 1 ? i : ""}`,
+      });
+    }
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-white/10">
+            <th className="px-2 py-2 text-left text-gray-500 font-semibold uppercase tracking-wider sticky left-0 bg-navy z-10 min-w-[120px]">
+              Player
+            </th>
+            {matchKeys.map(({ round, matchNumber, label }) => (
+              <th
+                key={`${round}_${matchNumber}`}
+                className="px-1 py-2 text-center text-gray-600 font-semibold uppercase tracking-wider whitespace-nowrap"
+              >
+                {label}
+              </th>
+            ))}
+            <th className="px-2 py-2 text-center text-gold font-semibold uppercase tracking-wider whitespace-nowrap">
+              Ball
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {withTier2.map((p) => {
+            const ko = getKO(p);
+            const koMap = new Map<string, string>();
+            for (const pick of ko) {
+              koMap.set(`${pick.round}_${pick.matchNumber}`, pick.winner);
+            }
+
+            return (
+              <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                <td className="px-2 py-1.5 text-sm font-medium text-white sticky left-0 bg-navy z-10 truncate max-w-[140px]">
+                  {p.name}
+                </td>
+                {matchKeys.map(({ round, matchNumber }) => {
+                  const key = `${round}_${matchNumber}`;
+                  const winner = koMap.get(key);
+                  const team = winner ? getTeamByCode(winner) : null;
+                  return (
+                    <td key={key} className="px-1 py-1.5 text-center">
+                      {team ? (
+                        <span title={`${team.name} (${team.code})`} className="cursor-default">
+                          {team.flag}
+                        </span>
+                      ) : (
+                        <span className="text-gray-700">-</span>
+                      )}
+                    </td>
+                  );
+                })}
+                <td className="px-2 py-1.5 text-center text-[10px] text-gray-400 whitespace-nowrap">
+                  {getPicks(p)?.goldenBall || "-"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
