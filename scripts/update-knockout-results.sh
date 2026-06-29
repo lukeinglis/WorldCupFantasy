@@ -26,7 +26,26 @@ if not knockout:
     print('NO_RESULTS')
     sys.exit(0)
 
-# Group by stage, sort by date, assign match numbers
+# R32 matchups from our bracket (must match knockout-bracket.ts)
+R32_BRACKET = [
+    (1, 'RSA', 'CAN'), (2, 'NED', 'MAR'), (3, 'BRA', 'JPN'), (4, 'GER', 'PAR'),
+    (5, 'CIV', 'NOR'), (6, 'FRA', 'SWE'), (7, 'MEX', 'ECU'), (8, 'USA', 'BIH'),
+    (9, 'ENG', 'COD'), (10, 'BEL', 'SEN'), (11, 'ESP', 'AUT'), (12, 'POR', 'CRO'),
+    (13, 'SUI', 'ALG'), (14, 'AUS', 'EGY'), (15, 'ARG', 'CPV'), (16, 'COL', 'GHA'),
+]
+
+TLA_MAP = {'CUW': 'CUR', 'URU': 'URY'}
+def norm(tla):
+    return TLA_MAP.get(tla, tla)
+
+def find_r32_match_num(home, away):
+    h, a = norm(home), norm(away)
+    for num, bh, ba in R32_BRACKET:
+        if (bh == h and ba == a) or (bh == a and ba == h):
+            return num
+    return None
+
+# Group by stage, sort by date for later rounds
 from collections import defaultdict
 by_stage = defaultdict(list)
 for m in knockout:
@@ -36,7 +55,6 @@ lines = []
 for stage in knockout_stages:
     stage_matches = sorted(by_stage.get(stage, []), key=lambda m: m.get('utcDate', ''))
     for i, m in enumerate(stage_matches):
-        match_num = i + 1
         winner_side = m.get('score', {}).get('winner', '')
         h = m.get('homeTeam', {}).get('tla', '?')
         a = m.get('awayTeam', {}).get('tla', '?')
@@ -44,14 +62,22 @@ for stage in knockout_stages:
         as_ = m.get('score', {}).get('fullTime', {}).get('away', '?')
 
         if winner_side == 'HOME_TEAM':
-            winner = h
+            winner = norm(h)
         elif winner_side == 'AWAY_TEAM':
-            winner = a
+            winner = norm(a)
         else:
             continue
 
+        # For R32, match by team codes; for later rounds, use date order
+        if stage == 'round_of_32':
+            match_num = find_r32_match_num(h, a)
+            if match_num is None:
+                print(f'WARNING: R32 match {h} vs {a} not found in bracket', file=sys.stderr)
+                continue
+        else:
+            match_num = i + 1
+
         date_str = m.get('utcDate', '')[:10]
-        # Format date nicely
         from datetime import datetime
         try:
             dt = datetime.strptime(date_str, '%Y-%m-%d')
