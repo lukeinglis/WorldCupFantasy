@@ -73,8 +73,14 @@ export const actualGroupResults: Record<string, [string, string, string, string]
   L: ["ENG", "CRO", "GHA", "PAN"],
 };
 
-// Map knockout match results: key = "{round}_{matchNumber}", value = winning team TLA
-export let actualKnockoutResults: Record<string, string> | null = null;
+// Hardcoded knockout results fallback (updated via scripts/update-knockout-results.sh)
+// Live API results take precedence when available; this prevents zero scores during rate limiting
+const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
+  "round_of_32_1": "CAN",  // RSA 0:1 CAN (Jun 28)
+};
+
+// Active knockout results: starts from hardcoded, overwritten by live API when available
+export let actualKnockoutResults: Record<string, string> | null = { ...HARDCODED_KNOCKOUT_RESULTS };
 
 // Knockout match schedule for late submission penalty
 export let knockoutMatchSchedule: { round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[] | null = null;
@@ -88,9 +94,11 @@ export function setKnockoutMatchSchedule(matches: typeof knockoutMatchSchedule):
 export function setActualKnockoutResults(
   results: Record<string, string> | null
 ): void {
-  const matchCount = results ? Object.keys(results).length : 0;
-  logger.info({ matchCount, hasResults: results !== null }, "knockout results updated");
-  actualKnockoutResults = results;
+  if (results) {
+    actualKnockoutResults = { ...HARDCODED_KNOCKOUT_RESULTS, ...results };
+  }
+  const matchCount = actualKnockoutResults ? Object.keys(actualKnockoutResults).length : 0;
+  logger.info({ matchCount }, "knockout results updated");
 }
 
 export function scoreGroupPrediction(
