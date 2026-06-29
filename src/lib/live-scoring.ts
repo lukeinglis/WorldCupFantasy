@@ -20,6 +20,7 @@ import {
   type TeamStats,
   type TransformedMatch,
 } from "./football-api";
+import { R32_MATCHES } from "@/data/knockout-bracket";
 import { getLogger } from "./logger";
 
 const log = getLogger("live-scoring");
@@ -243,29 +244,45 @@ export async function getLiveKnockoutResults(): Promise<LiveKnockoutResults | nu
   let totalKnockout = 0;
   let finishedKnockout = 0;
 
-  // Group matches by stage, then assign match numbers within each stage
+  // Match API results to our bracket numbering by team codes (not date order).
+  // The API sorts by date, but our bracket numbers follow the FIFA bracket structure.
   for (const stage of knockoutStages) {
-    const stageMatches = knockoutMatches
-      .filter(m => m.stage === stage)
-      .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+    const stageMatches = knockoutMatches.filter(m => m.stage === stage);
 
-    for (let i = 0; i < stageMatches.length; i++) {
-      const match = stageMatches[i];
+    for (const match of stageMatches) {
       totalKnockout++;
-      const matchNumber = i + 1; // 1-based
 
-      if (match.status === "FINISHED" && match.score.winner) {
-        finishedKnockout++;
-        // Determine winning team TLA
-        let winnerTla: string | null = null;
-        if (match.score.winner === "HOME_TEAM") {
-          winnerTla = match.homeTeam.tla;
-        } else if (match.score.winner === "AWAY_TEAM") {
-          winnerTla = match.awayTeam.tla;
+      if (match.status !== "FINISHED" || !match.score.winner) continue;
+      finishedKnockout++;
+
+      let winnerTla: string | null = null;
+      if (match.score.winner === "HOME_TEAM") {
+        winnerTla = match.homeTeam.tla;
+      } else if (match.score.winner === "AWAY_TEAM") {
+        winnerTla = match.awayTeam.tla;
+      }
+      if (!winnerTla) continue;
+
+      const homeTla = normalizeTla(match.homeTeam.tla);
+      const awayTla = normalizeTla(match.awayTeam.tla);
+
+      // For R32, look up the match number from our hardcoded bracket by team codes
+      if (stage === "round_of_32") {
+        const bracketMatch = R32_MATCHES.find(
+          bm => (bm.homeTeam === homeTla && bm.awayTeam === awayTla) ||
+                (bm.homeTeam === awayTla && bm.awayTeam === homeTla)
+        );
+        if (bracketMatch) {
+          results[`${stage}_${bracketMatch.matchNumber}`] = normalizeTla(winnerTla);
+        } else {
+          log.warn({ homeTla, awayTla }, "R32 match not found in bracket data");
         }
-        // DRAW in knockout is rare (penalty shootout); the API typically
-        // resolves the winner field, but if still DRAW we skip.
-        if (winnerTla) {
+      } else {
+        // For later rounds, use date-sorted numbering
+        const sorted = stageMatches
+          .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+        const matchNumber = sorted.indexOf(match) + 1;
+        if (matchNumber > 0) {
           results[`${stage}_${matchNumber}`] = normalizeTla(winnerTla);
         }
       }
