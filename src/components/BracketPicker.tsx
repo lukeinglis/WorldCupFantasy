@@ -19,6 +19,7 @@ interface BracketPickerProps {
   picks: KnockoutPick[];
   onPicksChange: (picks: KnockoutPick[]) => void;
   disabled?: boolean;
+  readOnly?: boolean;
 }
 
 const ROUND_LABELS: Record<string, string> = {
@@ -263,6 +264,7 @@ export default function BracketPicker({
   picks,
   onPicksChange,
   disabled = false,
+  readOnly = false,
 }: BracketPickerProps) {
   const picksMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -382,6 +384,7 @@ export default function BracketPicker({
   return (
     <div className="space-y-6">
       {/* Progress bar */}
+      {!readOnly && (
       <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-gray-400">
@@ -399,6 +402,7 @@ export default function BracketPicker({
           />
         </div>
       </div>
+      )}
 
       {/* ── BRACKET VIEW (desktop) ── */}
       <div className="hidden lg:block overflow-x-auto -mx-8 px-2">

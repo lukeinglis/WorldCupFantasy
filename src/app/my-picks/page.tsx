@@ -6,7 +6,7 @@ import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody } from "@/components/Card";
 import { useAuth } from "@/components/AuthProvider";
-import { getTeamsByGroup, teams, groupLabels, getTeamByCode } from "@/data/teams";
+import { getTeamsByGroup, teams, groupLabels } from "@/data/teams";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import { getCurrentPhase, knockoutRoundMatchCounts } from "@/data/participants";
 import BracketPicker from "@/components/BracketPicker";
@@ -365,6 +365,7 @@ function Tier2Section({
         <Tier2SubmittedSummary
           knockoutPicks={knockoutPicks}
           goldenBall={goldenBall}
+          knockoutMatches={knockoutMatches}
         />
       </>
     );
@@ -512,27 +513,12 @@ function Tier2Section({
 function Tier2SubmittedSummary({
   knockoutPicks,
   goldenBall,
+  knockoutMatches,
 }: {
   knockoutPicks: KnockoutPick[];
   goldenBall: string;
+  knockoutMatches: KnockoutMatch[];
 }) {
-  const roundOrder = [
-    "round_of_32",
-    "round_of_16",
-    "quarter",
-    "semi",
-    "third_place",
-    "final",
-  ];
-  const roundLabels: Record<string, string> = {
-    round_of_32: "R32",
-    round_of_16: "R16",
-    quarter: "QF",
-    semi: "SF",
-    third_place: "3rd Place",
-    final: "Final",
-  };
-
   return (
     <div className="space-y-6">
       <Card className="border-gold/20">
@@ -549,45 +535,16 @@ function Tier2SubmittedSummary({
         </CardBody>
       </Card>
 
-      {/* Summary of picks by round */}
       <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
         Your Knockout Picks
       </h3>
-      <div className="space-y-3">
-        {roundOrder.map((round) => {
-          const roundPicks = knockoutPicks.filter((p) => p.round === round);
-          if (roundPicks.length === 0) return null;
-
-          return (
-            <div
-              key={round}
-              className="rounded-lg border border-gold/10 bg-navy-light/60 p-3"
-            >
-              <p className="text-xs font-semibold text-gold uppercase tracking-wider mb-2">
-                {roundLabels[round] ?? round}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {roundPicks
-                  .sort((a, b) => a.matchNumber - b.matchNumber)
-                  .map((pick) => {
-                    const team = getTeamByCode(pick.winner);
-                    return (
-                      <span
-                        key={`${pick.round}-${pick.matchNumber}`}
-                        className="inline-flex items-center gap-1 rounded bg-gold/10 border border-gold/20 px-2 py-1 text-xs"
-                      >
-                        <span>{team?.flag ?? ""}</span>
-                        <span className="text-gray-300">
-                          {team?.name ?? pick.winner}
-                        </span>
-                      </span>
-                    );
-                  })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <BracketPicker
+        knockoutMatches={knockoutMatches}
+        picks={knockoutPicks}
+        onPicksChange={() => {}}
+        disabled
+        readOnly
+      />
 
       {/* Golden Ball */}
       <Card className="border-gold/10">
