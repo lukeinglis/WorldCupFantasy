@@ -75,21 +75,21 @@ const CARD_WIDTHS: Record<string, number> = {
   final: 148,
 };
 
-function BracketTeamRow({ code, size }: { code: string | null; size: "sm" | "md" | "lg" }) {
+function BracketTeamRow({ code, size, eliminated }: { code: string | null; size: "sm" | "md" | "lg"; eliminated?: boolean }) {
   const team = code ? getTeamByCode(code) : null;
   const textSize = size === "lg" ? "text-sm" : size === "md" ? "text-xs" : "text-xs";
   const flagSize = size === "lg" ? "text-lg" : "text-base";
   const py = size === "lg" ? "py-2" : "py-1.5";
   return (
-    <div className={`flex items-center gap-1.5 px-2 ${py} ${code ? "" : "opacity-25"}`}>
-      <span className={`${flagSize} leading-none`}>{team?.flag ?? "🏳️"}</span>
-      <span className={`${textSize} font-bold text-gray-200`}>{team?.code ?? "TBD"}</span>
+    <div className={`flex items-center gap-1.5 px-2 ${py} ${code ? "" : "opacity-25"} ${eliminated ? "opacity-35" : ""}`}>
+      <span className={`${flagSize} leading-none ${eliminated ? "grayscale" : ""}`}>{team?.flag ?? "🏳️"}</span>
+      <span className={`${textSize} font-bold ${eliminated ? "text-gray-600 line-through" : "text-gray-200"}`}>{team?.code ?? "TBD"}</span>
     </div>
   );
 }
 
-function BracketMatchCard({ home, away, date, width, size }: {
-  home: string | null; away: string | null; date?: string; width: number; size: "sm" | "md" | "lg";
+function BracketMatchCard({ home, away, date, width, size, winner }: {
+  home: string | null; away: string | null; date?: string; width: number; size: "sm" | "md" | "lg"; winner?: string;
 }) {
   return (
     <div className="border border-white/15 rounded bg-navy-light/60 overflow-hidden shrink-0" style={{ width: `${width}px` }}>
@@ -98,18 +98,19 @@ function BracketMatchCard({ home, away, date, width, size }: {
           {date}
         </div>
       )}
-      <BracketTeamRow code={home} size={size} />
+      <BracketTeamRow code={home} size={size} eliminated={!!winner && home !== winner} />
       <div className="border-t border-white/10" />
-      <BracketTeamRow code={away} size={size} />
+      <BracketTeamRow code={away} size={size} eliminated={!!winner && away !== winner} />
     </div>
   );
 }
 
-function BracketRoundCol({ matchNumbers, allTeams, round, dates }: {
+function BracketRoundCol({ matchNumbers, allTeams, round, dates, results }: {
   matchNumbers: number[];
   allTeams: Map<string, { home: string | null; away: string | null }>;
   round: string;
   dates: Map<string, string>;
+  results?: Record<string, string>;
 }) {
   const roundIdx = ["round_of_32", "round_of_16", "quarter", "semi"].indexOf(round);
   const slotMultiplier = Math.pow(2, roundIdx);
@@ -127,7 +128,7 @@ function BracketRoundCol({ matchNumbers, allTeams, round, dates }: {
         const date = dates.get(key);
         return (
           <div key={key} className="flex items-center justify-center" style={{ height: `${slotH}px` }}>
-            <BracketMatchCard home={teams?.home ?? null} away={teams?.away ?? null} date={date} width={width} size={size} />
+            <BracketMatchCard home={teams?.home ?? null} away={teams?.away ?? null} date={date} width={width} size={size} winner={results?.[key]} />
           </div>
         );
       })}
@@ -175,13 +176,13 @@ function HomepageBracket({ knockoutResults }: { knockoutResults?: Record<string,
     <div className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-2">
       <div className="flex items-start justify-center gap-2 min-w-fit py-4">
         {/* Left half */}
-        <BracketRoundCol round="round_of_32" matchNumbers={leftR32} allTeams={allTeams} dates={dates} />
+        <BracketRoundCol round="round_of_32" matchNumbers={leftR32} allTeams={allTeams} dates={dates} results={knockoutResults} />
 
-        <BracketRoundCol round="round_of_16" matchNumbers={[1, 2, 5, 6]} allTeams={allTeams} dates={dates} />
+        <BracketRoundCol round="round_of_16" matchNumbers={[1, 2, 5, 6]} allTeams={allTeams} dates={dates} results={knockoutResults} />
 
-        <BracketRoundCol round="quarter" matchNumbers={[1, 2]} allTeams={allTeams} dates={dates} />
+        <BracketRoundCol round="quarter" matchNumbers={[1, 2]} allTeams={allTeams} dates={dates} results={knockoutResults} />
 
-        <BracketRoundCol round="semi" matchNumbers={[1]} allTeams={allTeams} dates={dates} />
+        <BracketRoundCol round="semi" matchNumbers={[1]} allTeams={allTeams} dates={dates} results={knockoutResults} />
 
         {/* Center: Final */}
         <div className="flex flex-col shrink-0 mx-3">
@@ -193,18 +194,19 @@ function HomepageBracket({ knockoutResults }: { knockoutResults?: Record<string,
               date={dates.get("final_1")}
               width={CARD_WIDTHS.final}
               size="lg"
+              winner={knockoutResults?.["final_1"]}
             />
           </div>
         </div>
 
         {/* Right half */}
-        <BracketRoundCol round="semi" matchNumbers={[2]} allTeams={allTeams} dates={dates} />
+        <BracketRoundCol round="semi" matchNumbers={[2]} allTeams={allTeams} dates={dates} results={knockoutResults} />
 
-        <BracketRoundCol round="quarter" matchNumbers={[3, 4]} allTeams={allTeams} dates={dates} />
+        <BracketRoundCol round="quarter" matchNumbers={[3, 4]} allTeams={allTeams} dates={dates} results={knockoutResults} />
 
-        <BracketRoundCol round="round_of_16" matchNumbers={[3, 4, 7, 8]} allTeams={allTeams} dates={dates} />
+        <BracketRoundCol round="round_of_16" matchNumbers={[3, 4, 7, 8]} allTeams={allTeams} dates={dates} results={knockoutResults} />
 
-        <BracketRoundCol round="round_of_32" matchNumbers={rightR32} allTeams={allTeams} dates={dates} />
+        <BracketRoundCol round="round_of_32" matchNumbers={rightR32} allTeams={allTeams} dates={dates} results={knockoutResults} />
       </div>
     </div>
   );
