@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { usePicksData } from "@/hooks/usePicksData";
 import { Card, CardBody, CardHeader } from "@/components/Card";
@@ -58,6 +58,14 @@ export default function KnockoutBracketSection() {
   const { participantsList, loading } = usePicksData();
   const [viewMode, setViewMode] = useState<ViewMode>("matches");
   const [selectedParticipant, setSelectedParticipant] = useState<string>("");
+  const [results, setResults] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch("/api/knockout-matches")
+      .then((r) => r.json())
+      .then((d) => setResults(d.results ?? {}))
+      .catch(() => {});
+  }, []);
 
   if (loading) {
     return (
@@ -134,17 +142,18 @@ export default function KnockoutBracketSection() {
       </div>
 
       {viewMode === "matches" && (
-        <MatchFocusView withTier2={withTier2} />
+        <MatchFocusView withTier2={withTier2} results={results} />
       )}
       {viewMode === "participant" && (
         <ParticipantBrowser
           withTier2={withTier2}
           selectedId={selectedParticipant}
           onSelect={setSelectedParticipant}
+          results={results}
         />
       )}
       {viewMode === "table" && (
-        <TableView withTier2={withTier2} />
+        <TableView withTier2={withTier2} results={results} />
       )}
     </div>
   );
@@ -152,7 +161,7 @@ export default function KnockoutBracketSection() {
 
 // ── View 1: Match Focus Cards ──
 
-function MatchFocusView({ withTier2 }: { withTier2: ParticipantData[] }) {
+function MatchFocusView({ withTier2, results }: { withTier2: ParticipantData[]; results: Record<string, string> }) {
   const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
 
   return (
@@ -203,13 +212,18 @@ function MatchFocusView({ withTier2 }: { withTier2: ParticipantData[] }) {
                       {sorted.map(([teamCode, names]) => {
                         const team = getTeamByCode(teamCode);
                         const pct = Math.round((names.length / withTier2.length) * 100);
+                        const actual = results[key];
+                        const isCorrect = actual && teamCode === actual;
+                        const isWrong = actual && teamCode !== actual;
+                        const nameColor = isCorrect ? "text-green-400" : isWrong ? "text-red-400" : "text-gray-200";
+                        const barColor = isCorrect ? "bg-green-500/60" : isWrong ? "bg-red-500/40" : "bg-gold/60";
                         return (
                           <div key={teamCode}>
                             <div className="flex items-center gap-2">
-                              <span className="text-base">{team?.flag ?? "🏳️"}</span>
-                              <span className="text-sm font-bold text-gray-200">{team?.name ?? teamCode}</span>
+                              <span className={`text-base ${isWrong ? "grayscale opacity-50" : ""}`}>{team?.flag ?? "🏳️"}</span>
+                              <span className={`text-sm font-bold ${nameColor}`}>{team?.name ?? teamCode}</span>
                               <div className="flex-1 h-2 bg-navy-lighter rounded-full overflow-hidden">
-                                <div className="h-full bg-gold/60 rounded-full" style={{ width: `${pct}%` }} />
+                                <div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
                               </div>
                               <span className="text-xs text-gray-400 font-medium w-12 text-right">
                                 {names.length} ({pct}%)
@@ -245,10 +259,12 @@ function ParticipantBrowser({
   withTier2,
   selectedId,
   onSelect,
+  results,
 }: {
   withTier2: ParticipantData[];
   selectedId: string;
   onSelect: (id: string) => void;
+  results: Record<string, string>;
 }) {
   const selected = withTier2.find((p) => p.id === selectedId) ?? withTier2[0];
 
@@ -288,16 +304,22 @@ function ParticipantBrowser({
                   {Array.from({ length: matchCount }, (_, i) => i + 1).map((matchNumber) => {
                     const pick = roundPicks.find((k) => k.matchNumber === matchNumber);
                     const team = pick ? getTeamByCode(pick.winner) : null;
+                    const key = `${round}_${matchNumber}`;
+                    const actual = results[key];
+                    const isCorrect = pick && actual && pick.winner === actual;
+                    const isWrong = pick && actual && pick.winner !== actual;
+                    const borderColor = isCorrect ? "border-green-500/40" : isWrong ? "border-red-500/40" : "border-white/10";
+                    const codeColor = isCorrect ? "text-green-400" : isWrong ? "text-red-400" : "text-gray-200";
                     return (
                       <div
                         key={matchNumber}
-                        className="border border-white/10 rounded-lg bg-navy-light/60 px-3 py-2 text-center"
+                        className={`${borderColor} border rounded-lg bg-navy-light/60 px-3 py-2 text-center`}
                       >
                         <div className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">M{matchNumber}</div>
                         {team ? (
                           <>
-                            <span className="text-xl block">{team.flag}</span>
-                            <span className="text-xs font-bold text-gray-200 block mt-0.5">{team.code}</span>
+                            <span className={`text-xl block ${isWrong ? "grayscale opacity-50" : ""}`}>{team.flag}</span>
+                            <span className={`text-xs font-bold ${codeColor} block mt-0.5`}>{team.code}</span>
                           </>
                         ) : (
                           <span className="text-xs text-gray-600">No pick</span>
@@ -317,7 +339,7 @@ function ParticipantBrowser({
 
 // ── View 3: Table Grid ──
 
-function TableView({ withTier2 }: { withTier2: ParticipantData[] }) {
+function TableView({ withTier2, results }: { withTier2: ParticipantData[]; results: Record<string, string> }) {
   // Build all match keys in order
   const matchKeys: { round: string; matchNumber: number; label: string }[] = [];
   for (const round of ROUND_ORDER) {
@@ -369,10 +391,12 @@ function TableView({ withTier2 }: { withTier2: ParticipantData[] }) {
                   const key = `${round}_${matchNumber}`;
                   const winner = koMap.get(key);
                   const team = winner ? getTeamByCode(winner) : null;
+                  const actual = results[key];
+                  const isWrong = winner && actual && winner !== actual;
                   return (
                     <td key={key} className="px-1 py-1.5 text-center">
                       {team ? (
-                        <span title={`${team.name} (${team.code})`} className="cursor-default">
+                        <span title={`${team.name} (${team.code})`} className={`cursor-default ${isWrong ? "grayscale opacity-40" : ""}`}>
                           {team.flag}
                         </span>
                       ) : (
