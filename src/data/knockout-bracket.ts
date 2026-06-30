@@ -10,7 +10,7 @@ export interface KnockoutMatchData {
 // R32 matchups from FIFA official bracket (verified June 28, 2026)
 export const R32_MATCHES: KnockoutMatchData[] = [
   { round: "round_of_32", matchNumber: 1, homeTeam: "RSA", awayTeam: "CAN", utcDate: "2026-06-28T19:00:00Z", status: "TIMED" },
-  { round: "round_of_32", matchNumber: 2, homeTeam: "NED", awayTeam: "MAR", utcDate: "2026-06-29T01:00:00Z", status: "TIMED" },
+  { round: "round_of_32", matchNumber: 2, homeTeam: "NED", awayTeam: "MAR", utcDate: "2026-06-30T01:00:00Z", status: "TIMED" },
   { round: "round_of_32", matchNumber: 3, homeTeam: "BRA", awayTeam: "JPN", utcDate: "2026-06-29T17:00:00Z", status: "TIMED" },
   { round: "round_of_32", matchNumber: 4, homeTeam: "GER", awayTeam: "PAR", utcDate: "2026-06-29T20:30:00Z", status: "TIMED" },
   { round: "round_of_32", matchNumber: 5, homeTeam: "CIV", awayTeam: "NOR", utcDate: "2026-06-30T17:00:00Z", status: "TIMED" },
