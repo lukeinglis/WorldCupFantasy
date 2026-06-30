@@ -252,7 +252,7 @@ export async function getLiveKnockoutResults(): Promise<LiveKnockoutResults | nu
     for (const match of stageMatches) {
       totalKnockout++;
 
-      if (match.status !== "FINISHED" || !match.score.winner) continue;
+      if (match.status !== "FINISHED") continue;
       finishedKnockout++;
 
       let winnerTla: string | null = null;
@@ -260,6 +260,13 @@ export async function getLiveKnockoutResults(): Promise<LiveKnockoutResults | nu
         winnerTla = match.homeTeam.tla;
       } else if (match.score.winner === "AWAY_TEAM") {
         winnerTla = match.awayTeam.tla;
+      } else if (match.score.fullTime.home != null && match.score.fullTime.away != null) {
+        // Penalty shootout: winner field is null but fullTime includes penalty goals
+        if (match.score.fullTime.home > match.score.fullTime.away) {
+          winnerTla = match.homeTeam.tla;
+        } else if (match.score.fullTime.away > match.score.fullTime.home) {
+          winnerTla = match.awayTeam.tla;
+        }
       }
       if (!winnerTla) continue;
 
