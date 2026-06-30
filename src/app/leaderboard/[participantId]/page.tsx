@@ -3,6 +3,7 @@ import Link from "next/link";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardHeader, CardBody } from "@/components/Card";
+import ReadOnlyBracket from "@/components/picks/ReadOnlyBracket";
 import { getUserById, getPicks, getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import {
@@ -11,7 +12,9 @@ import {
   setActualKnockoutResults,
   setKnockoutMatchSchedule,
   actualGroupResults,
+  actualKnockoutResults,
 } from "@/data/scoring";
+import { getAllKnockoutMatches } from "@/data/knockout-bracket";
 import { isApiConfigured, getMatches } from "@/lib/football-api";
 import { getLiveBonusResults, getLiveKnockoutResults } from "@/lib/live-scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
@@ -19,7 +22,6 @@ import {
   TIER1_MAX,
   TIER2_MAX,
   OVERALL_MAX,
-  knockoutRoundPoints,
 } from "@/data/participants";
 import {
   areTier1PicksRevealed,
@@ -44,23 +46,6 @@ export async function generateMetadata({
   };
 }
 
-const knockoutRoundLabels: Record<string, string> = {
-  round_of_32: "Round of 32",
-  round_of_16: "Round of 16",
-  quarter: "Quarter-Finals",
-  semi: "Semi-Finals",
-  third_place: "Third Place",
-  final: "Final",
-};
-
-const knockoutRoundOrder = [
-  "round_of_32",
-  "round_of_16",
-  "quarter",
-  "semi",
-  "third_place",
-  "final",
-];
 
 export default async function ParticipantDetailPage({
   params,
@@ -152,8 +137,18 @@ export default async function ParticipantDetailPage({
     : null;
 
   const groupPredictions = picks?.groupPredictions ?? [];
-  const knockoutPicks = picks?.knockoutPicks ?? [];
+  const knockoutPicks = (picks?.knockoutPicks ?? []) as import("@/data/participants").KnockoutPick[];
   const tiebreaker = picks?.tiebreaker ?? { homeScore: 0, awayScore: 0 };
+
+  const bracketMatches = getAllKnockoutMatches().map((m) => ({
+    round: m.round,
+    matchNumber: m.matchNumber,
+    homeTeam: m.homeTeam ? { tla: m.homeTeam, name: getTeamByCode(m.homeTeam)?.name ?? m.homeTeam } : null,
+    awayTeam: m.awayTeam ? { tla: m.awayTeam, name: getTeamByCode(m.awayTeam)?.name ?? m.awayTeam } : null,
+    utcDate: m.utcDate,
+    status: m.status,
+  }));
+  const bracketResults = actualKnockoutResults ?? {};
 
   return (
     <>
@@ -292,50 +287,11 @@ export default async function ParticipantDetailPage({
             </h2>
             {tier2Revealed ? (
               knockoutPicks.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {knockoutRoundOrder.map((round) => {
-                    const roundPicks = knockoutPicks.filter(
-                      (kp) => kp.round === round
-                    );
-                    if (roundPicks.length === 0) return null;
-                    const pts = knockoutRoundPoints[round] ?? 0;
-                    return (
-                      <Card key={round}>
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-heading text-sm font-bold uppercase tracking-wide text-white">
-                              {knockoutRoundLabels[round] ?? round}
-                            </h3>
-                            <span className="text-xs text-gold">{pts} pts each</span>
-                          </div>
-                        </CardHeader>
-                        <CardBody className="space-y-2">
-                          {roundPicks
-                            .sort((a, b) => a.matchNumber - b.matchNumber)
-                            .map((kp) => {
-                              const team = getTeamByCode(kp.winner);
-                              return (
-                                <div
-                                  key={`${kp.round}-${kp.matchNumber}`}
-                                  className="flex items-center gap-2"
-                                >
-                                  <span className="text-xs text-gray-600 w-5">
-                                    {kp.matchNumber}.
-                                  </span>
-                                  <span className="text-lg">
-                                    {team?.flag ?? "🏳️"}
-                                  </span>
-                                  <span className="text-sm text-white">
-                                    {team?.name ?? kp.winner}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                        </CardBody>
-                      </Card>
-                    );
-                  })}
-                </div>
+                <ReadOnlyBracket
+                  knockoutMatches={bracketMatches}
+                  picks={knockoutPicks}
+                  results={bracketResults}
+                />
               ) : (
                 <Card>
                   <CardBody className="text-center py-8">
