@@ -3,7 +3,7 @@ import Link from "next/link";
 import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardHeader, CardBody } from "@/components/Card";
-import ReadOnlyBracket from "@/components/picks/ReadOnlyBracket";
+import BracketDisplay from "@/components/BracketDisplay";
 import { getUserById, getPicks, getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import {
@@ -14,7 +14,7 @@ import {
   actualGroupResults,
   actualKnockoutResults,
 } from "@/data/scoring";
-import { getAllKnockoutMatches } from "@/data/knockout-bracket";
+import { R32_MATCHES } from "@/data/knockout-bracket";
 import { isApiConfigured, getMatches } from "@/lib/football-api";
 import { getLiveBonusResults, getLiveKnockoutResults } from "@/lib/live-scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
@@ -140,15 +140,22 @@ export default async function ParticipantDetailPage({
   const knockoutPicks = (picks?.knockoutPicks ?? []) as import("@/data/participants").KnockoutPick[];
   const tiebreaker = picks?.tiebreaker ?? { homeScore: 0, awayScore: 0 };
 
-  const bracketMatches = getAllKnockoutMatches().map((m) => ({
-    round: m.round,
-    matchNumber: m.matchNumber,
-    homeTeam: m.homeTeam ? { tla: m.homeTeam, name: getTeamByCode(m.homeTeam)?.name ?? m.homeTeam } : null,
-    awayTeam: m.awayTeam ? { tla: m.awayTeam, name: getTeamByCode(m.awayTeam)?.name ?? m.awayTeam } : null,
-    utcDate: m.utcDate,
-    status: m.status,
-  }));
+  const picksMap: Record<string, string> = {};
+  for (const kp of knockoutPicks) {
+    picksMap[`${kp.round}_${kp.matchNumber}`] = kp.winner;
+  }
   const bracketResults = actualKnockoutResults ?? {};
+  const eliminatedTeams = new Set<string>();
+  for (const [key, winner] of Object.entries(bracketResults)) {
+    if (key.startsWith("round_of_32_")) {
+      const num = parseInt(key.replace("round_of_32_", ""), 10);
+      const r32 = R32_MATCHES.find((m) => m.matchNumber === num);
+      if (r32) {
+        if (r32.homeTeam && r32.homeTeam !== winner) eliminatedTeams.add(r32.homeTeam);
+        if (r32.awayTeam && r32.awayTeam !== winner) eliminatedTeams.add(r32.awayTeam);
+      }
+    }
+  }
 
   return (
     <>
@@ -287,10 +294,10 @@ export default async function ParticipantDetailPage({
             </h2>
             {tier2Revealed ? (
               knockoutPicks.length > 0 ? (
-                <ReadOnlyBracket
-                  knockoutMatches={bracketMatches}
-                  picks={knockoutPicks}
-                  results={bracketResults}
+                <BracketDisplay
+                  picks={picksMap}
+                  actualResults={bracketResults}
+                  eliminatedTeams={eliminatedTeams}
                 />
               ) : (
                 <Card>
