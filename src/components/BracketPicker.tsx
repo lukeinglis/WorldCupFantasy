@@ -98,6 +98,7 @@ function TeamRow({
   disabled,
   position,
   pickResult,
+  readOnly,
 }: {
   teamCode: string | null;
   isSelected: boolean;
@@ -105,6 +106,7 @@ function TeamRow({
   disabled: boolean;
   position: "top" | "bottom";
   pickResult?: "correct" | "wrong" | null;
+  readOnly?: boolean;
 }) {
   const team = teamCode ? getTeamByCode(teamCode) : null;
   const code = team?.code ?? teamCode ?? "TBD";
@@ -115,6 +117,7 @@ function TeamRow({
   let selectedStyle = "bg-gold/20 text-gold";
   if (isSelected && pickResult === "correct") selectedStyle = "bg-green-500/20 text-green-400";
   else if (isSelected && pickResult === "wrong") selectedStyle = "bg-red-500/20 text-red-400";
+  else if (isSelected && readOnly) selectedStyle = "bg-navy-lighter/60 text-gray-300";
 
   return (
     <button
@@ -133,7 +136,7 @@ function TeamRow({
       <span className="text-xs font-semibold truncate flex-1">{code}</span>
       {isSelected && pickResult === "correct" && <span className="text-[10px] text-green-400 font-bold shrink-0">✓</span>}
       {isSelected && pickResult === "wrong" && <span className="text-[10px] text-red-400 font-bold shrink-0">✗</span>}
-      {isSelected && !pickResult && <span className="text-[10px] text-gold font-bold shrink-0">✓</span>}
+      {isSelected && !pickResult && !readOnly && <span className="text-[10px] text-gold font-bold shrink-0">✓</span>}
     </button>
   );
 }
@@ -153,6 +156,7 @@ function BracketMatchCard({
   disabled,
   width,
   pickResult,
+  readOnly,
 }: {
   homeTeam: string | null;
   awayTeam: string | null;
@@ -161,6 +165,7 @@ function BracketMatchCard({
   disabled: boolean;
   width?: number;
   pickResult?: "correct" | "wrong" | null;
+  readOnly?: boolean;
 }) {
   let borderColor = "border-white/15";
   if (pickResult === "correct") borderColor = "border-green-500/40";
@@ -175,6 +180,7 @@ function BracketMatchCard({
         disabled={disabled || !homeTeam}
         position="top"
         pickResult={selectedWinner === homeTeam && !!homeTeam ? pickResult : undefined}
+        readOnly={readOnly}
       />
       <div className="border-t border-white/10" />
       <TeamRow
@@ -184,6 +190,7 @@ function BracketMatchCard({
         disabled={disabled || !awayTeam}
         position="bottom"
         pickResult={selectedWinner === awayTeam && !!awayTeam ? pickResult : undefined}
+        readOnly={readOnly}
       />
     </div>
   );
@@ -197,6 +204,7 @@ function BracketSlotColumn({
   onPick,
   disabled,
   results,
+  readOnly,
 }: {
   round: string;
   matchNumbers: number[];
@@ -205,6 +213,7 @@ function BracketSlotColumn({
   onPick: (round: string, matchNumber: number, winner: string) => void;
   disabled: boolean;
   results?: Record<string, string>;
+  readOnly?: boolean;
 }) {
   const roundIdx = BRACKET_ROUNDS.indexOf(round);
   const slotH = PICKER_SLOT_H * Math.pow(2, roundIdx);
@@ -231,6 +240,7 @@ function BracketSlotColumn({
               disabled={disabled}
               width={width}
               pickResult={pickResult}
+              readOnly={readOnly}
             />
           </div>
         );
@@ -247,12 +257,14 @@ function TeamButton({
   onClick,
   disabled,
   pickResult,
+  readOnly,
 }: {
   teamCode: string | null;
   isSelected: boolean;
   onClick: () => void;
   disabled: boolean;
   pickResult?: "correct" | "wrong" | null;
+  readOnly?: boolean;
 }) {
   const team = teamCode ? getTeamByCode(teamCode) : null;
   const displayName = team?.name ?? teamCode ?? "TBD";
@@ -270,6 +282,10 @@ function TeamButton({
     selectedStyle = "bg-red-500/15 border-2 border-red-500/50 shadow-sm shadow-red-500/10";
     textColor = "text-red-400";
     badge = "✗";
+  } else if (isSelected && readOnly) {
+    selectedStyle = "bg-navy-lighter/40 border border-white/10";
+    textColor = "text-gray-300";
+    badge = "";
   }
 
   return (
@@ -289,7 +305,7 @@ function TeamButton({
       <span className={`text-sm font-medium truncate ${isSelected ? textColor : isTbd ? "text-gray-700" : "text-gray-300"}`}>
         {displayName}
       </span>
-      {isSelected && <span className={`ml-auto ${textColor} text-xs font-bold shrink-0`}>{badge}</span>}
+      {isSelected && badge && <span className={`ml-auto ${textColor} text-xs font-bold shrink-0`}>{badge}</span>}
     </button>
   );
 }
@@ -445,10 +461,10 @@ export default function BracketPicker({
       {/* ── BRACKET VIEW (desktop) ── */}
       <div className="hidden lg:block overflow-x-auto -mx-8 px-2">
         <div className="flex items-start justify-center gap-2 min-w-fit py-4">
-          <BracketSlotColumn round="round_of_32" matchNumbers={leftR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
-          <BracketSlotColumn round="round_of_16" matchNumbers={leftR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
-          <BracketSlotColumn round="quarter" matchNumbers={leftQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
-          <BracketSlotColumn round="semi" matchNumbers={[1]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
+          <BracketSlotColumn round="round_of_32" matchNumbers={leftR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} readOnly={readOnly} />
+          <BracketSlotColumn round="round_of_16" matchNumbers={leftR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} readOnly={readOnly} />
+          <BracketSlotColumn round="quarter" matchNumbers={leftQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} readOnly={readOnly} />
+          <BracketSlotColumn round="semi" matchNumbers={[1]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} readOnly={readOnly} />
 
           {/* Center: Final + 3rd Place */}
           <div className="flex flex-col shrink-0 mx-2">
@@ -466,6 +482,7 @@ export default function BracketPicker({
                   disabled={disabled}
                   width={PICKER_WIDTHS.final}
                   pickResult={pr}
+                  readOnly={readOnly}
                 />); })()}
                 <div>
                   <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center mb-1">
@@ -486,10 +503,10 @@ export default function BracketPicker({
             </div>
           </div>
 
-          <BracketSlotColumn round="semi" matchNumbers={[2]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
-          <BracketSlotColumn round="quarter" matchNumbers={rightQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
-          <BracketSlotColumn round="round_of_16" matchNumbers={rightR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
-          <BracketSlotColumn round="round_of_32" matchNumbers={rightR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} />
+          <BracketSlotColumn round="semi" matchNumbers={[2]} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} readOnly={readOnly} />
+          <BracketSlotColumn round="quarter" matchNumbers={rightQF} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} readOnly={readOnly} />
+          <BracketSlotColumn round="round_of_16" matchNumbers={rightR16} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} readOnly={readOnly} />
+          <BracketSlotColumn round="round_of_32" matchNumbers={rightR32} derivedTeams={derivedTeams} picksMap={picksMap} onPick={handlePick} disabled={disabled} results={results} readOnly={readOnly} />
         </div>
       </div>
 
@@ -556,6 +573,7 @@ export default function BracketPicker({
                           onClick={() => homeTeam && handlePick(round, matchNumber, homeTeam)}
                           disabled={!homeTeam || disabled}
                           pickResult={selectedWinner === homeTeam && !!homeTeam ? pickResult : undefined}
+                          readOnly={readOnly}
                         />
                         <div className="flex items-center px-1">
                           <span className="text-xs text-gray-700 font-bold">vs</span>
@@ -566,6 +584,7 @@ export default function BracketPicker({
                           onClick={() => awayTeam && handlePick(round, matchNumber, awayTeam)}
                           disabled={!awayTeam || disabled}
                           pickResult={selectedWinner === awayTeam && !!awayTeam ? pickResult : undefined}
+                          readOnly={readOnly}
                         />
                       </div>
                     </div>
