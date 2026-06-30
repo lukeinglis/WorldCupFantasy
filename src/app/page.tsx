@@ -19,7 +19,8 @@ import {
   actualKnockoutResults,
 } from "@/data/scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
-import { R32_MATCHES, getAllKnockoutMatches } from "@/data/knockout-bracket";
+import { R32_MATCHES } from "@/data/knockout-bracket";
+import BracketDisplay from "@/components/BracketDisplay";
 import { getMatches, getScorers, isApiConfigured } from "@/lib/football-api";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
@@ -32,184 +33,29 @@ import type { TransformedMatch, TransformedScorer } from "@/lib/football-api-typ
 
 export const dynamic = "force-dynamic";
 
-// ── Read-only bracket display for homepage ──
-
-const BRACKET_PATH: Record<string, { round: string; matchNumber: number; slot: "home" | "away" }> = {
-  "round_of_32_4": { round: "round_of_16", matchNumber: 1, slot: "home" },
-  "round_of_32_6": { round: "round_of_16", matchNumber: 1, slot: "away" },
-  "round_of_32_1": { round: "round_of_16", matchNumber: 2, slot: "home" },
-  "round_of_32_2": { round: "round_of_16", matchNumber: 2, slot: "away" },
-  "round_of_32_3": { round: "round_of_16", matchNumber: 3, slot: "home" },
-  "round_of_32_5": { round: "round_of_16", matchNumber: 3, slot: "away" },
-  "round_of_32_7": { round: "round_of_16", matchNumber: 4, slot: "home" },
-  "round_of_32_9": { round: "round_of_16", matchNumber: 4, slot: "away" },
-  "round_of_32_11": { round: "round_of_16", matchNumber: 5, slot: "home" },
-  "round_of_32_12": { round: "round_of_16", matchNumber: 5, slot: "away" },
-  "round_of_32_8": { round: "round_of_16", matchNumber: 6, slot: "home" },
-  "round_of_32_10": { round: "round_of_16", matchNumber: 6, slot: "away" },
-  "round_of_32_15": { round: "round_of_16", matchNumber: 7, slot: "home" },
-  "round_of_32_14": { round: "round_of_16", matchNumber: 7, slot: "away" },
-  "round_of_32_13": { round: "round_of_16", matchNumber: 8, slot: "home" },
-  "round_of_32_16": { round: "round_of_16", matchNumber: 8, slot: "away" },
-  "round_of_16_1": { round: "quarter", matchNumber: 1, slot: "home" },
-  "round_of_16_2": { round: "quarter", matchNumber: 1, slot: "away" },
-  "round_of_16_5": { round: "quarter", matchNumber: 2, slot: "home" },
-  "round_of_16_6": { round: "quarter", matchNumber: 2, slot: "away" },
-  "round_of_16_3": { round: "quarter", matchNumber: 3, slot: "home" },
-  "round_of_16_4": { round: "quarter", matchNumber: 3, slot: "away" },
-  "round_of_16_7": { round: "quarter", matchNumber: 4, slot: "home" },
-  "round_of_16_8": { round: "quarter", matchNumber: 4, slot: "away" },
-  "quarter_1": { round: "semi", matchNumber: 1, slot: "home" },
-  "quarter_2": { round: "semi", matchNumber: 1, slot: "away" },
-  "quarter_3": { round: "semi", matchNumber: 2, slot: "home" },
-  "quarter_4": { round: "semi", matchNumber: 2, slot: "away" },
-  "semi_1": { round: "final", matchNumber: 1, slot: "home" },
-  "semi_2": { round: "final", matchNumber: 1, slot: "away" },
-};
-
-const SLOT_H = 78;
-const CARD_WIDTHS: Record<string, number> = {
-  round_of_32: 108,
-  round_of_16: 116,
-  quarter: 124,
-  semi: 132,
-  final: 148,
-};
-
-function BracketTeamRow({ code, size, eliminated }: { code: string | null; size: "sm" | "md" | "lg"; eliminated?: boolean }) {
-  const team = code ? getTeamByCode(code) : null;
-  const textSize = size === "lg" ? "text-sm" : size === "md" ? "text-xs" : "text-xs";
-  const flagSize = size === "lg" ? "text-lg" : "text-base";
-  const py = size === "lg" ? "py-2" : "py-1.5";
-  return (
-    <div className={`flex items-center gap-1.5 px-2 ${py} ${code ? "" : "opacity-25"} ${eliminated ? "opacity-35" : ""}`}>
-      <span className={`${flagSize} leading-none ${eliminated ? "grayscale" : ""}`}>{team?.flag ?? "🏳️"}</span>
-      <span className={`${textSize} font-bold ${eliminated ? "text-gray-600 line-through" : "text-gray-200"}`}>{team?.code ?? "TBD"}</span>
-    </div>
-  );
-}
-
-function BracketMatchCard({ home, away, date, width, size, winner }: {
-  home: string | null; away: string | null; date?: string; width: number; size: "sm" | "md" | "lg"; winner?: string;
-}) {
-  return (
-    <div className="border border-white/15 rounded bg-navy-light/60 overflow-hidden shrink-0" style={{ width: `${width}px` }}>
-      {date && (
-        <div className="text-[9px] text-gray-500 text-center py-0.5 bg-white/[0.03] border-b border-white/10 font-medium">
-          {date}
-        </div>
-      )}
-      <BracketTeamRow code={home} size={size} eliminated={!!winner && home !== winner} />
-      <div className="border-t border-white/10" />
-      <BracketTeamRow code={away} size={size} eliminated={!!winner && away !== winner} />
-    </div>
-  );
-}
-
-function BracketRoundCol({ matchNumbers, allTeams, round, dates, results }: {
-  matchNumbers: number[];
-  allTeams: Map<string, { home: string | null; away: string | null }>;
-  round: string;
-  dates: Map<string, string>;
-  results?: Record<string, string>;
-}) {
-  const roundIdx = ["round_of_32", "round_of_16", "quarter", "semi"].indexOf(round);
-  const slotMultiplier = Math.pow(2, roundIdx);
-  const slotH = SLOT_H * slotMultiplier;
-  const width = CARD_WIDTHS[round] ?? 108;
-  const size = roundIdx <= 1 ? "sm" as const : "md" as const;
-  const label = round === "round_of_32" ? "R32" : round === "round_of_16" ? "R16" : round === "quarter" ? "QF" : "SF";
-
-  return (
-    <div className="flex flex-col shrink-0">
-      <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center mb-1">{label}</div>
-      {matchNumbers.map((mn) => {
-        const key = `${round}_${mn}`;
-        const teams = allTeams.get(key);
-        const date = dates.get(key);
-        return (
-          <div key={key} className="flex items-center justify-center" style={{ height: `${slotH}px` }}>
-            <BracketMatchCard home={teams?.home ?? null} away={teams?.away ?? null} date={date} width={width} size={size} winner={results?.[key]} />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
+// ── Homepage bracket: shows actual tournament results ──
 
 function HomepageBracket({ knockoutResults }: { knockoutResults?: Record<string, string> }) {
-  const allMatches = getAllKnockoutMatches();
-  const allTeams = new Map<string, { home: string | null; away: string | null }>();
-  const dates = new Map<string, string>();
-
-  for (const m of allMatches) {
-    const key = `${m.round}_${m.matchNumber}`;
-    allTeams.set(key, { home: m.homeTeam, away: m.awayTeam });
-    if (m.utcDate) {
-      const d = new Date(m.utcDate);
-      dates.set(key, d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
-    }
-  }
-
-  // Propagate winners into next-round slots using the bracket path
+  const eliminatedTeams = new Set<string>();
   if (knockoutResults) {
-    const ROUNDS = ["round_of_32", "round_of_16", "quarter", "semi"];
-    for (const round of ROUNDS) {
-      const matchCount = round === "round_of_32" ? 16 : round === "round_of_16" ? 8 : round === "quarter" ? 4 : 2;
-      for (let m = 1; m <= matchCount; m++) {
-        const key = `${round}_${m}`;
-        const winner = knockoutResults[key];
-        if (!winner) continue;
-        const next = BRACKET_PATH[key];
-        if (!next) continue;
-        const nextKey = `${next.round}_${next.matchNumber}`;
-        const current = allTeams.get(nextKey) ?? { home: null, away: null };
-        allTeams.set(nextKey, { ...current, [next.slot]: winner });
+    for (const [key, winner] of Object.entries(knockoutResults)) {
+      if (key.startsWith("round_of_32_")) {
+        const num = parseInt(key.replace("round_of_32_", ""), 10);
+        const r32 = R32_MATCHES.find((m) => m.matchNumber === num);
+        if (r32) {
+          if (r32.homeTeam && r32.homeTeam !== winner) eliminatedTeams.add(r32.homeTeam);
+          if (r32.awayTeam && r32.awayTeam !== winner) eliminatedTeams.add(r32.awayTeam);
+        }
       }
     }
   }
 
-  const leftR32 = [4, 6, 1, 2, 11, 12, 8, 10];
-  const rightR32 = [3, 5, 7, 9, 15, 14, 13, 16];
-
   return (
-    <div className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-2">
-      <div className="flex items-start justify-center gap-2 min-w-fit py-4">
-        {/* Left half */}
-        <BracketRoundCol round="round_of_32" matchNumbers={leftR32} allTeams={allTeams} dates={dates} results={knockoutResults} />
-
-        <BracketRoundCol round="round_of_16" matchNumbers={[1, 2, 5, 6]} allTeams={allTeams} dates={dates} results={knockoutResults} />
-
-        <BracketRoundCol round="quarter" matchNumbers={[1, 2]} allTeams={allTeams} dates={dates} results={knockoutResults} />
-
-        <BracketRoundCol round="semi" matchNumbers={[1]} allTeams={allTeams} dates={dates} results={knockoutResults} />
-
-        {/* Center: Final */}
-        <div className="flex flex-col shrink-0 mx-3">
-          <div className="text-xs text-gold font-bold uppercase tracking-widest text-center mb-1">Final</div>
-          <div className="flex items-center justify-center" style={{ height: `${SLOT_H * 8}px` }}>
-            <BracketMatchCard
-              home={allTeams.get("final_1")?.home ?? null}
-              away={allTeams.get("final_1")?.away ?? null}
-              date={dates.get("final_1")}
-              width={CARD_WIDTHS.final}
-              size="lg"
-              winner={knockoutResults?.["final_1"]}
-            />
-          </div>
-        </div>
-
-        {/* Right half */}
-        <BracketRoundCol round="semi" matchNumbers={[2]} allTeams={allTeams} dates={dates} results={knockoutResults} />
-
-        <BracketRoundCol round="quarter" matchNumbers={[3, 4]} allTeams={allTeams} dates={dates} results={knockoutResults} />
-
-        <BracketRoundCol round="round_of_16" matchNumbers={[3, 4, 7, 8]} allTeams={allTeams} dates={dates} results={knockoutResults} />
-
-        <BracketRoundCol round="round_of_32" matchNumbers={rightR32} allTeams={allTeams} dates={dates} results={knockoutResults} />
-      </div>
-    </div>
+    <BracketDisplay
+      picks={knockoutResults ?? {}}
+      actualResults={knockoutResults}
+      eliminatedTeams={eliminatedTeams}
+    />
   );
 }
 

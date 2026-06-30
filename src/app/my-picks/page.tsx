@@ -10,6 +10,7 @@ import { getTeamsByGroup, teams, groupLabels } from "@/data/teams";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import { getCurrentPhase, knockoutRoundMatchCounts } from "@/data/participants";
 import BracketPicker from "@/components/BracketPicker";
+import BracketDisplay from "@/components/BracketDisplay";
 import type { KnockoutPick } from "@/data/participants";
 import type { KnockoutMatch } from "@/components/BracketPicker";
 
@@ -524,6 +525,25 @@ function Tier2SubmittedSummary({
   knockoutMatches: KnockoutMatch[];
   knockoutResults: Record<string, string>;
 }) {
+  const picksMap: Record<string, string> = {};
+  for (const kp of knockoutPicks) {
+    picksMap[`${kp.round}_${kp.matchNumber}`] = kp.winner;
+  }
+
+  const eliminatedTeams = new Set<string>();
+  for (const [key, winner] of Object.entries(knockoutResults)) {
+    if (key.startsWith("round_of_32_")) {
+      const num = parseInt(key.replace("round_of_32_", ""), 10);
+      const r32Match = knockoutMatches.find(
+        (m) => m.round === "round_of_32" && m.matchNumber === num
+      );
+      if (r32Match) {
+        if (r32Match.homeTeam && r32Match.homeTeam.tla !== winner) eliminatedTeams.add(r32Match.homeTeam.tla);
+        if (r32Match.awayTeam && r32Match.awayTeam.tla !== winner) eliminatedTeams.add(r32Match.awayTeam.tla);
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card className="border-gold/20">
@@ -543,13 +563,10 @@ function Tier2SubmittedSummary({
       <h3 className="font-heading text-lg font-bold uppercase tracking-wide text-white">
         Your Knockout Picks
       </h3>
-      <BracketPicker
-        knockoutMatches={knockoutMatches}
-        picks={knockoutPicks}
-        onPicksChange={() => {}}
-        disabled
-        readOnly
-        results={knockoutResults}
+      <BracketDisplay
+        picks={picksMap}
+        actualResults={knockoutResults}
+        eliminatedTeams={eliminatedTeams}
       />
 
       {/* Golden Ball */}
