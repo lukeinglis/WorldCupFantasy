@@ -16,6 +16,7 @@ import {
   setActualKnockoutResults,
   setKnockoutMatchSchedule,
   actualGroupResults,
+  actualKnockoutResults,
 } from "@/data/scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { R32_MATCHES, getAllKnockoutMatches } from "@/data/knockout-bracket";
@@ -693,7 +694,7 @@ export default async function Home() {
               Make Your Picks →
             </Link>
           </div>
-          <HomepageBracket knockoutResults={liveKnockoutResults} />
+          <HomepageBracket knockoutResults={liveKnockoutResults ?? actualKnockoutResults ?? undefined} />
         </Container>
       </section>
 
