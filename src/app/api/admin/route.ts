@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllUsersWithPicks, getUserById, removeParticipant, isKvConfigured } from "@/lib/storage";
+import { getAllUsersWithPicks, getUserById, removeParticipant, getPicks, savePicks, isKvConfigured } from "@/lib/storage";
 import { isAdmin } from "@/lib/auth";
 import { getLogger } from "@/lib/logger";
 
@@ -98,6 +98,62 @@ export async function DELETE(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to remove participant";
     log.error({ err: message }, "Admin DELETE error");
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// PATCH /api/admin - Merge Tier 2 picks from one participant to another (admin only)
+export async function PATCH(request: Request) {
+  const requestId = request.headers.get("x-request-id") || "unknown";
+  const log = getLogger("api/admin").child({ requestId });
+  log.info("PATCH /api/admin");
+  try {
+    if (!isKvConfigured()) {
+      return NextResponse.json({ error: "KV not configured" }, { status: 503 });
+    }
+
+    const body = await request.json();
+    const { userId, fromId, toId } = body;
+
+    if (!userId || !fromId || !toId) {
+      return NextResponse.json({ error: "userId, fromId, and toId required" }, { status: 400 });
+    }
+
+    const requestingUser = await getUserById(userId);
+    if (!requestingUser || !isAdmin(requestingUser.email)) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    const fromPicks = await getPicks(fromId);
+    const toPicks = await getPicks(toId);
+
+    if (!fromPicks) {
+      return NextResponse.json({ error: "Source participant has no picks" }, { status: 404 });
+    }
+    if (!toPicks) {
+      return NextResponse.json({ error: "Target participant has no picks" }, { status: 404 });
+    }
+
+    toPicks.knockoutPicks = fromPicks.knockoutPicks;
+    toPicks.goldenBall = fromPicks.goldenBall;
+    toPicks.tier2Submitted = fromPicks.tier2Submitted;
+    toPicks.submittedAt = fromPicks.submittedAt;
+
+    await savePicks(toPicks);
+
+    log.info({ fromId, toId, mergedBy: requestingUser.email }, "Tier 2 picks merged by admin");
+    return NextResponse.json({
+      success: true,
+      merged: {
+        from: fromId,
+        to: toId,
+        knockoutPicksCount: (fromPicks.knockoutPicks ?? []).length,
+        goldenBall: fromPicks.goldenBall ?? "",
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to merge picks";
+    log.error({ err: message }, "Admin PATCH error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
