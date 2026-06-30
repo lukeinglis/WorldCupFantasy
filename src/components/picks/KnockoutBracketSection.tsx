@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamByCode } from "@/data/teams";
 import { knockoutRoundPoints, knockoutRoundMatchCounts } from "@/data/participants";
 import { R32_MATCHES } from "@/data/knockout-bracket";
+import BracketDisplay from "@/components/BracketDisplay";
 
 const ROUND_LABELS: Record<string, string> = {
   round_of_32: "Round of 32",
@@ -312,60 +313,26 @@ function ParticipantBrowser({
         ))}
       </select>
 
-      {selected && (
-        <div className="space-y-6">
-          {/* Golden Ball */}
-          <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-3">
-            <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Golden Ball Pick</span>
-            <p className="text-sm text-gold font-bold mt-1">{getPicks(selected)?.goldenBall || "None"}</p>
+      {selected && (() => {
+        const ko = getKO(selected);
+        const picksMap: Record<string, string> = {};
+        for (const kp of ko) {
+          picksMap[`${kp.round}_${kp.matchNumber}`] = kp.winner;
+        }
+        return (
+          <div className="space-y-6">
+            <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-3">
+              <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Golden Ball Pick</span>
+              <p className="text-sm text-gold font-bold mt-1">{getPicks(selected)?.goldenBall || "None"}</p>
+            </div>
+            <BracketDisplay
+              picks={picksMap}
+              actualResults={results}
+              eliminatedTeams={eliminatedTeams}
+            />
           </div>
-
-          {ROUND_ORDER.map((round) => {
-            const matchCount = knockoutRoundMatchCounts[round] ?? 0;
-            const ko = getKO(selected);
-            const roundPicks = ko.filter((k) => k.round === round).sort((a, b) => a.matchNumber - b.matchNumber);
-
-            if (roundPicks.length === 0) return null;
-
-            return (
-              <div key={round}>
-                <h3 className="font-heading text-base font-bold uppercase tracking-wide text-white mb-2">
-                  {ROUND_LABELS[round]}
-                </h3>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-                  {Array.from({ length: matchCount }, (_, i) => i + 1).map((matchNumber) => {
-                    const pick = roundPicks.find((k) => k.matchNumber === matchNumber);
-                    const team = pick ? getTeamByCode(pick.winner) : null;
-                    const key = `${round}_${matchNumber}`;
-                    const actual = results[key];
-                    const isCorrect = pick && actual && pick.winner === actual;
-                    const isWrong = pick && actual && pick.winner !== actual;
-                    const isEliminated = pick && !actual && eliminatedTeams.has(pick.winner);
-                    const borderColor = isCorrect ? "border-green-500/40" : (isWrong || isEliminated) ? "border-red-500/40" : "border-white/10";
-                    const codeColor = isCorrect ? "text-green-400" : (isWrong || isEliminated) ? "text-red-400" : "text-gray-200";
-                    return (
-                      <div
-                        key={matchNumber}
-                        className={`${borderColor} border rounded-lg bg-navy-light/60 px-3 py-2 text-center`}
-                      >
-                        <div className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">M{matchNumber}</div>
-                        {team ? (
-                          <>
-                            <span className={`text-xl block ${(isWrong || isEliminated) ? "grayscale opacity-50" : ""}`}>{team.flag}</span>
-                            <span className={`text-xs font-bold ${codeColor} block mt-0.5`}>{team.code}</span>
-                          </>
-                        ) : (
-                          <span className="text-xs text-gray-600">No pick</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
