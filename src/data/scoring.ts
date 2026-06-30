@@ -1,5 +1,6 @@
 import type { Participant, GroupPrediction, Points } from "./participants";
 import { knockoutRoundPoints } from "./participants";
+import { R32_MATCHES } from "./knockout-bracket";
 import logger from "@/lib/logger";
 
 /**
@@ -86,7 +87,16 @@ const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
 export let actualKnockoutResults: Record<string, string> | null = { ...HARDCODED_KNOCKOUT_RESULTS };
 
 // Knockout match schedule for late submission penalty
-export let knockoutMatchSchedule: { round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[] | null = null;
+// Initialize from hardcoded R32 matches so late penalty works even without live API
+export let knockoutMatchSchedule: { round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[] | null =
+  R32_MATCHES.map((m) => ({
+    round: m.round,
+    matchNumber: m.matchNumber,
+    utcDate: m.utcDate,
+    homeTeam: m.homeTeam ?? "",
+    awayTeam: m.awayTeam ?? "",
+    status: HARDCODED_KNOCKOUT_RESULTS[`${m.round}_${m.matchNumber}`] ? "FINISHED" : m.status,
+  }));
 
 export function setKnockoutMatchSchedule(matches: typeof knockoutMatchSchedule): void {
   const matchCount = matches ? matches.length : 0;
