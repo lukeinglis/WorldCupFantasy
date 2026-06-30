@@ -214,7 +214,7 @@ export function scoreTier2Bracket(participant: Participant): number {
   if (isLate && knockoutMatchSchedule) {
     for (const match of knockoutMatchSchedule) {
       const matchDate = new Date(match.utcDate);
-      if (match.status === "FINISHED" || matchDate < submittedAt) {
+      if (matchDate < submittedAt) {
         missedMatches.add(`${match.round}_${match.matchNumber}`);
         if (match.homeTeam) taintedTeams.add(match.homeTeam);
         if (match.awayTeam) taintedTeams.add(match.awayTeam);
