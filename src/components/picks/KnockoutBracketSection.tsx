@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { usePicksData } from "@/hooks/usePicksData";
 import { Card, CardBody, CardHeader } from "@/components/Card";
@@ -59,13 +59,41 @@ export default function KnockoutBracketSection() {
   const [viewMode, setViewMode] = useState<ViewMode>("matches");
   const [selectedParticipant, setSelectedParticipant] = useState<string>("");
   const [results, setResults] = useState<Record<string, string>>({});
+  const [matchTeams, setMatchTeams] = useState<{ round: string; matchNumber: number; home: string | null; away: string | null }[]>([]);
 
   useEffect(() => {
     fetch("/api/knockout-matches")
       .then((r) => r.json())
-      .then((d) => setResults(d.results ?? {}))
+      .then((d) => {
+        setResults(d.results ?? {});
+        setMatchTeams((d.matches ?? []).map((m: { round: string; matchNumber: number; homeTeam: { tla: string } | null; awayTeam: { tla: string } | null }) => ({
+          round: m.round,
+          matchNumber: m.matchNumber,
+          home: m.homeTeam?.tla ?? null,
+          away: m.awayTeam?.tla ?? null,
+        })));
+      })
       .catch(() => {});
   }, []);
+
+  const eliminatedTeams = useMemo(() => {
+    const eliminated = new Set<string>();
+    for (const [key, winner] of Object.entries(results)) {
+      const match = matchTeams.find((m) => `${m.round}_${m.matchNumber}` === key);
+      if (match) {
+        if (match.home && match.home !== winner) eliminated.add(match.home);
+        if (match.away && match.away !== winner) eliminated.add(match.away);
+      } else if (key.startsWith("round_of_32_")) {
+        const num = parseInt(key.replace("round_of_32_", ""), 10);
+        const r32 = R32_MATCHES.find((m) => m.matchNumber === num);
+        if (r32) {
+          if (r32.homeTeam && r32.homeTeam !== winner) eliminated.add(r32.homeTeam);
+          if (r32.awayTeam && r32.awayTeam !== winner) eliminated.add(r32.awayTeam);
+        }
+      }
+    }
+    return eliminated;
+  }, [results, matchTeams]);
 
   if (loading) {
     return (
@@ -142,7 +170,7 @@ export default function KnockoutBracketSection() {
       </div>
 
       {viewMode === "matches" && (
-        <MatchFocusView withTier2={withTier2} results={results} />
+        <MatchFocusView withTier2={withTier2} results={results} eliminatedTeams={eliminatedTeams} />
       )}
       {viewMode === "participant" && (
         <ParticipantBrowser
@@ -150,10 +178,11 @@ export default function KnockoutBracketSection() {
           selectedId={selectedParticipant}
           onSelect={setSelectedParticipant}
           results={results}
+          eliminatedTeams={eliminatedTeams}
         />
       )}
       {viewMode === "table" && (
-        <TableView withTier2={withTier2} results={results} />
+        <TableView withTier2={withTier2} results={results} eliminatedTeams={eliminatedTeams} />
       )}
     </div>
   );
@@ -161,7 +190,7 @@ export default function KnockoutBracketSection() {
 
 // ── View 1: Match Focus Cards ──
 
-function MatchFocusView({ withTier2, results }: { withTier2: ParticipantData[]; results: Record<string, string> }) {
+function MatchFocusView({ withTier2, results, eliminatedTeams }: { withTier2: ParticipantData[]; results: Record<string, string>; eliminatedTeams: Set<string> }) {
   const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
 
   return (
@@ -215,12 +244,13 @@ function MatchFocusView({ withTier2, results }: { withTier2: ParticipantData[]; 
                         const actual = results[key];
                         const isCorrect = actual && teamCode === actual;
                         const isWrong = actual && teamCode !== actual;
-                        const nameColor = isCorrect ? "text-green-400" : isWrong ? "text-red-400" : "text-gray-200";
-                        const barColor = isCorrect ? "bg-green-500/60" : isWrong ? "bg-red-500/40" : "bg-gold/60";
+                        const isEliminated = !actual && eliminatedTeams.has(teamCode);
+                        const nameColor = isCorrect ? "text-green-400" : (isWrong || isEliminated) ? "text-red-400" : "text-gray-200";
+                        const barColor = isCorrect ? "bg-green-500/60" : (isWrong || isEliminated) ? "bg-red-500/40" : "bg-gold/60";
                         return (
                           <div key={teamCode}>
                             <div className="flex items-center gap-2">
-                              <span className={`text-base ${isWrong ? "grayscale opacity-50" : ""}`}>{team?.flag ?? "🏳️"}</span>
+                              <span className={`text-base ${(isWrong || isEliminated) ? "grayscale opacity-50" : ""}`}>{team?.flag ?? "🏳️"}</span>
                               <span className={`text-sm font-bold ${nameColor}`}>{team?.name ?? teamCode}</span>
                               <div className="flex-1 h-2 bg-navy-lighter rounded-full overflow-hidden">
                                 <div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
@@ -260,11 +290,13 @@ function ParticipantBrowser({
   selectedId,
   onSelect,
   results,
+  eliminatedTeams,
 }: {
   withTier2: ParticipantData[];
   selectedId: string;
   onSelect: (id: string) => void;
   results: Record<string, string>;
+  eliminatedTeams: Set<string>;
 }) {
   const selected = withTier2.find((p) => p.id === selectedId) ?? withTier2[0];
 
@@ -308,8 +340,9 @@ function ParticipantBrowser({
                     const actual = results[key];
                     const isCorrect = pick && actual && pick.winner === actual;
                     const isWrong = pick && actual && pick.winner !== actual;
-                    const borderColor = isCorrect ? "border-green-500/40" : isWrong ? "border-red-500/40" : "border-white/10";
-                    const codeColor = isCorrect ? "text-green-400" : isWrong ? "text-red-400" : "text-gray-200";
+                    const isEliminated = pick && !actual && eliminatedTeams.has(pick.winner);
+                    const borderColor = isCorrect ? "border-green-500/40" : (isWrong || isEliminated) ? "border-red-500/40" : "border-white/10";
+                    const codeColor = isCorrect ? "text-green-400" : (isWrong || isEliminated) ? "text-red-400" : "text-gray-200";
                     return (
                       <div
                         key={matchNumber}
@@ -318,7 +351,7 @@ function ParticipantBrowser({
                         <div className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">M{matchNumber}</div>
                         {team ? (
                           <>
-                            <span className={`text-xl block ${isWrong ? "grayscale opacity-50" : ""}`}>{team.flag}</span>
+                            <span className={`text-xl block ${(isWrong || isEliminated) ? "grayscale opacity-50" : ""}`}>{team.flag}</span>
                             <span className={`text-xs font-bold ${codeColor} block mt-0.5`}>{team.code}</span>
                           </>
                         ) : (
@@ -339,7 +372,7 @@ function ParticipantBrowser({
 
 // ── View 3: Table Grid ──
 
-function TableView({ withTier2, results }: { withTier2: ParticipantData[]; results: Record<string, string> }) {
+function TableView({ withTier2, results, eliminatedTeams }: { withTier2: ParticipantData[]; results: Record<string, string>; eliminatedTeams: Set<string> }) {
   // Build all match keys in order
   const matchKeys: { round: string; matchNumber: number; label: string }[] = [];
   for (const round of ROUND_ORDER) {
@@ -393,10 +426,11 @@ function TableView({ withTier2, results }: { withTier2: ParticipantData[]; resul
                   const team = winner ? getTeamByCode(winner) : null;
                   const actual = results[key];
                   const isWrong = winner && actual && winner !== actual;
+                  const isEliminated = winner && !actual && eliminatedTeams.has(winner);
                   return (
                     <td key={key} className="px-1 py-1.5 text-center">
                       {team ? (
-                        <span title={`${team.name} (${team.code})`} className={`cursor-default ${isWrong ? "grayscale opacity-40" : ""}`}>
+                        <span title={`${team.name} (${team.code})`} className={`cursor-default ${(isWrong || isEliminated) ? "grayscale opacity-40" : ""}`}>
                           {team.flag}
                         </span>
                       ) : (
