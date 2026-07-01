@@ -78,9 +78,12 @@ export const actualGroupResults: Record<string, [string, string, string, string]
 // Live API results take precedence when available; this prevents zero scores during rate limiting
 const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
   "round_of_32_1": "CAN",  // RSA 0:1 CAN (Jun 28)
-  "round_of_32_2": "MAR",  // NED 3:4 MAR (Jun 29, penalties)
+  "round_of_32_2": "MAR",  // NED 3:4 MAR (Jun 30)
   "round_of_32_3": "BRA",  // BRA 2:1 JPN (Jun 29)
-  "round_of_32_4": "PAR",  // GER 4:5 PAR (Jun 29, penalties)
+  "round_of_32_4": "PAR",  // GER 4:5 PAR (Jun 29)
+  "round_of_32_5": "NOR",  // CIV 1:2 NOR (Jun 30)
+  "round_of_32_6": "FRA",  // FRA 3:0 SWE (Jun 30)
+  "round_of_32_7": "MEX",  // MEX 2:0 ECU (Jul 1)
 };
 
 // Active knockout results: starts from hardcoded, overwritten by live API when available
