@@ -84,6 +84,7 @@ const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
   "round_of_32_5": "NOR",  // CIV 1:2 NOR (Jun 30)
   "round_of_32_6": "FRA",  // FRA 3:0 SWE (Jun 30)
   "round_of_32_7": "MEX",  // MEX 2:0 ECU (Jul 1)
+  "round_of_32_9": "ENG",  // ENG 2:1 COD (Jul 1)
 };
 
 // Active knockout results: starts from hardcoded, overwritten by live API when available
