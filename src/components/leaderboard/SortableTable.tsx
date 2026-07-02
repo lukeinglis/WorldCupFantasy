@@ -10,10 +10,11 @@ interface RankedParticipant {
   tier1Total: number;
   tier2Total: number;
   total: number;
+  maxPossible: number;
   tiebreaker: { homeScore: number; awayScore: number };
 }
 
-type SortColumn = "total" | "tier1" | "tier2";
+type SortColumn = "total" | "tier1" | "tier2" | "max";
 
 function getMedalEmoji(rank: number): string {
   switch (rank) {
@@ -56,6 +57,7 @@ export default function SortableTable({ participants }: { participants: RankedPa
       switch (sortCol) {
         case "tier1": return p.tier1Total;
         case "tier2": return p.tier2Total;
+        case "max": return p.maxPossible;
         default: return p.total;
       }
     };
@@ -106,6 +108,17 @@ export default function SortableTable({ participants }: { participants: RankedPa
               >
                 Total
                 <SortArrow active={sortCol === "total"} direction={sortDir} />
+              </button>
+            </th>
+            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-right">
+              <button
+                type="button"
+                onClick={() => handleSort("max")}
+                className={`cursor-pointer hover:text-white transition-colors ${sortCol === "max" ? "text-gray-300" : "text-gray-500"}`}
+              >
+                <span className="hidden sm:inline">Max</span>
+                <span className="sm:hidden">Max</span>
+                <SortArrow active={sortCol === "max"} direction={sortDir} />
               </button>
             </th>
           </tr>
@@ -161,6 +174,11 @@ export default function SortableTable({ participants }: { participants: RankedPa
               <td className="px-4 py-4 text-right">
                 <span className="font-heading text-2xl font-bold text-white">
                   {p.total}
+                </span>
+              </td>
+              <td className="px-4 py-4 text-right">
+                <span className="font-heading text-lg font-bold text-gray-500">
+                  {p.maxPossible}
                 </span>
               </td>
             </tr>
