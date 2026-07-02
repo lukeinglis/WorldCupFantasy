@@ -14,6 +14,7 @@ import {
 } from "@/data/participants";
 import {
   calculateAllPoints,
+  calculatePotentialPoints,
   setActualBonusResults,
   setActualKnockoutResults,
   setKnockoutMatchSchedule,
@@ -129,14 +130,18 @@ export default async function LeaderboardPage() {
     return a.name.localeCompare(b.name);
   });
 
-  const ranked = sorted.map((p, i) => ({
-    ...p,
-    rank: i + 1,
-    tier1Total:
-      p.calculatedPoints.tier1Groups + p.calculatedPoints.tier1Bonus,
-    tier2Total:
-      p.calculatedPoints.tier2Bracket + p.calculatedPoints.tier2Bonus,
-  }));
+  const ranked = sorted.map((p, i) => {
+    const potential = calculatePotentialPoints(p);
+    return {
+      ...p,
+      rank: i + 1,
+      tier1Total:
+        p.calculatedPoints.tier1Groups + p.calculatedPoints.tier1Bonus,
+      tier2Total:
+        p.calculatedPoints.tier2Bracket + p.calculatedPoints.tier2Bonus,
+      maxPossible: potential.maximum,
+    };
+  });
 
   const knockoutRounds = [
     { key: "round_of_32", label: "R32", pts: knockoutRoundPoints["round_of_32"], matches: knockoutRoundMatchCounts["round_of_32"] },
@@ -224,6 +229,7 @@ export default async function LeaderboardPage() {
                   tier1Total: p.tier1Total,
                   tier2Total: p.tier2Total,
                   total: p.calculatedPoints.total,
+                  maxPossible: p.maxPossible,
                   tiebreaker: p.tiebreaker,
                 }))}
               />
