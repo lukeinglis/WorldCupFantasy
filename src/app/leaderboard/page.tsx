@@ -15,8 +15,10 @@ import {
 import {
   calculateAllPoints,
   calculatePotentialPoints,
+  setActualBonusResults,
+  setActualKnockoutResults,
 } from "@/data/scoring";
-import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { getAllUsersWithPicks, getPersistedLiveResults, isKvConfigured } from "@/lib/storage";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import LivePoller from "@/components/LivePoller";
@@ -36,7 +38,23 @@ export default async function LeaderboardPage() {
     participants = buildParticipantsFromKv(kvData);
   }
 
-  const scorersData: import("@/lib/football-api-types").TransformedScorer[] = [];
+  const liveResults = isKvConfigured() ? await getPersistedLiveResults() : null;
+
+  if (liveResults) {
+    setActualKnockoutResults(liveResults.knockoutResults);
+    setActualBonusResults({ goldenBoot: liveResults.goldenBoot });
+  }
+
+  const scorersData: import("@/lib/football-api-types").TransformedScorer[] = liveResults?.scorers?.map(s => ({
+    playerName: s.playerName,
+    teamName: "",
+    teamTla: s.teamTla,
+    teamCrest: s.teamCrest,
+    goals: s.goals,
+    assists: s.assists,
+    playedMatches: 0,
+    penalties: 0,
+  })) ?? [];
   const teamStatsData: { teamTla: string; goalsScored: number; goalsConceded: number; matchesPlayed: number }[] = [];
 
   const hasLiveScoring = true;

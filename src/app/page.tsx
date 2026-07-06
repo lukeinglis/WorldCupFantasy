@@ -12,13 +12,15 @@ import {
 } from "@/data/participants";
 import {
   calculateAllPoints,
+  setActualBonusResults,
+  setActualKnockoutResults,
   actualGroupResults,
   actualKnockoutResults,
 } from "@/data/scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import { R32_MATCHES } from "@/data/knockout-bracket";
 import BracketDisplay from "@/components/BracketDisplay";
-import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { getAllUsersWithPicks, getPersistedLiveResults, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
 
@@ -116,7 +118,15 @@ function getMedalEmoji(rank: number): string {
 export default async function Home() {
   const kvReady = isKvConfigured();
 
-  const kvData = kvReady ? await getAllUsersWithPicks() : [];
+  const [kvData, liveResults] = await Promise.all([
+    kvReady ? getAllUsersWithPicks() : Promise.resolve([]),
+    kvReady ? getPersistedLiveResults() : Promise.resolve(null),
+  ]);
+
+  if (liveResults) {
+    setActualKnockoutResults(liveResults.knockoutResults);
+    setActualBonusResults({ goldenBoot: liveResults.goldenBoot });
+  }
 
   const kvParticipants = kvData.length > 0 ? buildParticipantsFromKv(kvData) : [];
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUserById, isKvConfigured } from "@/lib/storage";
+import { getUserById, isKvConfigured, savePersistedLiveResults } from "@/lib/storage";
 import { isAdmin } from "@/lib/auth";
 import { isApiConfigured, getScorers, getMatches } from "@/lib/football-api";
 import { getLiveKnockoutResults, getLiveBonusResults } from "@/lib/live-scoring";
@@ -49,16 +49,39 @@ export async function POST(request: Request) {
         date: m.utcDate,
       })) ?? [];
 
+    const persistedResults = knockoutResults?.results ?? {};
+    const goldenBoot = bonusResults?.goldenBoot ?? null;
+    const scorersList = scorers?.slice(0, 20).map(s => ({
+      playerName: s.playerName,
+      teamTla: s.teamTla,
+      teamCrest: s.teamCrest,
+      goals: s.goals,
+      assists: s.assists,
+    })) ?? [];
+
+    await savePersistedLiveResults({
+      knockoutResults: persistedResults,
+      goldenBoot,
+      scorers: scorersList,
+      updatedAt: new Date().toISOString(),
+    });
+
+    log.info(
+      { knockoutCount: Object.keys(persistedResults).length, goldenBoot, scorerCount: scorersList.length },
+      "live results persisted to KV"
+    );
+
     return NextResponse.json({
       fetchedAt: new Date().toISOString(),
-      knockoutResults: knockoutResults?.results ?? null,
+      persisted: true,
+      knockoutResults: persistedResults,
       knockoutComplete: knockoutResults?.isComplete ?? false,
       bonusResults,
-      topScorers: scorers?.slice(0, 10).map(s => ({
+      topScorers: scorersList.slice(0, 10).map(s => ({
         player: s.playerName,
         team: s.teamTla,
         goals: s.goals,
-      })) ?? [],
+      })),
       knockoutMatches,
     });
   } catch (err) {
