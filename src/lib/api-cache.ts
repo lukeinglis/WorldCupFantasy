@@ -2,14 +2,9 @@
  * Server-side in-memory cache with configurable TTL.
  * Resets on redeploy (acceptable for this use case).
  *
- * TTL defaults:
- *   teams/groups:   24 hours (rarely change)
- *   standings:       5 minutes
- *   matches:         5 minutes
- *   matches (live):  1 minute
- *   scorers:         5 minutes
- *   match detail:    5 minutes
- *   stats:           5 minutes
+ * TTLs are long to stay well under the football-data.org
+ * free tier limit of 10 req/min. Scoring uses hardcoded
+ * results; API data is display-only.
  */
 
 import { getLogger } from "./logger";
@@ -26,12 +21,12 @@ const cache = new Map<string, CacheEntry<unknown>>();
 /** TTL presets in milliseconds */
 export const CacheTTL = {
   TEAMS: 24 * 60 * 60 * 1000,       // 24 hours
-  STANDINGS: 5 * 60 * 1000,         // 5 minutes
-  MATCHES: 5 * 60 * 1000,           // 5 minutes
-  MATCHES_LIVE: 60 * 1000,          // 1 minute
-  SCORERS: 5 * 60 * 1000,           // 5 minutes
-  MATCH_DETAIL: 5 * 60 * 1000,      // 5 minutes
-  STATS: 5 * 60 * 1000,             // 5 minutes
+  STANDINGS: 2 * 60 * 60 * 1000,    // 2 hours
+  MATCHES: 30 * 60 * 1000,          // 30 minutes
+  MATCHES_LIVE: 5 * 60 * 1000,      // 5 minutes
+  SCORERS: 60 * 60 * 1000,          // 1 hour
+  MATCH_DETAIL: 60 * 60 * 1000,     // 1 hour
+  STATS: 2 * 60 * 60 * 1000,        // 2 hours
 } as const;
 
 /**

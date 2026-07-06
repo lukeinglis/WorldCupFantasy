@@ -8,7 +8,6 @@ import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamsByGroup, groupLabels, type Team, getTeamByCode } from "@/data/teams";
 import type { Participant } from "@/data/participants";
 import { schedule, parseLocalDate } from "@/data/schedule";
-import { getStandings, getMatches, isApiConfigured } from "@/lib/football-api";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
@@ -38,29 +37,13 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
     notFound();
   }
 
-  // Fetch live data and participants in parallel
-  let liveStandings: TransformedGroupStandings | null = null;
-  let liveMatches: TransformedMatch[] = [];
+  const liveStandings: TransformedGroupStandings | null = null as TransformedGroupStandings | null;
+  const liveMatches: TransformedMatch[] = [];
   let kvParticipants: Participant[] = [];
 
-  const apiReady = isApiConfigured();
   const kvReady = isKvConfigured();
 
-  const [standings, matches, kvData] = await Promise.all([
-    apiReady ? getStandings() : Promise.resolve(null),
-    apiReady ? getMatches() : Promise.resolve(null),
-    kvReady ? getAllUsersWithPicks() : Promise.resolve([]),
-  ]);
-
-  if (standings) {
-    liveStandings = standings.find((s) => s.group === groupKey) ?? null;
-  }
-
-  if (matches) {
-    liveMatches = matches.filter(
-      (m) => m.group === groupKey && m.stage === "group"
-    );
-  }
+  const kvData = kvReady ? await getAllUsersWithPicks() : [];
 
   if (kvData.length > 0) {
     kvParticipants = buildParticipantsFromKv(kvData);

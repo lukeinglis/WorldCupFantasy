@@ -383,25 +383,6 @@ export async function getTeamStats(): Promise<TeamStats[] | null> {
     awayStats.matchesPlayed += 1;
   }
 
-  // Fetch cards from individual match details (if available)
-  // Only fetch details for finished group matches to get booking data
-  for (const match of groupMatches) {
-    const detail = await getMatchDetail(match.id);
-    if (!detail?.bookings) continue;
-
-    for (const booking of detail.bookings) {
-      const teamId = booking.team?.id;
-      if (!teamId || !statsMap.has(teamId)) continue;
-
-      const teamStats = statsMap.get(teamId)!;
-      if (booking.card === "YELLOW_CARD") {
-        teamStats.yellowCards += 1;
-      } else if (booking.card === "RED_CARD" || booking.card === "YELLOW_RED") {
-        teamStats.redCards += 1;
-      }
-    }
-  }
-
   const result: TeamStats[] = Array.from(statsMap.values()).map((s) => ({
     teamName: s.name,
     teamTla: s.tla,

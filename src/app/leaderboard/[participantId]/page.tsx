@@ -8,15 +8,10 @@ import { getUserById, getPicks, getAllUsersWithPicks, isKvConfigured } from "@/l
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import {
   calculateAllPoints,
-  setActualBonusResults,
-  setActualKnockoutResults,
-  setKnockoutMatchSchedule,
   actualGroupResults,
   actualKnockoutResults,
 } from "@/data/scoring";
 import { R32_MATCHES } from "@/data/knockout-bracket";
-import { isApiConfigured, getMatches } from "@/lib/football-api";
-import { getLiveBonusResults, getLiveKnockoutResults } from "@/lib/live-scoring";
 import { getTeamByCode, groupLabels } from "@/data/teams";
 import {
   TIER1_MAX,
@@ -66,37 +61,6 @@ export default async function ParticipantDetailPage({
   const kvData = await getAllUsersWithPicks();
   const participants = buildParticipantsFromKv(kvData);
 
-  const hasGroupScoring = true;
-  if (isApiConfigured()) {
-    const [bonusResults, knockoutResults, matchesData] = await Promise.all([
-      getLiveBonusResults(),
-      getLiveKnockoutResults(),
-      getMatches(),
-    ]);
-    if (bonusResults) setActualBonusResults({ goldenBoot: bonusResults.goldenBoot });
-    if (knockoutResults) setActualKnockoutResults(knockoutResults.results);
-    if (matchesData) {
-      const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
-      const knockoutSchedule = matchesData
-        .filter(m => knockoutStages.includes(m.stage))
-        .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
-        .reduce<{ round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[]>((acc, m) => {
-          const matchNumber = acc.filter(x => x.round === m.stage).length + 1;
-          acc.push({
-            round: m.stage,
-            matchNumber,
-            utcDate: m.utcDate,
-            homeTeam: m.homeTeam.tla,
-            awayTeam: m.awayTeam.tla,
-            status: m.status,
-          });
-          return acc;
-        }, []);
-      setKnockoutMatchSchedule(knockoutSchedule);
-    }
-  }
-
-  const tournamentStarted = new Date() >= TOURNAMENT_START;
 
   const withPoints = calculateAllPoints(participants);
 
@@ -171,15 +135,6 @@ export default async function ParticipantDetailPage({
               &larr; Back to Leaderboard
             </Link>
           </div>
-
-          {/* Score status warning */}
-          {tournamentStarted && !hasGroupScoring && (
-            <div className="mb-6 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-5 py-3 text-center">
-              <p className="text-sm text-yellow-400 font-medium">
-                Live scores temporarily unavailable. Refresh the page to retry.
-              </p>
-            </div>
-          )}
 
           {/* Score Summary Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-10">

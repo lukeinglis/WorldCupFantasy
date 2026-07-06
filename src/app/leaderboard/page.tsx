@@ -15,16 +15,7 @@ import {
 import {
   calculateAllPoints,
   calculatePotentialPoints,
-  setActualBonusResults,
-  setActualKnockoutResults,
-  setKnockoutMatchSchedule,
 } from "@/data/scoring";
-import { isApiConfigured, getScorers, getStandings, getMatches } from "@/lib/football-api";
-import {
-  getLiveBonusResults,
-  getLiveKnockoutResults,
-  getLiveTournamentStatus,
-} from "@/lib/live-scoring";
 import { getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
@@ -45,73 +36,11 @@ export default async function LeaderboardPage() {
     participants = buildParticipantsFromKv(kvData);
   }
 
-  // Group results are hardcoded in scoring.ts (group stage complete).
-  // Still call API for Golden Boot (dynamic), knockout results, and tournament status.
-  let hasGroupScoring = true;
-  let hasLiveMatches = false;
-  let isTournamentActive = true;
-  let scorersData: import("@/lib/football-api-types").TransformedScorer[] = [];
-  let teamStatsData: { teamTla: string; goalsScored: number; goalsConceded: number; matchesPlayed: number }[] = [];
+  const scorersData: import("@/lib/football-api-types").TransformedScorer[] = [];
+  const teamStatsData: { teamTla: string; goalsScored: number; goalsConceded: number; matchesPlayed: number }[] = [];
 
-  if (isApiConfigured()) {
-    const [bonusResults, knockoutResults, tournamentStatus, scorersResult, matchesData] = await Promise.all([
-      getLiveBonusResults(),
-      getLiveKnockoutResults(),
-      getLiveTournamentStatus(),
-      getScorers(),
-      getMatches(),
-    ]);
-
-    scorersData = scorersResult ?? [];
-
-    if (bonusResults) {
-      setActualBonusResults({ goldenBoot: bonusResults.goldenBoot });
-    }
-
-    if (knockoutResults) {
-      setActualKnockoutResults(knockoutResults.results);
-    }
-
-    if (matchesData) {
-      const knockoutStages = ["round_of_32", "round_of_16", "quarter", "semi", "third_place", "final"];
-      const knockoutSchedule = matchesData
-        .filter(m => knockoutStages.includes(m.stage))
-        .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
-        .reduce<{ round: string; matchNumber: number; utcDate: string; homeTeam: string; awayTeam: string; status: string }[]>((acc, m) => {
-          const matchNumber = acc.filter(x => x.round === m.stage).length + 1;
-          acc.push({
-            round: m.stage,
-            matchNumber,
-            utcDate: m.utcDate,
-            homeTeam: m.homeTeam.tla,
-            awayTeam: m.awayTeam.tla,
-            status: m.status,
-          });
-          return acc;
-        }, []);
-      setKnockoutMatchSchedule(knockoutSchedule);
-    }
-
-    if (tournamentStatus) {
-      hasLiveMatches = tournamentStatus.liveMatches > 0;
-      isTournamentActive = tournamentStatus.playedMatches > 0;
-    }
-
-    const standingsForStats = await getStandings();
-    if (standingsForStats) {
-      teamStatsData = standingsForStats.flatMap(g =>
-        g.standings.map(s => ({
-          teamTla: s.team.tla,
-          goalsScored: s.goalsFor,
-          goalsConceded: s.goalsAgainst,
-          matchesPlayed: s.played,
-        }))
-      );
-    }
-  }
-
-  const hasLiveScoring = hasGroupScoring;
-  const tournamentStarted = isTournamentActive || new Date() >= TOURNAMENT_START;
+  const hasLiveScoring = true;
+  const tournamentStarted = new Date() >= TOURNAMENT_START;
 
   const lastUpdated = new Date().toISOString();
 
@@ -198,8 +127,8 @@ export default async function LeaderboardPage() {
               </>
             )}
             <LivePoller
-              hasLiveMatches={hasLiveMatches}
-              isTournamentActive={isTournamentActive}
+              hasLiveMatches={false}
+              isTournamentActive={tournamentStarted}
               serverTimestamp={lastUpdated}
             />
           </div>
