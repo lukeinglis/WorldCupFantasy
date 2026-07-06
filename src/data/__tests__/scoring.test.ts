@@ -428,9 +428,11 @@ describe("calculatePotentialPoints", () => {
       ],
     });
     const result = calculatePotentialPoints(p);
-    // Groups are all hardcoded (0 remaining), GER is in MOST_GOALS_TEAMS (10 earned)
-    // Golden Boot undecided (10 remaining), R32+Final undecided (12 remaining), Golden Ball (10 remaining)
-    expect(result.remaining).toBe(10 + 12 + 10); // 32
+    // Groups all hardcoded (0 remaining), GER is in MOST_GOALS_TEAMS (10 earned)
+    // Golden Boot undecided (10 remaining)
+    // R32_1 hardcoded as CAN, pick GER is wrong (0 remaining)
+    // Final undecided (10 remaining), Golden Ball (10 remaining)
+    expect(result.remaining).toBe(10 + 10 + 10); // 30
   });
 
   it("returns 0 remaining for golden boot when decided", () => {
@@ -458,18 +460,15 @@ describe("calculatePotentialPoints", () => {
     });
     const p = makeParticipant({
       knockoutPicks: [
-        { round: "round_of_32", matchNumber: 1, winner: "GER" }, // decided, correct
-        { round: "round_of_32", matchNumber: 2, winner: "BRA" }, // undecided
-        { round: "quarter", matchNumber: 1, winner: "FRA" },     // undecided
+        { round: "round_of_32", matchNumber: 1, winner: "GER" }, // overridden to GER, correct: 2 earned
+        { round: "round_of_32", matchNumber: 2, winner: "BRA" }, // hardcoded MAR, BRA wrong: 0 remaining
+        { round: "quarter", matchNumber: 1, winner: "FRA" },     // undecided: 6 remaining
       ],
     });
     const result = calculatePotentialPoints(p);
-    // R32_1 decided (2 earned, 0 remaining)
-    // R32_2 undecided (2 remaining)
-    // QF_1 undecided (6 remaining)
     expect(result.earned).toBe(2);
-    expect(result.remaining).toBe(8);
-    expect(result.maximum).toBe(10);
+    expect(result.remaining).toBe(6);
+    expect(result.maximum).toBe(8);
   });
 
   it("returns 0 remaining when all results are in", () => {

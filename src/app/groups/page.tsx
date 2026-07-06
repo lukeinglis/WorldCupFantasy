@@ -5,7 +5,6 @@ import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamsByGroup, getTeamByCode, groupLabels, type Team } from "@/data/teams";
-import { getStandings, getMatches, isApiConfigured } from "@/lib/football-api";
 import { CREST_BLUR_PLACEHOLDER } from "@/lib/image-constants";
 import { schedule, venues, stageLabels, parseLocalDate } from "@/data/schedule";
 import { R32_MATCHES } from "@/data/knockout-bracket";
@@ -24,15 +23,8 @@ export const dynamic = "force-dynamic";
 export default async function GroupsPage() {
   const teamsByGroup = getTeamsByGroup();
 
-  let liveStandings: TransformedGroupStandings[] | null = null;
-  let liveMatches: TransformedMatch[] | null = null;
-
-  if (isApiConfigured()) {
-    [liveStandings, liveMatches] = await Promise.all([
-      getStandings(),
-      getMatches(),
-    ]);
-  }
+  const liveStandings: TransformedGroupStandings[] | null = null as TransformedGroupStandings[] | null;
+  const liveMatches: TransformedMatch[] | null = null as TransformedMatch[] | null;
 
   // Patch R32 matches with hardcoded team data where the API returns TBD
   if (liveMatches) {

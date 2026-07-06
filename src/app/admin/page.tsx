@@ -352,6 +352,130 @@ function CacheControlSection({ userId }: { userId: string }) {
   );
 }
 
+interface RefreshData {
+  fetchedAt: string;
+  knockoutResults: Record<string, string> | null;
+  knockoutComplete: boolean;
+  bonusResults: { goldenBoot: string | null; mostGoalsTeam: string | null; fewestConcededTeam: string | null } | null;
+  topScorers: { player: string; team: string; goals: number }[];
+  knockoutMatches: { stage: string; home: string; away: string; score: string; status: string; date: string }[];
+}
+
+function ApiRefreshSection({ userId }: { userId: string }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const [data, setData] = useState<RefreshData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    setData(null);
+    try {
+      const res = await fetch(`/api/admin/refresh?userId=${userId}`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Refresh failed");
+        return;
+      }
+      setData(json);
+    } catch {
+      setError("Network error");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  return (
+    <Card className="mb-8 border-gold/20">
+      <CardHeader className="bg-gold/5">
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-base font-bold uppercase tracking-wide text-white">
+            API Data Refresh
+          </h2>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="rounded bg-gold px-4 py-1.5 text-xs font-bold text-navy transition-colors hover:bg-yellow-300 disabled:opacity-50"
+          >
+            {refreshing ? "Fetching..." : "Fetch from API"}
+          </button>
+        </div>
+      </CardHeader>
+      <CardBody>
+        <p className="text-xs text-gray-500 mb-3">
+          Pulls latest results from football-data.org on demand. Scoring uses hardcoded results; use this to check for new data to hardcode.
+        </p>
+        {error && (
+          <div className="mb-3 rounded bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">
+            {error}
+          </div>
+        )}
+        {data && (
+          <div className="space-y-4">
+            <p className="text-[11px] text-gray-500">Fetched: {new Date(data.fetchedAt).toLocaleString()}</p>
+
+            {/* Knockout Results */}
+            {data.knockoutResults && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gold mb-2">
+                  Knockout Results ({Object.keys(data.knockoutResults).length} matches)
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                  {Object.entries(data.knockoutResults)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([key, winner]) => {
+                      const team = getTeamByCode(winner);
+                      return (
+                        <div key={key} className="rounded bg-navy-lighter/50 px-2 py-1.5 border border-white/5">
+                          <span className="text-[10px] text-gray-500">{key}</span>
+                          <p className="text-xs text-gold font-semibold">{team?.flag ?? ""} {winner}</p>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Top Scorers */}
+            {data.topScorers.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-accent mb-2">
+                  Top Scorers
+                </p>
+                <div className="space-y-1">
+                  {data.topScorers.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between rounded bg-navy-lighter/50 px-3 py-1.5 border border-white/5">
+                      <span className="text-xs text-white">{s.player} ({s.team})</span>
+                      <span className="text-xs font-bold text-accent">{s.goals} goals</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Bonus Results */}
+            {data.bonusResults && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                  Bonus Data
+                </p>
+                <div className="rounded bg-navy-lighter/50 px-3 py-2 border border-white/5 text-xs text-gray-300">
+                  <p>Golden Boot leader: {data.bonusResults.goldenBoot ?? "N/A"}</p>
+                  <p>Most Goals Team: {data.bonusResults.mostGoalsTeam ?? "N/A"}</p>
+                  <p>Fewest Conceded: {data.bonusResults.fewestConcededTeam ?? "N/A"}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<AdminData | null>(null);
@@ -485,6 +609,9 @@ export default function AdminPage() {
               accent="text-gold"
             />
           </div>
+
+          {/* API Refresh */}
+          {user && <ApiRefreshSection userId={user.id} />}
 
           {/* Cache control */}
           {user && <CacheControlSection userId={user.id} />}

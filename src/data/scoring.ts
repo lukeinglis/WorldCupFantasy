@@ -74,19 +74,31 @@ export const actualGroupResults: Record<string, [string, string, string, string]
   L: ["ENG", "CRO", "GHA", "PAN"],
 };
 
-// Hardcoded knockout results fallback (updated via scripts/update-knockout-results.sh)
-// Live API results take precedence when available; this prevents zero scores during rate limiting
+// Hardcoded knockout results (updated manually as rounds complete)
+// These are final results that will never change
 const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
-  "round_of_32_1": "CAN",  // RSA 0:1 CAN (Jun 28)
-  "round_of_32_2": "MAR",  // NED 3:4 MAR (Jun 30)
-  "round_of_32_3": "BRA",  // BRA 2:1 JPN (Jun 29)
-  "round_of_32_4": "PAR",  // GER 4:5 PAR (Jun 29)
-  "round_of_32_5": "NOR",  // CIV 1:2 NOR (Jun 30)
-  "round_of_32_6": "FRA",  // FRA 3:0 SWE (Jun 30)
-  "round_of_32_7": "MEX",  // MEX 2:0 ECU (Jul 1)
-  "round_of_32_8": "USA",  // USA 2:0 BIH (Jul 2)
-  "round_of_32_9": "ENG",  // ENG 2:1 COD (Jul 1)
-  "round_of_32_10": "BEL",  // BEL 3:2 SEN (Jul 1)
+  // R32 (complete)
+  "round_of_32_1": "CAN",   // RSA 0:1 CAN (Jun 28)
+  "round_of_32_2": "MAR",   // NED 1:1 MAR, MAR wins 3:2 pens (Jun 30)
+  "round_of_32_3": "BRA",   // BRA 2:1 JPN (Jun 29)
+  "round_of_32_4": "PAR",   // GER 1:1 PAR, PAR wins pens (Jun 29)
+  "round_of_32_5": "NOR",   // CIV 1:2 NOR (Jun 30)
+  "round_of_32_6": "FRA",   // FRA 3:0 SWE (Jun 30)
+  "round_of_32_7": "MEX",   // MEX 2:0 ECU (Jul 1)
+  "round_of_32_8": "USA",   // USA 2:0 BIH (Jul 1)
+  "round_of_32_9": "ENG",   // ENG 2:1 COD (Jul 1)
+  "round_of_32_10": "BEL",  // BEL 3:2 SEN, AET (Jul 1)
+  "round_of_32_11": "ESP",  // ESP 2:0 AUT (Jul 2)
+  "round_of_32_12": "POR",  // POR beat CRO (Jul 2)
+  "round_of_32_13": "SUI",  // SUI beat ALG (Jul 2)
+  "round_of_32_14": "EGY",  // EGY 1:1 AUS, EGY wins 4:2 pens (Jul 3)
+  "round_of_32_15": "ARG",  // ARG 3:2 CPV, AET (Jul 3)
+  "round_of_32_16": "COL",  // COL 1:0 GHA (Jul 3)
+  // R16 (4 of 8 complete)
+  "round_of_16_1": "FRA",   // FRA 1:0 PAR (Jul 4)
+  "round_of_16_2": "MAR",   // MAR 3:0 CAN (Jul 4)
+  "round_of_16_3": "NOR",   // NOR 2:1 BRA (Jul 5)
+  "round_of_16_4": "ENG",   // ENG 3:2 MEX (Jul 5)
 };
 
 // Active knockout results: starts from hardcoded, overwritten by live API when available
@@ -115,8 +127,10 @@ export function setActualKnockoutResults(
 ): void {
   if (results) {
     actualKnockoutResults = { ...HARDCODED_KNOCKOUT_RESULTS, ...results };
+  } else {
+    actualKnockoutResults = { ...HARDCODED_KNOCKOUT_RESULTS };
   }
-  const matchCount = actualKnockoutResults ? Object.keys(actualKnockoutResults).length : 0;
+  const matchCount = Object.keys(actualKnockoutResults).length;
   logger.info({ matchCount }, "knockout results updated");
 }
 
