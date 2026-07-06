@@ -5,6 +5,17 @@ import type { GameScoreEntry } from "@/app/api/games/scores/route";
 
 type GameName = "penalty" | "flags";
 
+function formatTimeShort(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const tenths = Math.floor((ms % 1000) / 100);
+  if (minutes > 0) {
+    return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
+  }
+  return `${seconds}.${tenths}s`;
+}
+
 interface GameLeaderboardProps {
   game: GameName;
   currentUserId: string | null;
@@ -176,17 +187,24 @@ export default function GameLeaderboard({
                       {isCurrentUser ? "You" : entry.userName}
                     </span>
 
-                    {/* Score */}
-                    <span
-                      className={`font-heading font-bold tabular-nums ${
-                        rank === 1
-                          ? "text-gold"
-                          : isCurrentUser
-                            ? "text-accent"
-                            : "text-white"
-                      }`}
-                    >
-                      {entry.score}
+                    {/* Score + Time */}
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className={`font-heading font-bold tabular-nums ${
+                          rank === 1
+                            ? "text-gold"
+                            : isCurrentUser
+                              ? "text-accent"
+                              : "text-white"
+                        }`}
+                      >
+                        {entry.score}
+                      </span>
+                      {entry.timeMs != null && (
+                        <span className="text-[10px] text-gray-500 tabular-nums">
+                          {formatTimeShort(entry.timeMs)}
+                        </span>
+                      )}
                     </span>
                   </li>
                 );

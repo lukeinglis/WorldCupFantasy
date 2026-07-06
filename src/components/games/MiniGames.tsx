@@ -41,7 +41,7 @@ export default function MiniGames() {
 
   // Submit score to API and bump leaderboard refresh
   const handleScoreSubmit = useCallback(
-    async (game: "penalty" | "flags", score: number) => {
+    async (game: "penalty" | "flags", score: number, timeMs?: number) => {
       if (!user) return;
       if (!Number.isFinite(score) || score <= 0) return;
       try {
@@ -53,6 +53,7 @@ export default function MiniGames() {
             userName: user.name,
             game,
             score: Math.floor(score),
+            timeMs: timeMs != null && Number.isFinite(timeMs) ? Math.round(timeMs) : undefined,
           }),
         });
       } catch {
@@ -69,7 +70,7 @@ export default function MiniGames() {
   );
 
   const handleFlagScore = useCallback(
-    (score: number) => handleScoreSubmit("flags", score),
+    (score: number, timeMs?: number) => handleScoreSubmit("flags", score, timeMs),
     [handleScoreSubmit]
   );
 
