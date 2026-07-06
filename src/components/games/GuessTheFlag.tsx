@@ -60,7 +60,7 @@ function generateRounds(): Round[] {
 
 interface GuessTheFlagProps {
   onClose: () => void;
-  onScoreSubmit?: (score: number) => void;
+  onScoreSubmit?: (score: number, timeMs?: number) => void;
 }
 
 export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagProps) {
@@ -122,13 +122,14 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
           const nextRound = currentRound + 1;
           if (nextRound >= rounds.length) {
             stopTimer();
+            const finalTime = Date.now() - startTimeRef.current;
             if (newScore > highScore) {
               setHighScoreState(newScore);
               setHighScore(newScore);
               setIsNewHighScore(true);
             }
             if (newScore > 0 && onScoreSubmit) {
-              onScoreSubmit(newScore);
+              onScoreSubmit(newScore, finalTime);
             }
             setGameState("gameover");
           } else {
@@ -141,13 +142,14 @@ export default function GuessTheFlag({ onClose, onScoreSubmit }: GuessTheFlagPro
         setGameState("wrong");
         stopTimer();
         timeoutRef.current = setTimeout(() => {
+          const finalTime = Date.now() - startTimeRef.current;
           if (score > highScore) {
             setHighScoreState(score);
             setHighScore(score);
             setIsNewHighScore(true);
           }
           if (score > 0 && onScoreSubmit) {
-            onScoreSubmit(score);
+            onScoreSubmit(score, finalTime);
           }
           setGameState("gameover");
         }, 1200);

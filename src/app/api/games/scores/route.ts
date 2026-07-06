@@ -8,6 +8,7 @@ export interface GameScoreEntry {
   userId: string;
   userName: string;
   score: number;
+  timeMs?: number;
   updatedAt: string;
 }
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { userId, userName, game, score } = body;
+  const { userId, userName, game, score, timeMs } = body;
 
   // Validate required fields
   if (typeof userId !== "string" || userId.trim().length === 0) {
@@ -126,35 +127,43 @@ export async function POST(request: NextRequest) {
     // Check if the user already has an entry
     const userIndex = existing.findIndex((e) => e.userId === userId);
 
+    const safeTimeMs = typeof timeMs === "number" && Number.isFinite(timeMs) && timeMs > 0
+      ? Math.round(timeMs)
+      : undefined;
+
     if (userIndex !== -1) {
-      // Only update if the new score is strictly higher
-      if (score <= existing[userIndex].score) {
+      const prev = existing[userIndex];
+      const isBetter = score > prev.score || (score === prev.score && safeTimeMs != null && (prev.timeMs == null || safeTimeMs < prev.timeMs));
+      if (!isBetter) {
         return NextResponse.json({
           saved: false,
-          reason: "Existing score is equal or higher.",
+          reason: "Existing score is equal or better.",
           scores: existing,
         });
       }
-      // Update in place
       existing[userIndex] = {
         userId,
         userName: userName.trim(),
         score,
+        timeMs: safeTimeMs,
         updatedAt: new Date().toISOString(),
       };
     } else {
-      // Add new entry
       existing.push({
         userId,
         userName: userName.trim(),
         score,
+        timeMs: safeTimeMs,
         updatedAt: new Date().toISOString(),
       });
     }
 
-    // Sort descending by score, then by updatedAt ascending (earlier is better on ties)
+    // Sort: highest score first, then fastest time, then earliest submission
     existing.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
+      const aTime = a.timeMs ?? Infinity;
+      const bTime = b.timeMs ?? Infinity;
+      if (aTime !== bTime) return aTime - bTime;
       return a.updatedAt.localeCompare(b.updatedAt);
     });
 
