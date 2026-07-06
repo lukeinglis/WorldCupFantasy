@@ -194,4 +194,26 @@ export async function removeParticipant(id: string): Promise<boolean> {
   return true;
 }
 
+// ---- Persisted live results (written by admin refresh, read by pages) ----
+
+export interface PersistedLiveResults {
+  knockoutResults: Record<string, string>;
+  goldenBoot: string | null;
+  scorers: { playerName: string; teamTla: string; teamCrest: string | null; goals: number; assists: number }[];
+  updatedAt: string;
+}
+
+export async function getPersistedLiveResults(): Promise<PersistedLiveResults | null> {
+  requireKv();
+  const data = await kv.get<PersistedLiveResults>("live:results");
+  log.info({ found: !!data }, "getPersistedLiveResults");
+  return data;
+}
+
+export async function savePersistedLiveResults(data: PersistedLiveResults): Promise<void> {
+  requireKv();
+  await kv.set("live:results", data);
+  log.info({ knockoutCount: Object.keys(data.knockoutResults).length, goldenBoot: data.goldenBoot }, "savePersistedLiveResults");
+}
+
 export { isKvConfigured };

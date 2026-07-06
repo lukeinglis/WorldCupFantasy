@@ -4,10 +4,12 @@ import Container from "@/components/Container";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardHeader, CardBody } from "@/components/Card";
 import BracketDisplay from "@/components/BracketDisplay";
-import { getUserById, getPicks, getAllUsersWithPicks, isKvConfigured } from "@/lib/storage";
+import { getUserById, getPicks, getAllUsersWithPicks, getPersistedLiveResults, isKvConfigured } from "@/lib/storage";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import {
   calculateAllPoints,
+  setActualBonusResults,
+  setActualKnockoutResults,
   actualGroupResults,
   actualKnockoutResults,
 } from "@/data/scoring";
@@ -58,9 +60,17 @@ export default async function ParticipantDetailPage({
 
   if (!user) return notFound();
 
-  const kvData = await getAllUsersWithPicks();
-  const participants = buildParticipantsFromKv(kvData);
+  const [kvData, liveResults] = await Promise.all([
+    getAllUsersWithPicks(),
+    getPersistedLiveResults(),
+  ]);
 
+  if (liveResults) {
+    setActualKnockoutResults(liveResults.knockoutResults);
+    setActualBonusResults({ goldenBoot: liveResults.goldenBoot });
+  }
+
+  const participants = buildParticipantsFromKv(kvData);
 
   const withPoints = calculateAllPoints(participants);
 
