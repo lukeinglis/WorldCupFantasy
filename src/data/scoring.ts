@@ -94,11 +94,12 @@ const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
   "round_of_32_14": "EGY",  // EGY 1:1 AUS, EGY wins 4:2 pens (Jul 3)
   "round_of_32_15": "ARG",  // ARG 3:2 CPV, AET (Jul 3)
   "round_of_32_16": "COL",  // COL 1:0 GHA (Jul 3)
-  // R16 (4 of 8 complete)
+  // R16 (5 of 8 complete)
   "round_of_16_1": "FRA",   // FRA 1:0 PAR (Jul 4)
   "round_of_16_2": "MAR",   // MAR 3:0 CAN (Jul 4)
   "round_of_16_3": "NOR",   // NOR 2:1 BRA (Jul 5)
   "round_of_16_4": "ENG",   // ENG 3:2 MEX (Jul 5)
+  "round_of_16_5": "ESP",   // ESP beat POR (Jul 6)
 };
 
 // Active knockout results: starts from hardcoded, overwritten by live API when available
