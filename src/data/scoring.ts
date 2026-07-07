@@ -3,6 +3,65 @@ import { knockoutRoundPoints } from "./participants";
 import { R32_MATCHES } from "./knockout-bracket";
 import logger from "@/lib/logger";
 
+const BRACKET_PATH: Record<string, { round: string; matchNumber: number }> = {
+  "round_of_32_4":  { round: "round_of_16", matchNumber: 1 },
+  "round_of_32_6":  { round: "round_of_16", matchNumber: 1 },
+  "round_of_32_1":  { round: "round_of_16", matchNumber: 2 },
+  "round_of_32_2":  { round: "round_of_16", matchNumber: 2 },
+  "round_of_32_3":  { round: "round_of_16", matchNumber: 3 },
+  "round_of_32_5":  { round: "round_of_16", matchNumber: 3 },
+  "round_of_32_7":  { round: "round_of_16", matchNumber: 4 },
+  "round_of_32_9":  { round: "round_of_16", matchNumber: 4 },
+  "round_of_32_11": { round: "round_of_16", matchNumber: 5 },
+  "round_of_32_12": { round: "round_of_16", matchNumber: 5 },
+  "round_of_32_8":  { round: "round_of_16", matchNumber: 6 },
+  "round_of_32_10": { round: "round_of_16", matchNumber: 6 },
+  "round_of_32_15": { round: "round_of_16", matchNumber: 7 },
+  "round_of_32_14": { round: "round_of_16", matchNumber: 7 },
+  "round_of_32_13": { round: "round_of_16", matchNumber: 8 },
+  "round_of_32_16": { round: "round_of_16", matchNumber: 8 },
+  "round_of_16_1": { round: "quarter", matchNumber: 1 },
+  "round_of_16_2": { round: "quarter", matchNumber: 1 },
+  "round_of_16_5": { round: "quarter", matchNumber: 2 },
+  "round_of_16_6": { round: "quarter", matchNumber: 2 },
+  "round_of_16_3": { round: "quarter", matchNumber: 3 },
+  "round_of_16_4": { round: "quarter", matchNumber: 3 },
+  "round_of_16_7": { round: "quarter", matchNumber: 4 },
+  "round_of_16_8": { round: "quarter", matchNumber: 4 },
+  "quarter_1": { round: "semi", matchNumber: 1 },
+  "quarter_2": { round: "semi", matchNumber: 1 },
+  "quarter_3": { round: "semi", matchNumber: 2 },
+  "quarter_4": { round: "semi", matchNumber: 2 },
+  "semi_1": { round: "final", matchNumber: 1 },
+  "semi_2": { round: "final", matchNumber: 1 },
+};
+
+function buildEliminatedTeams(): Set<string> {
+  const eliminated = new Set<string>();
+  const results = actualKnockoutResults;
+  if (!results) return eliminated;
+
+  for (const [key, winner] of Object.entries(results)) {
+    if (key.startsWith("round_of_32_")) {
+      const num = parseInt(key.replace("round_of_32_", ""), 10);
+      const r32 = R32_MATCHES.find((m) => m.matchNumber === num);
+      if (r32) {
+        if (r32.homeTeam && r32.homeTeam !== winner) eliminated.add(r32.homeTeam);
+        if (r32.awayTeam && r32.awayTeam !== winner) eliminated.add(r32.awayTeam);
+      }
+    } else {
+      const feeders = Object.entries(BRACKET_PATH)
+        .filter(([, dest]) => `${dest.round}_${dest.matchNumber}` === key)
+        .map(([src]) => results[src])
+        .filter(Boolean);
+      for (const team of feeders) {
+        if (team !== winner) eliminated.add(team);
+      }
+    }
+  }
+  return eliminated;
+}
+
 /**
  * Normalize a player name for fuzzy comparison:
  * lowercase, strip diacritics, collapse whitespace.
@@ -311,11 +370,15 @@ export function calculatePotentialPoints(participant: Participant): PotentialPoi
     remaining += 10;
   }
 
-  // Knockout picks: round points if match not yet decided
+  // Build set of eliminated teams from actual results.
+  // Every team that lost a decided knockout match cannot win future rounds.
+  const eliminatedTeams = buildEliminatedTeams();
+
+  // Knockout picks: remaining points only if match undecided AND picked team still alive
   for (const pick of participant.knockoutPicks) {
     const key = `${pick.round}_${pick.matchNumber}`;
     const actualWinner = actualKnockoutResults ? actualKnockoutResults[key] : undefined;
-    if (!actualWinner) {
+    if (!actualWinner && !eliminatedTeams.has(pick.winner)) {
       remaining += knockoutRoundPoints[pick.round] ?? 0;
     }
   }
