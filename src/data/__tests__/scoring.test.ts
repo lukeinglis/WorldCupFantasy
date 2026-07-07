@@ -431,8 +431,8 @@ describe("calculatePotentialPoints", () => {
     // Groups all hardcoded (0 remaining), GER is in MOST_GOALS_TEAMS (10 earned)
     // Golden Boot undecided (10 remaining)
     // R32_1 hardcoded as CAN, pick GER is wrong (0 remaining)
-    // Final undecided (10 remaining), Golden Ball (10 remaining)
-    expect(result.remaining).toBe(10 + 10 + 10); // 30
+    // Final: GER eliminated so 0 remaining, Golden Ball (10 remaining)
+    expect(result.remaining).toBe(10 + 10); // 20
   });
 
   it("returns 0 remaining for golden boot when decided", () => {
