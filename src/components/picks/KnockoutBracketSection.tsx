@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader } from "@/components/Card";
 import { getTeamByCode } from "@/data/teams";
 import { knockoutRoundPoints, knockoutRoundMatchCounts } from "@/data/participants";
 import { R32_MATCHES } from "@/data/knockout-bracket";
+import { getEliminatedTeams } from "@/data/scoring";
 import BracketDisplay from "@/components/BracketDisplay";
 
 const ROUND_LABELS: Record<string, string> = {
@@ -77,63 +78,7 @@ export default function KnockoutBracketSection() {
       .catch(() => {});
   }, []);
 
-  const eliminatedTeams = useMemo(() => {
-    const eliminated = new Set<string>();
-
-    const BRACKET_PATH: Record<string, { round: string; matchNumber: number }> = {
-      "round_of_32_4":  { round: "round_of_16", matchNumber: 1 },
-      "round_of_32_6":  { round: "round_of_16", matchNumber: 1 },
-      "round_of_32_1":  { round: "round_of_16", matchNumber: 2 },
-      "round_of_32_2":  { round: "round_of_16", matchNumber: 2 },
-      "round_of_32_3":  { round: "round_of_16", matchNumber: 3 },
-      "round_of_32_5":  { round: "round_of_16", matchNumber: 3 },
-      "round_of_32_7":  { round: "round_of_16", matchNumber: 4 },
-      "round_of_32_9":  { round: "round_of_16", matchNumber: 4 },
-      "round_of_32_11": { round: "round_of_16", matchNumber: 5 },
-      "round_of_32_12": { round: "round_of_16", matchNumber: 5 },
-      "round_of_32_8":  { round: "round_of_16", matchNumber: 6 },
-      "round_of_32_10": { round: "round_of_16", matchNumber: 6 },
-      "round_of_32_15": { round: "round_of_16", matchNumber: 7 },
-      "round_of_32_14": { round: "round_of_16", matchNumber: 7 },
-      "round_of_32_13": { round: "round_of_16", matchNumber: 8 },
-      "round_of_32_16": { round: "round_of_16", matchNumber: 8 },
-      "round_of_16_1": { round: "quarter", matchNumber: 1 },
-      "round_of_16_2": { round: "quarter", matchNumber: 1 },
-      "round_of_16_5": { round: "quarter", matchNumber: 2 },
-      "round_of_16_6": { round: "quarter", matchNumber: 2 },
-      "round_of_16_3": { round: "quarter", matchNumber: 3 },
-      "round_of_16_4": { round: "quarter", matchNumber: 3 },
-      "round_of_16_7": { round: "quarter", matchNumber: 4 },
-      "round_of_16_8": { round: "quarter", matchNumber: 4 },
-      "quarter_1": { round: "semi", matchNumber: 1 },
-      "quarter_2": { round: "semi", matchNumber: 1 },
-      "quarter_3": { round: "semi", matchNumber: 2 },
-      "quarter_4": { round: "semi", matchNumber: 2 },
-      "semi_1": { round: "final", matchNumber: 1 },
-      "semi_2": { round: "final", matchNumber: 1 },
-    };
-
-    for (const [key, winner] of Object.entries(results)) {
-      if (key.startsWith("round_of_32_")) {
-        const num = parseInt(key.replace("round_of_32_", ""), 10);
-        const r32 = R32_MATCHES.find((m) => m.matchNumber === num);
-        if (r32) {
-          if (r32.homeTeam && r32.homeTeam !== winner) eliminated.add(r32.homeTeam);
-          if (r32.awayTeam && r32.awayTeam !== winner) eliminated.add(r32.awayTeam);
-        }
-      } else {
-        // For R16+, find which two feeder matches feed this match
-        const feeders = Object.entries(BRACKET_PATH)
-          .filter(([, dest]) => `${dest.round}_${dest.matchNumber}` === key)
-          .map(([src]) => results[src])
-          .filter(Boolean);
-        for (const team of feeders) {
-          if (team !== winner) eliminated.add(team);
-        }
-      }
-    }
-    return eliminated;
-  }, [results]);
+  const eliminatedTeams = useMemo(() => getEliminatedTeams(results), [results]);
 
   if (loading) {
     return (

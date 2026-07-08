@@ -10,6 +10,7 @@ import {
   calculateAllPoints,
   setActualBonusResults,
   setActualKnockoutResults,
+  getEliminatedTeams,
   actualGroupResults,
   actualKnockoutResults,
 } from "@/data/scoring";
@@ -119,17 +120,7 @@ export default async function ParticipantDetailPage({
     picksMap[`${kp.round}_${kp.matchNumber}`] = kp.winner;
   }
   const bracketResults = actualKnockoutResults ?? {};
-  const eliminatedTeams = new Set<string>();
-  for (const [key, winner] of Object.entries(bracketResults)) {
-    if (key.startsWith("round_of_32_")) {
-      const num = parseInt(key.replace("round_of_32_", ""), 10);
-      const r32 = R32_MATCHES.find((m) => m.matchNumber === num);
-      if (r32) {
-        if (r32.homeTeam && r32.homeTeam !== winner) eliminatedTeams.add(r32.homeTeam);
-        if (r32.awayTeam && r32.awayTeam !== winner) eliminatedTeams.add(r32.awayTeam);
-      }
-    }
-  }
+  const eliminatedTeams = getEliminatedTeams(bracketResults);
 
   return (
     <>
