@@ -14,6 +14,7 @@ import {
   calculateAllPoints,
   setActualBonusResults,
   setActualKnockoutResults,
+  getEliminatedTeams,
   actualGroupResults,
   actualKnockoutResults,
 } from "@/data/scoring";
@@ -29,19 +30,7 @@ export const dynamic = "force-dynamic";
 // ── Homepage bracket: shows actual tournament results ──
 
 function HomepageBracket({ knockoutResults }: { knockoutResults?: Record<string, string> }) {
-  const eliminatedTeams = new Set<string>();
-  if (knockoutResults) {
-    for (const [key, winner] of Object.entries(knockoutResults)) {
-      if (key.startsWith("round_of_32_")) {
-        const num = parseInt(key.replace("round_of_32_", ""), 10);
-        const r32 = R32_MATCHES.find((m) => m.matchNumber === num);
-        if (r32) {
-          if (r32.homeTeam && r32.homeTeam !== winner) eliminatedTeams.add(r32.homeTeam);
-          if (r32.awayTeam && r32.awayTeam !== winner) eliminatedTeams.add(r32.awayTeam);
-        }
-      }
-    }
-  }
+  const eliminatedTeams = knockoutResults ? getEliminatedTeams(knockoutResults) : new Set<string>();
 
   return (
     <BracketDisplay

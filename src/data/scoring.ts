@@ -36,10 +36,8 @@ const BRACKET_PATH: Record<string, { round: string; matchNumber: number }> = {
   "semi_2": { round: "final", matchNumber: 1 },
 };
 
-function buildEliminatedTeams(): Set<string> {
+export function getEliminatedTeams(results: Record<string, string>): Set<string> {
   const eliminated = new Set<string>();
-  const results = actualKnockoutResults;
-  if (!results) return eliminated;
 
   for (const [key, winner] of Object.entries(results)) {
     if (key.startsWith("round_of_32_")) {
@@ -60,6 +58,10 @@ function buildEliminatedTeams(): Set<string> {
     }
   }
   return eliminated;
+}
+
+function buildEliminatedTeams(): Set<string> {
+  return actualKnockoutResults ? getEliminatedTeams(actualKnockoutResults) : new Set();
 }
 
 /**
