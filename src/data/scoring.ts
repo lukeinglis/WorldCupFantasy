@@ -164,6 +164,8 @@ const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
   "round_of_16_6": "BEL",   // BEL 4:1 USA (Jul 6)
   "round_of_16_7": "ARG",   // ARG 3:2 EGY (Jul 7)
   "round_of_16_8": "SUI",   // SUI 0:0 COL, SUI wins 4:3 pens (Jul 7)
+  // QF
+  "quarter_1": "FRA",       // FRA 2:0 MAR (Jul 9)
 };
 
 // Active knockout results: starts from hardcoded, overwritten by live API when available
