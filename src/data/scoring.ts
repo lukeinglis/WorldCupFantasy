@@ -142,16 +142,16 @@ const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
   "round_of_32_1": "CAN",   // RSA 0:1 CAN (Jun 28)
   "round_of_32_2": "MAR",   // NED 1:1 MAR, MAR wins 3:2 pens (Jun 30)
   "round_of_32_3": "BRA",   // BRA 2:1 JPN (Jun 29)
-  "round_of_32_4": "PAR",   // GER 1:1 PAR, PAR wins pens (Jun 29)
+  "round_of_32_4": "PAR",   // GER 1:1 PAR, PAR wins 4:3 pens (Jun 29)
   "round_of_32_5": "NOR",   // CIV 1:2 NOR (Jun 30)
   "round_of_32_6": "FRA",   // FRA 3:0 SWE (Jun 30)
   "round_of_32_7": "MEX",   // MEX 2:0 ECU (Jul 1)
   "round_of_32_8": "USA",   // USA 2:0 BIH (Jul 1)
   "round_of_32_9": "ENG",   // ENG 2:1 COD (Jul 1)
   "round_of_32_10": "BEL",  // BEL 3:2 SEN, AET (Jul 1)
-  "round_of_32_11": "ESP",  // ESP 2:0 AUT (Jul 2)
-  "round_of_32_12": "POR",  // POR beat CRO (Jul 2)
-  "round_of_32_13": "SUI",  // SUI beat ALG (Jul 2)
+  "round_of_32_11": "ESP",  // ESP 3:0 AUT (Jul 2)
+  "round_of_32_12": "POR",  // POR 2:1 CRO (Jul 2)
+  "round_of_32_13": "SUI",  // SUI 2:0 ALG (Jul 2)
   "round_of_32_14": "EGY",  // EGY 1:1 AUS, EGY wins 4:2 pens (Jul 3)
   "round_of_32_15": "ARG",  // ARG 3:2 CPV, AET (Jul 3)
   "round_of_32_16": "COL",  // COL 1:0 GHA (Jul 3)
@@ -164,8 +164,13 @@ const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
   "round_of_16_6": "BEL",   // BEL 4:1 USA (Jul 6)
   "round_of_16_7": "ARG",   // ARG 3:2 EGY (Jul 7)
   "round_of_16_8": "SUI",   // SUI 0:0 COL, SUI wins 4:3 pens (Jul 7)
-  // QF
+  // QF (complete)
   "quarter_1": "FRA",       // FRA 2:0 MAR (Jul 9)
+  "quarter_2": "ESP",       // ESP 2:1 BEL (Jul 10)
+  "quarter_3": "ENG",       // ENG 2:1 NOR, AET (Jul 11)
+  "quarter_4": "ARG",       // ARG 3:1 SUI, AET (Jul 11)
+  // SF
+  "semi_1": "ESP",          // ESP 2:0 FRA (Jul 14)
 };
 
 // Active knockout results: starts from hardcoded, overwritten by live API when available
