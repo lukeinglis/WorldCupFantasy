@@ -169,8 +169,9 @@ const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
   "quarter_2": "ESP",       // ESP 2:1 BEL (Jul 10)
   "quarter_3": "ENG",       // ENG 2:1 NOR, AET (Jul 11)
   "quarter_4": "ARG",       // ARG 3:1 SUI, AET (Jul 11)
-  // SF
+  // SF (complete)
   "semi_1": "ESP",          // ESP 2:0 FRA (Jul 14)
+  "semi_2": "ARG",          // ENG 1:2 ARG (Jul 15)
 };
 
 // Active knockout results: starts from hardcoded, overwritten by live API when available
