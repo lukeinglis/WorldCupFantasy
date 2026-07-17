@@ -12,9 +12,9 @@ interface ParticipantData {
   maxPossible: number;
   tiebreaker: { homeScore: number; awayScore: number };
   bonusPicks?: {
-    goldenBoot: string;
-    goldenBall: string;
-    finalWinner: string;
+    goldenBoot: { pick: string; status: "earned" | "possible" | "lost" };
+    goldenBall: { pick: string; status: "earned" | "possible" | "lost" };
+    finalWinner: { pick: string; status: "earned" | "possible" | "lost" };
   };
 }
 

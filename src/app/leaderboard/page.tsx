@@ -20,6 +20,8 @@ import {
   setActualBonusResults,
   setActualKnockoutResults,
   actualKnockoutResults,
+  actualBonusResults,
+  fuzzyPlayerMatch,
 } from "@/data/scoring";
 import { getAllUsersWithPicks, getPersistedLiveResults, isKvConfigured } from "@/lib/storage";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
@@ -223,6 +225,18 @@ export default async function LeaderboardPage() {
                 current={ranked.map((p) => {
                   const finalPick = p.knockoutPicks.find((k) => k.round === "final" && k.matchNumber === 1);
                   const finalTeam = finalPick ? getTeamByCode(finalPick.winner) : undefined;
+                  const finalResult = actualKnockoutResults?.["final_1"];
+
+                  const goldenBootStatus: "earned" | "possible" | "lost" = actualBonusResults.goldenBoot
+                    ? (fuzzyPlayerMatch(p.bonusPicks.goldenBoot, actualBonusResults.goldenBoot) ? "earned" : "lost")
+                    : "possible";
+                  const goldenBallStatus: "earned" | "possible" | "lost" = actualBonusResults.goldenBall
+                    ? (fuzzyPlayerMatch(p.bonusPicks.goldenBall, actualBonusResults.goldenBall) ? "earned" : "lost")
+                    : "possible";
+                  const finalStatus: "earned" | "possible" | "lost" = finalResult
+                    ? (finalPick?.winner === finalResult ? "earned" : "lost")
+                    : "possible";
+
                   return {
                     id: p.id,
                     name: p.name,
@@ -232,9 +246,9 @@ export default async function LeaderboardPage() {
                     maxPossible: p.maxPossible,
                     tiebreaker: p.tiebreaker,
                     bonusPicks: {
-                      goldenBoot: p.bonusPicks.goldenBoot,
-                      goldenBall: p.bonusPicks.goldenBall,
-                      finalWinner: finalTeam ? `${finalTeam.flag} ${finalTeam.name}` : "",
+                      goldenBoot: { pick: p.bonusPicks.goldenBoot, status: goldenBootStatus },
+                      goldenBall: { pick: p.bonusPicks.goldenBall, status: goldenBallStatus },
+                      finalWinner: { pick: finalTeam ? `${finalTeam.flag} ${finalTeam.name}` : "", status: finalStatus },
                     },
                   };
                 })}

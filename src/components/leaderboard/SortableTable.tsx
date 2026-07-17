@@ -13,9 +13,9 @@ interface RankedParticipant {
   maxPossible: number;
   tiebreaker: { homeScore: number; awayScore: number };
   bonusPicks?: {
-    goldenBoot: string;
-    goldenBall: string;
-    finalWinner: string;
+    goldenBoot: { pick: string; status: "earned" | "possible" | "lost" };
+    goldenBall: { pick: string; status: "earned" | "possible" | "lost" };
+    finalWinner: { pick: string; status: "earned" | "possible" | "lost" };
   };
 }
 
@@ -37,6 +37,29 @@ function getMedalColor(rank: number): string {
     case 3: return "text-bronze";
     default: return "text-gray-500";
   }
+}
+
+function BonusChip({ icon, label, status }: { icon: string; label: string; status: "earned" | "possible" | "lost" }) {
+  const colors = {
+    earned: "text-green-400",
+    possible: "text-gray-500",
+    lost: "text-gray-700 line-through",
+  };
+  const badge = {
+    earned: "✓10",
+    possible: "?10",
+    lost: "",
+  };
+  return (
+    <span className={`text-[10px] ${colors[status]}`}>
+      {icon} {label}
+      {badge[status] && (
+        <span className={`ml-0.5 ${status === "earned" ? "text-green-500" : "text-gray-600"}`}>
+          {badge[status]}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function SortArrow({ active, direction }: { active: boolean; direction: "asc" | "desc" }) {
@@ -170,20 +193,14 @@ export default function SortableTable({ participants, rankChanges, finishRange }
                   </p>
                   {p.bonusPicks && (
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                      {p.bonusPicks.finalWinner && (
-                        <span className="text-[10px] text-gray-500">
-                          <span className="text-gold/60">🏆</span> {p.bonusPicks.finalWinner}
-                        </span>
+                      {p.bonusPicks.finalWinner.pick && (
+                        <BonusChip icon="🏆" label={p.bonusPicks.finalWinner.pick} status={p.bonusPicks.finalWinner.status} />
                       )}
-                      {p.bonusPicks.goldenBall && (
-                        <span className="text-[10px] text-gray-500">
-                          <span className="text-gold/60">🌟</span> {p.bonusPicks.goldenBall}
-                        </span>
+                      {p.bonusPicks.goldenBall.pick && (
+                        <BonusChip icon="🌟" label={p.bonusPicks.goldenBall.pick} status={p.bonusPicks.goldenBall.status} />
                       )}
-                      {p.bonusPicks.goldenBoot && (
-                        <span className="text-[10px] text-gray-500">
-                          <span className="text-accent/60">👟</span> {p.bonusPicks.goldenBoot}
-                        </span>
+                      {p.bonusPicks.goldenBoot.pick && (
+                        <BonusChip icon="👟" label={p.bonusPicks.goldenBoot.pick} status={p.bonusPicks.goldenBoot.status} />
                       )}
                     </div>
                   )}

@@ -253,8 +253,8 @@ export function scoreTier1Groups(participant: Participant): number {
 }
 
 // Hardcoded group-stage bonus results (ties: all tied teams count)
-const MOST_GOALS_TEAMS = ["FRA", "GER", "NED"]; // all 10 goals in group stage
-const FEWEST_CONCEDED_TEAMS = ["ESP", "MEX"]; // both 0 goals conceded in group stage
+export const MOST_GOALS_TEAMS = ["FRA", "GER", "NED"]; // all 10 goals in group stage
+export const FEWEST_CONCEDED_TEAMS = ["ESP", "MEX"]; // both 0 goals conceded in group stage
 
 // Dynamic bonus results (Golden Boot and Golden Ball updated from API as tournament progresses)
 export let actualBonusResults: {
