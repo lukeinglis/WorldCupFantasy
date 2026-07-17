@@ -39,7 +39,7 @@ function SortArrow({ active, direction }: { active: boolean; direction: "asc" | 
   return <span className="text-white ml-1">{direction === "desc" ? "↓" : "↑"}</span>;
 }
 
-export default function SortableTable({ participants }: { participants: RankedParticipant[] }) {
+export default function SortableTable({ participants, rankChanges, finishRange }: { participants: RankedParticipant[]; rankChanges?: Record<string, number>; finishRange?: Record<string, { best: number; worst: number }> }) {
   const [sortCol, setSortCol] = useState<SortColumn>("total");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -138,7 +138,19 @@ export default function SortableTable({ participants }: { participants: RankedPa
                       {p.rank}
                     </span>
                   )}
+                  {rankChanges && rankChanges[p.id] !== undefined && rankChanges[p.id] !== 0 && (
+                    <span className={`text-xs font-bold ${rankChanges[p.id] > 0 ? "text-green-400" : "text-red-400"}`}>
+                      {rankChanges[p.id] > 0 ? `↑${rankChanges[p.id]}` : `↓${Math.abs(rankChanges[p.id])}`}
+                    </span>
+                  )}
                 </div>
+                {finishRange && finishRange[p.id] && finishRange[p.id].best !== finishRange[p.id].worst && (
+                  <p className="text-[10px] text-gray-600 mt-0.5">
+                    <span className="text-green-500">{finishRange[p.id].best}</span>
+                    <span className="text-gray-700">-</span>
+                    <span className="text-red-400">{finishRange[p.id].worst}</span>
+                  </p>
+                )}
               </td>
               <td className="px-4 py-4">
                 <div className="flex items-center gap-3">
