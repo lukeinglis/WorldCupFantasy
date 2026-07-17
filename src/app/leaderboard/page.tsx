@@ -23,6 +23,7 @@ import {
 } from "@/data/scoring";
 import { getAllUsersWithPicks, getPersistedLiveResults, isKvConfigured } from "@/lib/storage";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
+import { getTeamByCode } from "@/data/teams";
 import { buildParticipantsFromKv } from "@/lib/build-participants";
 import LivePoller from "@/components/LivePoller";
 
@@ -219,15 +220,24 @@ export default async function LeaderboardPage() {
               </div>
             ) : (
               <WhatIfLeaderboard
-                current={ranked.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  tier1Total: p.tier1Total,
-                  tier2Total: p.tier2Total,
-                  total: p.calculatedPoints.total,
-                  maxPossible: p.maxPossible,
-                  tiebreaker: p.tiebreaker,
-                }))}
+                current={ranked.map((p) => {
+                  const finalPick = p.knockoutPicks.find((k) => k.round === "final" && k.matchNumber === 1);
+                  const finalTeam = finalPick ? getTeamByCode(finalPick.winner) : undefined;
+                  return {
+                    id: p.id,
+                    name: p.name,
+                    tier1Total: p.tier1Total,
+                    tier2Total: p.tier2Total,
+                    total: p.calculatedPoints.total,
+                    maxPossible: p.maxPossible,
+                    tiebreaker: p.tiebreaker,
+                    bonusPicks: {
+                      goldenBoot: p.bonusPicks.goldenBoot,
+                      goldenBall: p.bonusPicks.goldenBall,
+                      finalWinner: finalTeam ? `${finalTeam.flag} ${finalTeam.name}` : "",
+                    },
+                  };
+                })}
                 scenarios={scenarios}
               />
             )}

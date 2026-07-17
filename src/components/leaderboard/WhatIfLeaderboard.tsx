@@ -11,6 +11,11 @@ interface ParticipantData {
   total: number;
   maxPossible: number;
   tiebreaker: { homeScore: number; awayScore: number };
+  bonusPicks?: {
+    goldenBoot: string;
+    goldenBall: string;
+    finalWinner: string;
+  };
 }
 
 export interface Scenario {

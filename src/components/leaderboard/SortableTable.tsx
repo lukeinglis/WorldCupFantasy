@@ -12,6 +12,11 @@ interface RankedParticipant {
   total: number;
   maxPossible: number;
   tiebreaker: { homeScore: number; awayScore: number };
+  bonusPicks?: {
+    goldenBoot: string;
+    goldenBall: string;
+    finalWinner: string;
+  };
 }
 
 type SortColumn = "total" | "tier1" | "tier2" | "max";
@@ -153,18 +158,35 @@ export default function SortableTable({ participants, rankChanges, finishRange }
                 )}
               </td>
               <td className="px-4 py-4">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <Link
-                      href={`/leaderboard/${p.id}`}
-                      className="font-medium text-white hover:text-accent transition-colors"
-                    >
-                      {p.name}
-                    </Link>
-                    <p className="text-xs text-gray-600">
-                      TB: {p.tiebreaker.homeScore}:{p.tiebreaker.awayScore}
-                    </p>
-                  </div>
+                <div>
+                  <Link
+                    href={`/leaderboard/${p.id}`}
+                    className="font-medium text-white hover:text-accent transition-colors"
+                  >
+                    {p.name}
+                  </Link>
+                  <p className="text-xs text-gray-600">
+                    TB: {p.tiebreaker.homeScore}:{p.tiebreaker.awayScore}
+                  </p>
+                  {p.bonusPicks && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                      {p.bonusPicks.finalWinner && (
+                        <span className="text-[10px] text-gray-500">
+                          <span className="text-gold/60">🏆</span> {p.bonusPicks.finalWinner}
+                        </span>
+                      )}
+                      {p.bonusPicks.goldenBall && (
+                        <span className="text-[10px] text-gray-500">
+                          <span className="text-gold/60">🌟</span> {p.bonusPicks.goldenBall}
+                        </span>
+                      )}
+                      {p.bonusPicks.goldenBoot && (
+                        <span className="text-[10px] text-gray-500">
+                          <span className="text-accent/60">👟</span> {p.bonusPicks.goldenBoot}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </td>
               <td className="px-4 py-4 text-center">
