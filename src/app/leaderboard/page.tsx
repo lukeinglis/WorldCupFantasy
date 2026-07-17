@@ -22,6 +22,8 @@ import {
   actualKnockoutResults,
   actualBonusResults,
   fuzzyPlayerMatch,
+  MOST_GOALS_TEAMS,
+  FEWEST_CONCEDED_TEAMS,
 } from "@/data/scoring";
 import { getAllUsersWithPicks, getPersistedLiveResults, isKvConfigured } from "@/lib/storage";
 import { TOURNAMENT_START } from "@/lib/tournament-dates";
@@ -237,6 +239,12 @@ export default async function LeaderboardPage() {
                     ? (finalPick?.winner === finalResult ? "earned" : "lost")
                     : "possible";
 
+                  const mostGoalsTeam = getTeamByCode(p.bonusPicks.mostGoalsTeam);
+                  const mostGoalsStatus: "earned" | "lost" = MOST_GOALS_TEAMS.includes(p.bonusPicks.mostGoalsTeam) ? "earned" : "lost";
+
+                  const fewestConcededTeam = getTeamByCode(p.bonusPicks.fewestConcededTeam);
+                  const fewestConcededStatus: "earned" | "lost" = FEWEST_CONCEDED_TEAMS.includes(p.bonusPicks.fewestConcededTeam) ? "earned" : "lost";
+
                   return {
                     id: p.id,
                     name: p.name,
@@ -249,6 +257,8 @@ export default async function LeaderboardPage() {
                       goldenBoot: { pick: p.bonusPicks.goldenBoot, status: goldenBootStatus },
                       goldenBall: { pick: p.bonusPicks.goldenBall, status: goldenBallStatus },
                       finalWinner: { pick: finalTeam ? `${finalTeam.flag} ${finalTeam.name}` : "", status: finalStatus },
+                      mostGoals: { pick: mostGoalsTeam ? `${mostGoalsTeam.flag} ${mostGoalsTeam.name}` : p.bonusPicks.mostGoalsTeam, status: mostGoalsStatus },
+                      fewestConceded: { pick: fewestConcededTeam ? `${fewestConcededTeam.flag} ${fewestConcededTeam.name}` : p.bonusPicks.fewestConcededTeam, status: fewestConcededStatus },
                     },
                   };
                 })}

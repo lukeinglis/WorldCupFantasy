@@ -16,6 +16,8 @@ interface RankedParticipant {
     goldenBoot: { pick: string; status: "earned" | "possible" | "lost" };
     goldenBall: { pick: string; status: "earned" | "possible" | "lost" };
     finalWinner: { pick: string; status: "earned" | "possible" | "lost" };
+    mostGoals: { pick: string; status: "earned" | "possible" | "lost" };
+    fewestConceded: { pick: string; status: "earned" | "possible" | "lost" };
   };
 }
 
@@ -201,6 +203,12 @@ export default function SortableTable({ participants, rankChanges, finishRange }
                       )}
                       {p.bonusPicks.goldenBoot.pick && (
                         <BonusChip icon="👟" label={p.bonusPicks.goldenBoot.pick} status={p.bonusPicks.goldenBoot.status} />
+                      )}
+                      {p.bonusPicks.mostGoals.pick && (
+                        <BonusChip icon="⚽" label={p.bonusPicks.mostGoals.pick} status={p.bonusPicks.mostGoals.status} />
+                      )}
+                      {p.bonusPicks.fewestConceded.pick && (
+                        <BonusChip icon="🛡️" label={p.bonusPicks.fewestConceded.pick} status={p.bonusPicks.fewestConceded.status} />
                       )}
                     </div>
                   )}

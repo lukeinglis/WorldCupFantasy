@@ -15,6 +15,8 @@ interface ParticipantData {
     goldenBoot: { pick: string; status: "earned" | "possible" | "lost" };
     goldenBall: { pick: string; status: "earned" | "possible" | "lost" };
     finalWinner: { pick: string; status: "earned" | "possible" | "lost" };
+    mostGoals: { pick: string; status: "earned" | "possible" | "lost" };
+    fewestConceded: { pick: string; status: "earned" | "possible" | "lost" };
   };
 }
 
