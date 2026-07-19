@@ -172,6 +172,9 @@ const HARDCODED_KNOCKOUT_RESULTS: Record<string, string> = {
   // SF (complete)
   "semi_1": "ESP",          // ESP 2:0 FRA (Jul 14)
   "semi_2": "ARG",          // ENG 1:2 ARG (Jul 15)
+  // 3rd Place + Final (complete)
+  "third_place_1": "ENG",   // ENG 6:4 FRA (Jul 18)
+  "final_1": "ESP",         // ESP 1:0 ARG, AET (Jul 19)
 };
 
 // Active knockout results: starts from hardcoded, overwritten by live API when available
@@ -256,13 +259,13 @@ export function scoreTier1Groups(participant: Participant): number {
 export const MOST_GOALS_TEAMS = ["FRA", "GER", "NED"]; // all 10 goals in group stage
 export const FEWEST_CONCEDED_TEAMS = ["ESP", "MEX"]; // both 0 goals conceded in group stage
 
-// Dynamic bonus results (Golden Boot and Golden Ball updated from API as tournament progresses)
+// Bonus results: Golden Boot from API, Golden Ball hardcoded (FIFA award)
 export let actualBonusResults: {
   goldenBoot: string | null;
   goldenBall: string | null;
 } = {
-  goldenBoot: null,
-  goldenBall: null,
+  goldenBoot: "Kylian Mbappé",  // 10 goals, back-to-back Golden Boot
+  goldenBall: "Rodri",          // Spain's midfielder, tournament best player
 };
 
 /** Update dynamic bonus results from live data (Golden Boot scorer) */
