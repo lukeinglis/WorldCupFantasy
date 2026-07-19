@@ -13,11 +13,11 @@ interface RankedParticipant {
   maxPossible: number;
   tiebreaker: { homeScore: number; awayScore: number };
   bonusPicks?: {
-    goldenBoot: { pick: string; status: "earned" | "possible" | "lost" };
-    goldenBall: { pick: string; status: "earned" | "possible" | "lost" };
-    finalWinner: { pick: string; status: "earned" | "possible" | "lost" };
-    mostGoals: { pick: string; status: "earned" | "possible" | "lost" };
-    fewestConceded: { pick: string; status: "earned" | "possible" | "lost" };
+    goldenBoot: { pick: string; status: "earned" | "lost" };
+    goldenBall: { pick: string; status: "earned" | "lost" };
+    finalWinner: { pick: string; status: "earned" | "lost" };
+    mostGoals: { pick: string; status: "earned" | "lost" };
+    fewestConceded: { pick: string; status: "earned" | "lost" };
   };
 }
 
@@ -41,15 +41,13 @@ function getMedalColor(rank: number): string {
   }
 }
 
-function BonusChip({ icon, label, status }: { icon: string; label: string; status: "earned" | "possible" | "lost" }) {
+function BonusChip({ icon, label, status }: { icon: string; label: string; status: "earned" | "lost" }) {
   const colors = {
     earned: "text-green-400",
-    possible: "text-gray-500",
     lost: "text-gray-700 line-through",
   };
   const badge = {
     earned: "✓10",
-    possible: "?10",
     lost: "",
   };
   return (
@@ -69,7 +67,7 @@ function SortArrow({ active, direction }: { active: boolean; direction: "asc" | 
   return <span className="text-white ml-1">{direction === "desc" ? "↓" : "↑"}</span>;
 }
 
-export default function SortableTable({ participants, rankChanges, finishRange }: { participants: RankedParticipant[]; rankChanges?: Record<string, number>; finishRange?: Record<string, { best: number; worst: number }> }) {
+export default function SortableTable({ participants }: { participants: RankedParticipant[] }) {
   const [sortCol, setSortCol] = useState<SortColumn>("total");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -160,26 +158,12 @@ export default function SortableTable({ participants, rankChanges, finishRange }
               className="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
             >
               <td className="px-4 py-4">
-                <div className="flex items-center gap-1">
-                  {p.rank <= 3 ? (
-                    <span className="text-lg">{getMedalEmoji(p.rank)}</span>
-                  ) : (
-                    <span className={`font-heading text-lg font-bold ${getMedalColor(p.rank)}`}>
-                      {p.rank}
-                    </span>
-                  )}
-                  {rankChanges && rankChanges[p.id] !== undefined && rankChanges[p.id] !== 0 && (
-                    <span className={`text-xs font-bold ${rankChanges[p.id] > 0 ? "text-green-400" : "text-red-400"}`}>
-                      {rankChanges[p.id] > 0 ? `↑${rankChanges[p.id]}` : `↓${Math.abs(rankChanges[p.id])}`}
-                    </span>
-                  )}
-                </div>
-                {finishRange && finishRange[p.id] && finishRange[p.id].best !== finishRange[p.id].worst && (
-                  <p className="text-[10px] text-gray-600 mt-0.5">
-                    <span className="text-green-500">{finishRange[p.id].best}</span>
-                    <span className="text-gray-700">-</span>
-                    <span className="text-red-400">{finishRange[p.id].worst}</span>
-                  </p>
+                {p.rank <= 3 ? (
+                  <span className="text-lg">{getMedalEmoji(p.rank)}</span>
+                ) : (
+                  <span className={`font-heading text-lg font-bold ${getMedalColor(p.rank)}`}>
+                    {p.rank}
+                  </span>
                 )}
               </td>
               <td className="px-4 py-4">

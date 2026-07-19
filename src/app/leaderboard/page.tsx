@@ -5,8 +5,6 @@ import PageHeader from "@/components/PageHeader";
 import { Card, CardHeader } from "@/components/Card";
 import BonusPicksComparison from "@/components/leaderboard/BonusPicksComparison";
 import SortableTable from "@/components/leaderboard/SortableTable";
-import WhatIfLeaderboard from "@/components/leaderboard/WhatIfLeaderboard";
-import type { Scenario } from "@/components/leaderboard/WhatIfLeaderboard";
 import {
   TIER1_MAX,
   TIER2_MAX,
@@ -98,52 +96,6 @@ export default async function LeaderboardPage() {
     };
   });
 
-  // Compute what-if scenarios for remaining matches (Final + 3rd Place)
-  const WHAT_IF_SCENARIOS = [
-    { id: "esp-fra", final: "ESP", third: "FRA", label: "\u{1F1EA}\u{1F1F8} Spain wins, \u{1F1EB}\u{1F1F7} France 3rd", shortLabel: "\u{1F1EA}\u{1F1F8} Win, \u{1F1EB}\u{1F1F7} 3rd" },
-    { id: "esp-eng", final: "ESP", third: "ENG", label: "\u{1F1EA}\u{1F1F8} Spain wins, \u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F} England 3rd", shortLabel: "\u{1F1EA}\u{1F1F8} Win, \u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F} 3rd" },
-    { id: "arg-fra", final: "ARG", third: "FRA", label: "\u{1F1E6}\u{1F1F7} Argentina wins, \u{1F1EB}\u{1F1F7} France 3rd", shortLabel: "\u{1F1E6}\u{1F1F7} Win, \u{1F1EB}\u{1F1F7} 3rd" },
-    { id: "arg-eng", final: "ARG", third: "ENG", label: "\u{1F1E6}\u{1F1F7} Argentina wins, \u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F} England 3rd", shortLabel: "\u{1F1E6}\u{1F1F7} Win, \u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F} 3rd" },
-  ];
-
-  const savedResults = actualKnockoutResults ? { ...actualKnockoutResults } : null;
-
-  const scenarios: Scenario[] = WHAT_IF_SCENARIOS.map((scenario) => {
-    const hypothetical = { ...savedResults, final_1: scenario.final, third_place_1: scenario.third };
-    setActualKnockoutResults(hypothetical);
-
-    const scenarioWithPoints = calculateAllPoints(participants);
-    const scenarioSorted = [...scenarioWithPoints].sort((a, b) => {
-      const totalDiff = b.calculatedPoints.total - a.calculatedPoints.total;
-      if (totalDiff !== 0) return totalDiff;
-      const tier1Diff =
-        b.calculatedPoints.tier1Groups + b.calculatedPoints.tier1Bonus -
-        (a.calculatedPoints.tier1Groups + a.calculatedPoints.tier1Bonus);
-      if (tier1Diff !== 0) return tier1Diff;
-      return a.name.localeCompare(b.name);
-    });
-
-    const scenarioRanked = scenarioSorted.map((p) => ({
-      id: p.id,
-      name: p.name,
-      tier1Total: p.calculatedPoints.tier1Groups + p.calculatedPoints.tier1Bonus,
-      tier2Total: p.calculatedPoints.tier2Bracket + p.calculatedPoints.tier2Bonus,
-      total: p.calculatedPoints.total,
-      maxPossible: p.calculatedPoints.total,
-      tiebreaker: p.tiebreaker,
-    }));
-
-    return {
-      id: scenario.id,
-      label: scenario.label,
-      shortLabel: scenario.shortLabel,
-      participants: scenarioRanked,
-    };
-  });
-
-  // Restore actual results
-  setActualKnockoutResults(savedResults);
-
   const knockoutRounds = [
     { key: "round_of_32", label: "R32", pts: knockoutRoundPoints["round_of_32"], matches: knockoutRoundMatchCounts["round_of_32"] },
     { key: "round_of_16", label: "R16", pts: knockoutRoundPoints["round_of_16"], matches: knockoutRoundMatchCounts["round_of_16"] },
@@ -223,21 +175,21 @@ export default async function LeaderboardPage() {
                 <p className="text-gray-400 text-sm">No participants yet. The leaderboard will populate once contestants join the contest.</p>
               </div>
             ) : (
-              <WhatIfLeaderboard
-                current={ranked.map((p) => {
+              <SortableTable
+                participants={ranked.map((p) => {
                   const finalPick = p.knockoutPicks.find((k) => k.round === "final" && k.matchNumber === 1);
                   const finalTeam = finalPick ? getTeamByCode(finalPick.winner) : undefined;
                   const finalResult = actualKnockoutResults?.["final_1"];
 
-                  const goldenBootStatus: "earned" | "possible" | "lost" = actualBonusResults.goldenBoot
+                  const goldenBootStatus: "earned" | "lost" = actualBonusResults.goldenBoot
                     ? (fuzzyPlayerMatch(p.bonusPicks.goldenBoot, actualBonusResults.goldenBoot) ? "earned" : "lost")
-                    : "possible";
-                  const goldenBallStatus: "earned" | "possible" | "lost" = actualBonusResults.goldenBall
+                    : "lost";
+                  const goldenBallStatus: "earned" | "lost" = actualBonusResults.goldenBall
                     ? (fuzzyPlayerMatch(p.bonusPicks.goldenBall, actualBonusResults.goldenBall) ? "earned" : "lost")
-                    : "possible";
-                  const finalStatus: "earned" | "possible" | "lost" = finalResult
+                    : "lost";
+                  const finalStatus: "earned" | "lost" = finalResult
                     ? (finalPick?.winner === finalResult ? "earned" : "lost")
-                    : "possible";
+                    : "lost";
 
                   const mostGoalsTeam = getTeamByCode(p.bonusPicks.mostGoalsTeam);
                   const mostGoalsStatus: "earned" | "lost" = MOST_GOALS_TEAMS.includes(p.bonusPicks.mostGoalsTeam) ? "earned" : "lost";
@@ -262,7 +214,6 @@ export default async function LeaderboardPage() {
                     },
                   };
                 })}
-                scenarios={scenarios}
               />
             )}
           </Card>
