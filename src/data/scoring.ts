@@ -275,7 +275,7 @@ export function setActualBonusResults(results: {
   logger.info({ goldenBoot: results.goldenBoot }, "bonus results updated");
   actualBonusResults = {
     ...actualBonusResults,
-    goldenBoot: results.goldenBoot,
+    goldenBoot: results.goldenBoot ?? actualBonusResults.goldenBoot,
   };
 }
 
