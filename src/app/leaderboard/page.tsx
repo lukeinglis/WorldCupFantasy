@@ -71,7 +71,19 @@ export default async function LeaderboardPage() {
   // Calculate points with live data injected
   const withPoints = calculateAllPoints(participants);
 
-  // Sort by total points, then Tier 1, then name
+  // Actual final score: Spain 1-0 Argentina (AET)
+  const ACTUAL_FINAL = { home: 1, away: 0 };
+  const actualTotalGoals = ACTUAL_FINAL.home + ACTUAL_FINAL.away;
+
+  function tiebreakerDistance(tb: { homeScore: number; awayScore: number }): number {
+    return Math.abs((tb.homeScore + tb.awayScore) - actualTotalGoals);
+  }
+
+  function scoreDiff(tb: { homeScore: number; awayScore: number }): number {
+    return Math.abs(tb.homeScore - ACTUAL_FINAL.home) + Math.abs(tb.awayScore - ACTUAL_FINAL.away);
+  }
+
+  // Sort by total points, then Tier 1, then tiebreaker (closest to actual final score), then name
   const sorted = [...withPoints].sort((a, b) => {
     const totalDiff = b.calculatedPoints.total - a.calculatedPoints.total;
     if (totalDiff !== 0) return totalDiff;
@@ -80,6 +92,10 @@ export default async function LeaderboardPage() {
       b.calculatedPoints.tier1Bonus -
       (a.calculatedPoints.tier1Groups + a.calculatedPoints.tier1Bonus);
     if (tier1Diff !== 0) return tier1Diff;
+    const tbGoalDiff = tiebreakerDistance(a.tiebreaker) - tiebreakerDistance(b.tiebreaker);
+    if (tbGoalDiff !== 0) return tbGoalDiff;
+    const tbScoreDiff = scoreDiff(a.tiebreaker) - scoreDiff(b.tiebreaker);
+    if (tbScoreDiff !== 0) return tbScoreDiff;
     return a.name.localeCompare(b.name);
   });
 
